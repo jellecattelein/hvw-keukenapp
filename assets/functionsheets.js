@@ -328,6 +328,17 @@
 
       const PAGE_W = 595.28, PAGE_H = 841.89; // A4 in punten
 
+      function drawNotesPage(page, titleFont, title) {
+        page.drawRectangle({ x:0, y:0, width:PAGE_W, height:PAGE_H, color: rgb(1,1,1) });
+        page.drawText(title, { x:50, y:PAGE_H-60, size:16, font:titleFont, color: rgb(...GOLD) });
+        page.drawLine({ start:{x:50,y:PAGE_H-72}, end:{x:PAGE_W-50,y:PAGE_H-72}, thickness:1, color: rgb(...GOLD) });
+        let ny = PAGE_H - 110;
+        while (ny > 60) {
+          page.drawLine({ start:{x:50,y:ny}, end:{x:PAGE_W-50,y:ny}, thickness:0.5, color: rgb(...BORDER) });
+          ny -= 28;
+        }
+      }
+
       /* ── Voorpagina (wit) ── */
       const cover = outDoc.addPage([PAGE_W, PAGE_H]);
       cover.drawRectangle({ x:0, y:0, width:PAGE_W, height:PAGE_H, color: rgb(1,1,1) });
@@ -381,8 +392,16 @@
       const footTxt = `Huis van Wonterghem  \u00b7  Gegenereerd op ${fmtToday()}`;
       cover.drawText(footTxt, { x: centerX(footTxt, fontRegular, 8, PAGE_W), y: 40, size:8, font:fontRegular, color: rgb(...TEXT_FAINT) });
 
-      /* ── Per feest: witte scheidingspagina + originele pagina's ── */
+      /* ── Per feest: witte scheidingspagina + originele pagina's ──
+         Elke scheidingspagina moet op een RECHTERpagina (oneven paginanr.) vallen.
+         Is de huidige positie even (linkerpagina), voeg dan eerst een
+         notitiepagina toe om naar rechts op te schuiven — zo blijft de
+         "lege" pagina toch bruikbaar in plaats van kaal wit. */
       for (const e of currentEvents) {
+        if ((outDoc.getPageCount() + 1) % 2 === 0) {
+          drawNotesPage(outDoc.addPage([PAGE_W, PAGE_H]), fontBold, 'Notities');
+        }
+
         const div = outDoc.addPage([PAGE_W, PAGE_H]);
         div.drawRectangle({ x:0, y:0, width:PAGE_W, height:PAGE_H, color: rgb(1,1,1) });
         const col = LOC_COLORS[e.loc] || GOLD;
@@ -403,15 +422,7 @@
       /* ── Notitiepagina's ── */
       const notesCount = parseInt(document.getElementById('fs-notes-count').value, 10) || 0;
       for (let n = 0; n < notesCount; n++) {
-        const np = outDoc.addPage([PAGE_W, PAGE_H]);
-        np.drawRectangle({ x:0, y:0, width:PAGE_W, height:PAGE_H, color: rgb(1,1,1) });
-        np.drawText('Notities', { x:50, y:PAGE_H-60, size:16, font:fontBold, color: rgb(...GOLD) });
-        np.drawLine({ start:{x:50,y:PAGE_H-72}, end:{x:PAGE_W-50,y:PAGE_H-72}, thickness:1, color: rgb(...GOLD) });
-        let ny = PAGE_H - 110;
-        while (ny > 60) {
-          np.drawLine({ start:{x:50,y:ny}, end:{x:PAGE_W-50,y:ny}, thickness:0.5, color: rgb(...BORDER) });
-          ny -= 28;
-        }
+        drawNotesPage(outDoc.addPage([PAGE_W, PAGE_H]), fontBold, 'Notities');
       }
 
       setStatus('PDF wordt gedownload…', true);
