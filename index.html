@@ -459,6 +459,9 @@
       <button class="sb-item" data-page="tijdstool" onclick="sbShow('tijdstool')">
         <span class="sb-icon">⏱️</span> Tijdstool
       </button>
+      <button class="sb-item" data-page="functionsheets" onclick="sbShow('functionsheets')">
+        <span class="sb-icon">📘</span> Functionsheets
+      </button>
 
       <div class="sb-section">Recepten</div>
       <button class="sb-item" data-page="recepten" onclick="sbShow('recepten')">
@@ -756,13 +759,14 @@
   <script src="assets/ijsdesserts.js"></script>
   <script src="assets/cars.js"></script>
   <script src="assets/tijdstool.js"></script>
+  <script src="assets/functionsheets.js"></script>
   <script src="assets/broodjes.js"></script>
   <script src="assets/recepten.js"></script>
   <script src="assets/etiketten.js"></script>
 
   <script>
   /* ═══ SIDEBAR ROUTING ═══ */
-  const PAGE_TITLES = { dashboard:'Dashboard', feesten:'Feestenoverzicht', calculator:'Bestelcalculator', ijs:'IJsdesserts', etiketten:'Etiketten', tijdstool:'Tijdstool', recepten:'Recepten', overzicht:'Productoverzicht', broodjes:'Broodjesoverzicht', settings:'Instellingen', 'feest-detail':'Feestdetail' };
+  const PAGE_TITLES = { dashboard:'Dashboard', feesten:'Feestenoverzicht', calculator:'Bestelcalculator', ijs:'IJsdesserts', etiketten:'Etiketten', tijdstool:'Tijdstool', functionsheets:'Functionsheets', recepten:'Recepten', overzicht:'Productoverzicht', broodjes:'Broodjesoverzicht', settings:'Instellingen', 'feest-detail':'Feestdetail' };
   const LOC_DOT = { TRA:'#3D87D4', MAE:'#4CAF82', HVW:'#D4603A', BIE:'#9C6AB5', AFH:'#C4A020' };
   const LOC_LBL = { TRA:'Traiteur', MAE:'Maelstede', HVW:'Huis van Wonterghem', BIE:'Bierkasteel', AFH:'Afhaal' };
 
@@ -816,7 +820,7 @@
     // Verberg alle pages
     document.querySelectorAll('.page').forEach(p => { p.classList.remove('active'); });
     // Verberg module divs
-    ['ijs-content-wrap','etiketten-content','tijdstool-content','recepten-content','overzicht-content','broodjes-content'].forEach(id => { const e = document.getElementById(id); if(e) e.style.display='none'; });
+    ['ijs-content-wrap','etiketten-content','tijdstool-content','recepten-content','overzicht-content','broodjes-content','functionsheets-content'].forEach(id => { const e = document.getElementById(id); if(e) e.style.display='none'; });
     // Sluit sidebar alleen op mobile
     if (window.innerWidth <= 768) closeSidebar();
     // Sidebar actief zetten
@@ -841,6 +845,11 @@
     }
     if (pageId === 'tijdstool') {
       const w = document.getElementById('tijdstool-content');
+      if (w) w.style.display = 'block';
+      return;
+    }
+    if (pageId === 'functionsheets') {
+      const w = document.getElementById('functionsheets-content');
       if (w) w.style.display = 'block';
       return;
     }
