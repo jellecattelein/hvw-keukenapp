@@ -634,6 +634,10 @@
         <div class="recept-topbar">
           <input class="recept-search" id="recept-zoek" placeholder="Zoek recept..." oninput="filterRecepten(this.value)">
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <a href="${DRIVE_FOLDER_URL}" target="_blank" class="drive-badge no-print">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+              HVW Recepten in Drive
+            </a>
             <button class="btn no-print" onclick="openPlakModal()" title="Plak JSON van Gemini">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
               Plak van Gemini
