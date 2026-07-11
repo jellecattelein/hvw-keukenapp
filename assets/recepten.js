@@ -262,11 +262,22 @@
           r.id = Date.now().toString() + Math.random().toString(36).slice(2,7);
         }
         if (!r.aangemaakt) r.aangemaakt = new Date().toISOString();
+        // Verwijder foto's om quota te vermijden op mobiel
+        if (navigator.userAgent.includes('Mobile') || navigator.userAgent.includes('Android') || navigator.userAgent.includes('iPhone')) {
+          r.foto = '';
+        }
         const idx = recepten.findIndex(x => x.id === r.id);
         if (idx >= 0) { recepten[idx] = r; bijgewerkt++; }
         else { recepten.push(r); nieuw++; }
       });
-      saveReceptenLocaal();
+      // Probeer opslaan, vang quota fout op
+      try { saveReceptenLocaal(); }
+      catch(qe) {
+        // Opslaan zonder foto's
+        recepten.forEach(r => { r.foto = ''; });
+        saveReceptenLocaal();
+        alert('Foto\'s weggelaten wegens beperkte opslagruimte op dit apparaat.');
+      }
       renderReceptenLijst();
       document.getElementById('plak-modal').style.display = 'none';
       document.getElementById('plak-tekst').value = '';
@@ -279,7 +290,14 @@
         setTimeout(() => { if(el) el.style.display='none'; }, 5000);
       }
     } catch(err) {
-      alert('Fout: ' + err.message + '\n\nZorg dat je de volledige JSON van Gemini plakt.');
+      const msg = err.message || '';
+      if (msg.includes('quota') || msg.includes('exceeded') || msg.includes('QuotaExceeded')) {
+        alert('Opslag vol!\n\nDe browser heeft niet genoeg ruimte meer.\nVerwijder enkele recepten en probeer opnieuw, of gebruik een andere browser.');
+      } else if (msg.includes('JSON') || msg.includes('Geen JSON')) {
+        alert('Ongeldig bestand.\n\nZorg dat je een geldig HVW recepten JSON bestand kiest (HVW_Recepten_...json).');
+      } else {
+        alert('Fout bij importeren: ' + msg);
+      }
     }
   }
 
