@@ -2,7 +2,7 @@
    sw.js — HVW Keukenapp Service Worker
    ══════════════════════════════════════════ */
 
-const CACHE_NAME = 'hvw-keuken-v7';
+const CACHE_NAME = 'hvw-keuken-v8';
 const ASSETS = [
   '/hvw-keukenapp/',
   '/hvw-keukenapp/index.html',
@@ -12,6 +12,7 @@ const ASSETS = [
   '/hvw-keukenapp/assets/etiketten.js',
   '/hvw-keukenapp/assets/cars.js',
   '/hvw-keukenapp/assets/tijdstool.js',
+  '/hvw-keukenapp/assets/functionsheets.js',
   '/hvw-keukenapp/assets/broodjes.js',
   '/hvw-keukenapp/assets/recepten.js',
   '/hvw-keukenapp/assets/style.css',
