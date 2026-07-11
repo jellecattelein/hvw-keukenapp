@@ -54,6 +54,25 @@
     saveReceptenLocaal();
   }
 
+  /* ── Exporteer alle recepten als JSON backup ── */
+  window.exporteerJSON = function() {
+    if (!recepten.length) { alert('Geen recepten om te exporteren.'); return; }
+    const data = {
+      versie: 1,
+      exportDatum: new Date().toISOString(),
+      aantalRecepten: recepten.length,
+      recepten: recepten
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/octet-stream' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url;
+    a.download = `HVW_Recepten_${new Date().toLocaleDateString('nl-BE').replace(/\//g,'-')}.json`;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); document.body.removeChild(a); }, 100);
+  };
+
   /* ── Exporteer alle recepten als PDF ── */
   /* ── Fine-dining PDF — Cormorant Garamond stijl ── */
   async function maakReceptPDF(r) {
@@ -105,23 +124,22 @@
       doc.setFont('times', 'italic');
       doc.setTextColor(...SAND);
       doc.text(catGang.toLowerCase(), cx, y, { align: 'center' });
-      y += 9;
-    } else { y += 2; }
+      y += 14;
+    } else { y += 4; }
 
     // 4. Gerechtnaam groot
     doc.setTextColor(...INK);
     const naam = r.naam || '';
-    // Grote naam — pas grootte aan op lengte
-    const naamFs = naam.length > 20 ? 32 : naam.length > 14 ? 40 : 52;
+    const naamFs = naam.length > 24 ? 28 : naam.length > 18 ? 34 : naam.length > 12 ? 40 : 48;
     doc.setFontSize(naamFs);
     doc.setFont('times', 'bold');
-    const naamW = 150;
+    const naamW = 160;
     const naamLines = doc.splitTextToSize(naam, naamW);
     naamLines.forEach(line => {
       doc.text(line, cx, y, { align: 'center' });
-      y += naamFs * 0.38;
+      y += naamFs * 0.45;
     });
-    y += 4;
+    y += 8;
 
     // 5. Tweede streepje
     doc.setDrawColor(...HAIR);
@@ -625,7 +643,11 @@
               Importeer
               <input type="file" accept=".json" style="display:none" onchange="importeerVanDrive(this)">
             </label>
-            <button class="btn no-print" onclick="exporteerNaarDrive()" title="Download en sleep naar Drive">
+            <button class="btn no-print" onclick="exporteerJSON()" title="Backup als JSON — te importeren op andere pc">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              Backup JSON
+            </button>
+            <button class="btn no-print" onclick="exporteerNaarDrive()" title="Download alle recepten als PDF">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
               Exporteer alle als PDF
             </button>
