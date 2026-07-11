@@ -543,7 +543,12 @@
 
       .recept-topbar {
         display: flex; align-items: center; justify-content: space-between;
-        margin-bottom: 20px; gap: 12px; flex-wrap: wrap;
+        margin-bottom: 20px; gap: 10px; flex-wrap: wrap;
+      }
+      @media (max-width: 600px) {
+        .recept-topbar { flex-direction: column; align-items: stretch; }
+        .recept-topbar > * { width: 100%; justify-content: center; }
+        .drive-badge { justify-content: center; }
       }
       .recept-search {
         flex: 1; min-width: 200px; max-width: 360px;
@@ -634,7 +639,7 @@
         <div class="recept-topbar">
           <input class="recept-search" id="recept-zoek" placeholder="Zoek recept..." oninput="filterRecepten(this.value)">
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <a href="${DRIVE_FOLDER_URL}" target="_blank" class="drive-badge no-print">
+            <a href="${DRIVE_FOLDER_URL}" target="_blank" class="drive-badge">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
               HVW Recepten in Drive
             </a>
