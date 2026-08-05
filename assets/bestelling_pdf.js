@@ -54,14 +54,17 @@
     const rows = allRows.filter(r => !weekVal || r.weekKey === weekVal);
     if (!rows.length) { alert('Geen data voor deze week.'); return; }
 
-    // Bouw pivot: tabId → base/name → { persons, grams, kg }
+    // Bouw pivot: tabId → base/name → { persons, kg, zalen: {zaal: persons} }
     const pivot = {};
     rows.forEach(r => {
-      const cat = r.tabId;
+      const cat  = r.tabId;
       const prod = r.base || r.name || '—';
+      const zaal = r.room || r.event || '—';
       if (!pivot[cat]) pivot[cat] = {};
-      if (!pivot[cat][prod]) pivot[cat][prod] = { persons: 0, totalKg: 0 };
+      if (!pivot[cat][prod]) pivot[cat][prod] = { persons: 0, totalKg: 0, zalen: {} };
       pivot[cat][prod].persons += r.persons;
+      if (!pivot[cat][prod].zalen[zaal]) pivot[cat][prod].zalen[zaal] = 0;
+      pivot[cat][prod].zalen[zaal] += r.persons;
       const g = typeof getGrams === 'function' ? getGrams(r) : 0;
       if (g > 0) pivot[cat][prod].totalKg += r.persons * g / 1000;
     });
@@ -145,20 +148,20 @@
 
       // Producten
       prods.forEach(([prod, data]) => {
-        checkPageBreak(6);
+        const zalenLijst = Object.entries(data.zalen).sort((a,b) => b[1]-a[1]);
+        const aantalRegels = 1 + zalenLijst.length;
+        checkPageBreak(aantalRegels * 5 + 2);
         const px = getCurX();
         cy = getCurY();
 
-        doc.setFontSize(8); doc.setFont('helvetica', 'normal');
+        // Productnaam + totaal personen
+        doc.setFontSize(8); doc.setFont('helvetica', 'bold');
         doc.setTextColor(26, 25, 23);
+        const maxW = colW - 22;
+        const prodTxt = doc.splitTextToSize(prod, maxW)[0];
+        doc.text(prodTxt, px + 2, cy + 4);
 
-        // Productnaam (afkappen als te lang)
-        const maxW = colW - 20;
-        const prodLines = doc.splitTextToSize(prod, maxW);
-        doc.text(prodLines[0], px + 2, cy + 4);
-
-        // Personen rechts
-        doc.setFont('helvetica', 'bold');
+        // Totaal personen rechts
         doc.setTextColor(...cat.color);
         doc.text(String(data.persons), px + colW - 2, cy + 4, { align: 'right' });
 
@@ -166,17 +169,32 @@
         if (data.totalKg > 0) {
           doc.setFont('helvetica', 'normal');
           doc.setTextColor(154, 144, 129);
-          doc.setFontSize(7);
-          doc.text(`${data.totalKg.toFixed(1)} kg`, px + colW - 18, cy + 4, { align: 'right' });
+          doc.setFontSize(6.5);
+          doc.text(`${data.totalKg.toFixed(1)} kg`, px + colW - 14, cy + 4, { align: 'right' });
           doc.setFontSize(8);
         }
+        cy += 5;
+        setCurY(cy);
+
+        // Zalen met personen
+        zalenLijst.forEach(([zaal, pers]) => {
+          checkPageBreak(5);
+          cy = getCurY(); px2 = getCurX();
+          doc.setFontSize(6.5); doc.setFont('helvetica', 'normal');
+          doc.setTextColor(100, 98, 95);
+          const zaalTxt = doc.splitTextToSize(zaal, maxW - 4)[0];
+          doc.text('  · ' + zaalTxt, px2 + 2, cy + 3.5);
+          doc.setTextColor(154, 144, 129);
+          doc.text(String(pers), px2 + colW - 2, cy + 3.5, { align: 'right' });
+          cy += 4.5;
+          setCurY(cy);
+        });
 
         // Dunne scheidingslijn
         doc.setDrawColor(232, 229, 224); doc.setLineWidth(0.15);
-        doc.line(px + 1, cy + 5.5, px + colW - 1, cy + 5.5);
-
-        cy += 5.5;
-        setCurY(cy);
+        cy = getCurY();
+        doc.line(getCurX() + 1, cy, getCurX() + colW - 1, cy);
+        setCurY(cy + 2);
       });
 
       setCurY(getCurY() + 4); // ruimte na categorie
