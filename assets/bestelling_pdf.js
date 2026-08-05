@@ -57,7 +57,12 @@
     rows.forEach(r => {
       const cat  = r.tabId;
       const prod = r.base || r.name || '—';
-      const room = (r.room || r.event || '—').split(';')[0].trim();
+      const room    = (r.room || r.event || '—').split(';')[0].trim();
+      const dagNr   = new Date(r.dateStr).getDay();
+      const DAGEN   = ['zo','ma','di','wo','do','vr','za'];
+      const [yr,mo,da] = (r.dateStr||'').split('-');
+      const dagStr  = r.dateStr ? `${DAGEN[dagNr]} ${parseInt(da)}/${parseInt(mo)}` : '';
+      const roomKey = dagStr ? `${dagStr} — ${room}` : room;
       const g    = typeof getGrams === 'function' ? getGrams(r) : 0;
       const kg   = g > 0 ? +(r.persons * g / 1000).toFixed(2) : 0;
 
@@ -65,9 +70,9 @@
       if (!pivot[cat][prod]) pivot[cat][prod] = { persons: 0, kg: 0, zalen: {} };
       pivot[cat][prod].persons += r.persons;
       pivot[cat][prod].kg     += kg;
-      if (!pivot[cat][prod].zalen[room]) pivot[cat][prod].zalen[room] = { persons: 0, kg: 0 };
-      pivot[cat][prod].zalen[room].persons += r.persons;
-      pivot[cat][prod].zalen[room].kg      += kg;
+      if (!pivot[cat][prod].zalen[roomKey]) pivot[cat][prod].zalen[roomKey] = { persons: 0, kg: 0 };
+      pivot[cat][prod].zalen[roomKey].persons += r.persons;
+      pivot[cat][prod].zalen[roomKey].kg      += kg;
     });
 
     // Nieuwe pagina helper
