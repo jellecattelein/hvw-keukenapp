@@ -63,10 +63,12 @@
       if (!pivot[cat]) pivot[cat] = {};
       if (!pivot[cat][prod]) pivot[cat][prod] = { persons: 0, totalKg: 0, zalen: {} };
       pivot[cat][prod].persons += r.persons;
-      if (!pivot[cat][prod].zalen[zaal]) pivot[cat][prod].zalen[zaal] = 0;
-      pivot[cat][prod].zalen[zaal] += r.persons;
       const g = typeof getGrams === 'function' ? getGrams(r) : 0;
-      if (g > 0) pivot[cat][prod].totalKg += r.persons * g / 1000;
+      const kgRij = g > 0 ? r.persons * g / 1000 : 0;
+      if (!pivot[cat][prod].zalen[zaal]) pivot[cat][prod].zalen[zaal] = { persons: 0, kg: 0 };
+      pivot[cat][prod].zalen[zaal].persons += r.persons;
+      pivot[cat][prod].zalen[zaal].kg += kgRij;
+      if (kgRij > 0) pivot[cat][prod].totalKg += kgRij;
     });
 
     /* ── HEADER ── */
@@ -148,7 +150,7 @@
 
       // Producten
       prods.forEach(([prod, data]) => {
-        const zalenLijst = Object.entries(data.zalen).sort((a,b) => b[1]-a[1]);
+        const zalenLijst = Object.entries(data.zalen).sort((a,b) => b[1].persons-a[1].persons);
         const aantalRegels = 1 + zalenLijst.length;
         checkPageBreak(aantalRegels * 5 + 2);
         const px = getCurX();
@@ -176,16 +178,19 @@
         cy += 5;
         setCurY(cy);
 
-        // Zalen met personen
-        zalenLijst.forEach(([zaal, pers]) => {
+        // Zalen met personen + kg
+        zalenLijst.forEach(([zaal, zData]) => {
           checkPageBreak(5);
-          cy = getCurY(); px2 = getCurX();
+          cy = getCurY(); const px2 = getCurX();
           doc.setFontSize(6.5); doc.setFont('helvetica', 'normal');
           doc.setTextColor(100, 98, 95);
           const zaalTxt = doc.splitTextToSize(zaal, maxW - 4)[0];
           doc.text('  · ' + zaalTxt, px2 + 2, cy + 3.5);
+          // Personen + kg rechts
+          const persStr = String(zData.persons);
+          const kgStr   = zData.kg > 0 ? ` · ${zData.kg.toFixed(1)} kg` : '';
           doc.setTextColor(154, 144, 129);
-          doc.text(String(pers), px2 + colW - 2, cy + 3.5, { align: 'right' });
+          doc.text(persStr + kgStr, px2 + colW - 2, cy + 3.5, { align: 'right' });
           cy += 4.5;
           setCurY(cy);
         });
