@@ -280,6 +280,7 @@ function processData(data) {
       persons, nameGrams, defaultGrams: defGrams,
       dateStr, weekKey: weekKey(dateStr), weekLabel: weekLabel(dateStr),
       room:  (r['Room name']  || '').toString().trim(),
+      location: (r['Location'] || '').toString().trim(),
       rooms: (r['Room name']  || '').toString().trim().split(';').map(s=>s.trim()).filter(Boolean),
       event: (r['Event name'] || '').toString().trim(),
     });
