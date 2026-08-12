@@ -752,14 +752,15 @@
   function renderCheckRow(r, key, per) {
     const checked = !!catChecked[key];
     const aantalEtiketten = Math.ceil(r.persons / per);
-    const locCode = guessLocFromRoom(r.room);
+    const locCode = resolveLocCode(r);
+    const locLabel = locCode ? (LOC_LABELS[locCode] || locCode) : '';
     const dateLabel = fmtRowDate(r.dateStr);
     return `
       <label class="pe-row-check">
         <input type="checkbox" ${checked?'checked':''} onchange="window._peToggleRow('${key}', this.checked)">
         <div class="pe-row-check-main">
           <div class="pe-row-check-event">${escapeHtml(r.event || r.room)}</div>
-          <div class="pe-row-check-meta">${dateLabel ? `<span class="pe-row-check-date">${escapeHtml(dateLabel)}</span> · ` : ''}${escapeHtml(r.room)} · ${r.persons}p</div>
+          <div class="pe-row-check-meta">${dateLabel ? `<span class="pe-row-check-date">${escapeHtml(dateLabel)}</span> · ` : ''}${escapeHtml(r.room)}${locLabel ? ` · ${escapeHtml(locLabel)}` : ''} · ${r.persons}p</div>
         </div>
         <div class="pe-row-check-pak">
           <select onchange="window._peSetRowPak('${key}', this.value)" id="pe-pak-${key.replace(/[^a-zA-Z0-9]/g,'_')}">
@@ -770,8 +771,14 @@
       </label>`;
   }
 
+  function resolveLocCode(r) {
+    // Directe bron: het Location-veld dat nu op elke allRows-rij staat
+    if (r.location) return r.location;
+    // Fallback voor evt. oudere/gecachte data zonder location-veld
+    return guessLocFromRoom(r.room);
+  }
+
   function guessLocFromRoom(room) {
-    // Zaal-namen bevatten vaak geen locatiecode direct; probeer via allEvents te matchen
     if (typeof allEvents === 'undefined') return null;
     const ev = allEvents.find(e => e.room && room && (e.room === room || e.room.includes(room) || room.includes(e.room)));
     return ev ? ev.location : null;
@@ -815,7 +822,7 @@
       const per = catPerOverride[base] || portieRegels[base] || 100;
       const aantalEtiketten = Math.ceil(r.persons / per);
       const pakformaat = rowPakOverride[key] || '1/1 emmer';
-      const locCode = guessLocFromRoom(r.room);
+      const locCode = resolveLocCode(r);
 
       queue.push({
         id: idCounter++,
