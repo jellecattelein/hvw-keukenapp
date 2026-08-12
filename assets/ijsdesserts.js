@@ -17,6 +17,11 @@
     ijsmissaal:       { label: 'IJsmissaal',         color: '#1A3F6F', bg: '#EDF3FB' },
   };
 
+  function hexToRgb(hex) {
+    const h = hex.replace('#', '');
+    return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16)];
+  }
+
   /* ── CSS injecteren ── */
   function injectCSS() {
     const style = document.createElement('style');
@@ -61,9 +66,12 @@
         padding: 8px 16px; background: ${IJS_COLOR}; color: #fff;
         border: none; border-radius: var(--radius);
         font-size: 13px; font-weight: 600; cursor: pointer;
-        transition: opacity 0.15s; margin-left: auto;
+        transition: opacity 0.15s;
       }
       .ijs-export-btn:hover { opacity: 0.85; }
+      .ijs-export-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+      .ijs-export-btn:first-of-type { margin-left: auto; }
+      .ijs-export-btn-pdf { background: #B8965A; }
 
       .ijs-cards { display: flex; flex-direction: column; gap: 14px; }
 
@@ -110,6 +118,7 @@
       }
       .ijs-name-cell { font-weight: 600; color: var(--text); }
       .ijs-zaal-cell { font-size: 12px; color: var(--text-muted); }
+      .ijs-zaal-naam { margin-bottom: 4px; }
       .ijs-pers-cell { text-align: center; font-family: 'DM Mono', monospace; font-weight: 500; }
       .ijs-bestellen-cell {
         text-align: center;
@@ -330,8 +339,8 @@
           <tr>
             <td><span class="ijs-type-badge" style="background:${r.cfg.bg};color:${r.cfg.color}">${r.cfg.label}</span></td>
             <td class="ijs-name-cell">${r.naam}</td>
-            <td class="ijs-zaal-cell">${r.room.length > 22 ? r.room.slice(0,21)+'…' : r.room}</td>
-            <td>
+            <td class="ijs-zaal-cell">
+              <div class="ijs-zaal-naam">${r.room.length > 22 ? r.room.slice(0,21)+'…' : r.room}</div>
               <span class="ijs-loc-pill" style="background:${r.locBg};color:${r.locColor}">
                 <span class="ijs-loc-code">${r.locCode}</span>${r.locLabel}
               </span>
@@ -352,18 +361,17 @@
         <table class="ijs-table">
           <thead>
             <tr>
-              <th style="width:13%">Type</th>
-              <th style="width:22%">Naam</th>
-              <th style="width:20%">Zaal</th>
-              <th style="width:20%">Locatie</th>
+              <th style="width:14%">Type</th>
+              <th style="width:28%">Naam</th>
+              <th style="width:34%">Zaal / Locatie</th>
               <th style="width:10%;text-align:center">Pers.</th>
-              <th style="width:15%;text-align:center">Te bestellen</th>
+              <th style="width:14%;text-align:center">Te bestellen</th>
             </tr>
           </thead>
           <tbody>
             ${tableRows}
             <tr class="ijs-total-row">
-              <td colspan="4">Totaal ${dayLabel}</td>
+              <td colspan="3">Totaal ${dayLabel}</td>
               <td style="text-align:center;font-family:'DM Mono',monospace;font-weight:700">${dayPersons}</td>
               <td>${dayTotal}</td>
             </tr>
@@ -408,6 +416,179 @@
     const a    = document.createElement('a');
     a.href = url; a.download = 'ijsdesserts.csv'; a.click();
     URL.revokeObjectURL(url);
+  }
+
+  /* ── PDF Export ── */
+  async function exportPDF() {
+    const rows = getIjsRows();
+    const week = document.getElementById('ijs-f-week')?.value || '';
+    const date = document.getElementById('ijs-f-date')?.value || '';
+    const type = document.getElementById('ijs-f-type')?.value || '';
+    const filtered = rows.filter(r => {
+      if (week && r.weekKey !== week) return false;
+      if (date && r.dateStr !== date) return false;
+      if (type && r.type   !== type)  return false;
+      return true;
+    });
+
+    if (!filtered.length) { alert('Geen IJsdesserts gevonden voor de huidige selectie.'); return; }
+
+    const btn = document.getElementById('ijs-export-pdf-btn');
+    if (btn) { btn.disabled = true; }
+
+    try {
+      if (!window.jspdf) {
+        await new Promise((resolve, reject) => {
+          const s = document.createElement('script');
+          s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+          s.onload = resolve; s.onerror = reject;
+          document.head.appendChild(s);
+        });
+      }
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const PAGE_W = 210, PAGE_H = 297, MARGIN = 16;
+
+      const DAYS = ['zondag','maandag','dinsdag','woensdag','donderdag','vrijdag','zaterdag'];
+      const byDate = {};
+      filtered.forEach(r => { (byDate[r.dateStr] = byDate[r.dateStr] || []).push(r); });
+      const sortedDates = Object.keys(byDate).sort();
+
+      // Titel op basis van filter
+      let titleSuffix = '';
+      if (date) titleSuffix = ' — ' + (typeof formatDate === 'function' ? formatDate(date) : date);
+      else if (week) {
+        const wLabel = filtered.find(r => r.weekKey === week)?.weekLabel;
+        if (wLabel) titleSuffix = ' — ' + wLabel;
+      }
+
+      let y = MARGIN;
+      let isFirstPage = true;
+
+      function ensureSpace(neededMm) {
+        if (y + neededMm > PAGE_H - MARGIN) {
+          doc.addPage();
+          y = MARGIN;
+          drawPageHeader(false);
+        }
+      }
+
+      function drawPageHeader(withTitle) {
+        if (withTitle) {
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(17);
+          doc.setTextColor(26, 25, 23);
+          doc.text('IJsdesserts' + titleSuffix, MARGIN, y);
+          y += 6;
+          doc.setDrawColor(184, 150, 90);
+          doc.setLineWidth(0.6);
+          doc.line(MARGIN, y, PAGE_W - MARGIN, y);
+          y += 9;
+        }
+      }
+
+      drawPageHeader(true);
+
+      sortedDates.forEach(dateStr => {
+        const dayRows = byDate[dateStr].sort((a,b) => a.type.localeCompare(b.type) || a.naam.localeCompare(b.naam));
+        const dayLabel = typeof formatDate === 'function' ? formatDate(dateStr) : dateStr;
+        const dayTotal = dayRows.reduce((s,r) => s + r.bestellen, 0);
+
+        ensureSpace(18);
+
+        // Dag-kop
+        doc.setFillColor(244, 243, 240);
+        doc.rect(MARGIN, y, PAGE_W - MARGIN*2, 9, 'F');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(26, 25, 23);
+        doc.text(dayLabel, MARGIN + 3, y + 6.3);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9.5);
+        doc.setTextColor(107, 101, 94);
+        doc.text(`${dayTotal} stuks`, PAGE_W - MARGIN - 3, y + 6.3, { align: 'right' });
+        y += 9;
+
+        // Tabel-header
+        const col = { type: MARGIN+3, naam: MARGIN+30, zaal: MARGIN+95, aantal: PAGE_W-MARGIN-3 };
+        ensureSpace(8);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8.5);
+        doc.setTextColor(154, 149, 144);
+        doc.text('TYPE', col.type, y + 5);
+        doc.text('NAAM', col.naam, y + 5);
+        doc.text('ZAAL / LOCATIE', col.zaal, y + 5);
+        doc.text('AANTAL', col.aantal, y + 5, { align: 'right' });
+        y += 7;
+        doc.setDrawColor(232, 229, 224);
+        doc.setLineWidth(0.3);
+        doc.line(MARGIN, y, PAGE_W - MARGIN, y);
+        y += 5;
+
+        dayRows.forEach(r => {
+          ensureSpace(9);
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(8.5);
+          doc.setTextColor(...hexToRgb(TYPE_CFG[r.type]?.color || '#5A5753'));
+          doc.text(TYPE_CFG[r.type]?.label || r.type, col.type, y);
+
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(9.5);
+          doc.setTextColor(26, 25, 23);
+          const naamTrunc = r.naam.length > 32 ? r.naam.slice(0,31)+'…' : r.naam;
+          doc.text(naamTrunc, col.naam, y);
+
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(8.5);
+          doc.setTextColor(107, 101, 94);
+          const zaalTxt = `${r.room}${r.locLabel ? '  ·  ' + r.locLabel : ''}`;
+          const zaalTrunc = zaalTxt.length > 46 ? zaalTxt.slice(0,45)+'…' : zaalTxt;
+          doc.text(zaalTrunc, col.zaal, y);
+
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(11);
+          doc.setTextColor(184, 150, 90);
+          doc.text(String(r.bestellen), col.aantal, y, { align: 'right' });
+
+          y += 7.2;
+        });
+
+        // Totaalregel per dag
+        ensureSpace(9);
+        doc.setDrawColor(184, 150, 90);
+        doc.setLineWidth(0.4);
+        doc.line(MARGIN, y, PAGE_W - MARGIN, y);
+        y += 5.5;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9);
+        doc.setTextColor(26, 25, 23);
+        doc.text(`Totaal ${dayLabel}`, col.naam, y);
+        doc.setFontSize(11.5);
+        doc.setTextColor(184, 150, 90);
+        doc.text(String(dayTotal), col.aantal, y, { align: 'right' });
+        y += 11;
+      });
+
+      // Footer met datum op elke pagina
+      const pageCount = doc.internal.getNumberOfPages();
+      for (let p = 1; p <= pageCount; p++) {
+        doc.setPage(p);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7.5);
+        doc.setTextColor(154, 149, 144);
+        const stamp = new Date().toLocaleDateString('nl-BE');
+        doc.text(`Huis van Wonterghem · Gegenereerd op ${stamp}`, MARGIN, PAGE_H - 10);
+        doc.text(`${p} / ${pageCount}`, PAGE_W - MARGIN, PAGE_H - 10, { align: 'right' });
+      }
+
+      const stamp = new Date().toISOString().slice(0,10);
+      doc.save(`ijsdesserts_${stamp}.pdf`);
+    } catch (err) {
+      alert('Fout bij PDF generatie: ' + err.message);
+      console.error(err);
+    } finally {
+      if (btn) btn.disabled = false;
+    }
   }
 
   /* ── UI injecteren ── */
@@ -456,6 +637,13 @@
           </svg>
           Exporteer CSV
         </button>
+        <button class="ijs-export-btn ijs-export-btn-pdf no-print" id="ijs-export-pdf-btn" onclick="window._exportIjsPDF()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+          </svg>
+          Exporteer PDF
+        </button>
       </div>
 
       <!-- Kaarten -->
@@ -498,6 +686,7 @@
     // Globale functies blootstellen
     window._renderIjs  = renderIjs;
     window._exportIjsCSV = exportCSV;
+    window._exportIjsPDF = exportPDF;
   }
 
   function switchToIjs() {
