@@ -669,7 +669,15 @@
     renderCategoriePicker();
   };
 
-  function rowKey(r, idx) { return r.tabId + '::' + r.base + '::' + idx; }
+  // Let op: hier gebruiken we bewust r.name (de volledige, ongewijzigde
+  // productnaam) en niet r.base. app.js strippt in baseName() het
+  // "REPASSE "-voorvoegsel weg zodat de Calculator hoofdportie en repasse
+  // kan optellen — maar in deze categorie-weergave moeten "Seizoensgroenten"
+  // en "Repasse seizoensgroenten" juist APART blijven, want het zijn twee
+  // aparte bereidingen die je apart in emmers verdeelt.
+  function groupNameOf(r) { return r.name || r.base; }
+
+  function rowKey(r, idx) { return r.tabId + '::' + groupNameOf(r) + '::' + idx; }
 
   function renderCategoryGroups(catId) {
     const wrap = document.getElementById('pe-cat-groups-wrap');
@@ -684,11 +692,12 @@
       return;
     }
 
-    // Groepeer per productnaam (base)
+    // Groepeer per volledige productnaam (niet r.base — zie groupNameOf hierboven)
     const groups = new Map();
     rows.forEach(({r, key}) => {
-      if (!groups.has(r.base)) groups.set(r.base, []);
-      groups.get(r.base).push({ r, key });
+      const gName = groupNameOf(r);
+      if (!groups.has(gName)) groups.set(gName, []);
+      groups.get(gName).push({ r, key });
     });
     // Sorteer binnen elke groep chronologisch op datum (dan op zaal, voor stabiele volgorde)
     groups.forEach(entries => {
@@ -792,7 +801,7 @@
 
   window._peToggleGroupAll = function (base, setTo) {
     allRows.forEach((r, idx) => {
-      if (r.base !== base || r.tabId !== activeCatId || r.persons <= 0) return;
+      if (groupNameOf(r) !== base || r.tabId !== activeCatId || r.persons <= 0) return;
       catChecked[rowKey(r, idx)] = setTo;
     });
     renderCategoryGroups(activeCatId);
@@ -818,15 +827,15 @@
     allRows.forEach((r, idx) => {
       const key = rowKey(r, idx);
       if (!selectedKeys.includes(key)) return;
-      const base = r.base;
-      const per = catPerOverride[base] || portieRegels[base] || 100;
+      const gName = groupNameOf(r);
+      const per = catPerOverride[gName] || portieRegels[gName] || 100;
       const aantalEtiketten = Math.ceil(r.persons / per);
       const pakformaat = rowPakOverride[key] || '1/1 emmer';
       const locCode = resolveLocCode(r);
 
       queue.push({
         id: idCounter++,
-        product: base,
+        product: gName,
         persons: r.persons,
         per,
         aantalEtiketten,
