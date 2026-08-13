@@ -1025,7 +1025,7 @@
   };
 
   function drawLabel(doc, x, y, label) {
-    const w = LABEL_W, h = LABEL_H, pad = 3;
+    const w = LABEL_W, h = LABEL_H, pad = 2.4;
 
     doc.setFillColor(255, 255, 255);
     doc.rect(x, y, w, h, 'F');
@@ -1036,57 +1036,113 @@
 
     const tx = x + 5 + pad;
     const tw = w - 4 - pad - pad;
+    // Onderste zone altijd gereserveerd voor "X pers." zodat daar nooit overheen geschreven wordt
+    const hardBottom = y + h - pad - (label.persons ? 4.2 : 0);
 
-    // Product naam (groot, vet)
-    doc.setFontSize(11.5);
+    // ── Productnaam: volledige tekst, altijd leesbaar. Lettergrootte krimpt
+    //    tot een minimum van 8pt (nog goed leesbaar); als de naam dan nog
+    //    niet in 3 regels past, staan we meer regels toe in plaats van
+    //    verder te verkleinen — leesbaarheid gaat voor compactheid. ──
+    const NAME_MIN_SIZE = 8;
+    let nameSize = 11.5;
+    let nameLines = doc.setFontSize(nameSize).splitTextToSize(label.product || '', tw);
+    while (nameLines.length > 3 && nameSize > NAME_MIN_SIZE) {
+      nameSize -= 0.5;
+      nameLines = doc.setFontSize(nameSize).splitTextToSize(label.product || '', tw);
+    }
+    const hasExtra = !!(label.pakformaat || label.zaal || label.dateStr || label.opmerking);
+    while (nameLines.length >= 3 && hasExtra && nameSize > NAME_MIN_SIZE) {
+      nameSize -= 0.5;
+      nameLines = doc.setFontSize(nameSize).splitTextToSize(label.product || '', tw);
+    }
+    // Naam heeft altijd voorrang: als er op minimumgrootte nog steeds meer
+    // regels zijn dan er ruimte is, laten we de naam die ruimte volledig
+    // innemen en tonen we de overige velden enkel als er nog plaats is.
+
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(28, 28, 26);
-    const nameWrapped = doc.splitTextToSize(label.product || '', tw);
-    doc.text(nameWrapped[0] || '', tx, y + pad + 7);
-    if (nameWrapped[1]) doc.text(nameWrapped[1], tx, y + pad + 12.5);
-    const nameLines = nameWrapped.length > 1 ? 2 : 1;
+    const nameLineGap = Math.max(nameSize * 0.5, 3.4);
+    let cursorY = y + pad + nameSize * 0.6;
+    nameLines.forEach(line => {
+      // De naam krijgt altijd voorrang op de rest van het etiket-oppervlak;
+      // enige harde grens is de onderrand zelf (min. ruimte voor "X pers.").
+      if (cursorY <= y + h - pad) {
+        doc.setFontSize(nameSize);
+        doc.text(line, tx, cursorY);
+      }
+      cursorY += nameLineGap;
+    });
+    cursorY += 1.2;
 
-    // Verpakkingsformaat
-    let cursorY = y + pad + (nameLines === 2 ? 18.5 : 13.5);
-    if (label.pakformaat) {
-      doc.setFontSize(8.5);
+    // ── Verpakkingsformaat ──
+    if (label.pakformaat && cursorY <= hardBottom) {
+      doc.setFontSize(8);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(110, 106, 100);
       doc.text(label.pakformaat, tx, cursorY);
-      cursorY += 5;
+      cursorY += 4.3;
     }
 
-    // Zaal + datum (zelfde regel: zaal links, datum rechts uitgelijnd)
+    // ── Zaal (volledig, zoveel regels als nodig) + datum rechts op de eerste regel ──
     if (label.zaal || label.dateStr) {
-      doc.setFontSize(8.5);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(28, 28, 26);
-      if (label.zaal) {
-        const zaalWrapped = doc.splitTextToSize(label.zaal, tw * 0.62);
-        doc.text(zaalWrapped[0] || '', tx, cursorY);
-      }
       const dateLabel = fmtLabelDate(label.dateStr);
-      if (dateLabel) {
-        doc.setFontSize(8);
+      const dateWidth = dateLabel ? doc.setFontSize(7.5).getTextWidth(dateLabel) + 3 : 0;
+
+      if (label.zaal) {
+        let zaalSize = 8;
+        let zaalLines = doc.setFontSize(zaalSize).splitTextToSize(label.zaal, tw - dateWidth);
+        const roomLeft = () => Math.max(0, Math.floor((hardBottom - cursorY) / 4.0));
+        while (zaalLines.length > Math.max(1, roomLeft()) && zaalSize > 6.5) {
+          zaalSize -= 0.5;
+          zaalLines = doc.setFontSize(zaalSize).splitTextToSize(label.zaal, tw - dateWidth);
+        }
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(28, 28, 26);
+        zaalLines.forEach((line, i) => {
+          if (cursorY > hardBottom) return;
+          doc.setFontSize(zaalSize);
+          doc.text(line, tx, cursorY);
+          if (i === 0 && dateLabel) {
+            doc.setFontSize(7.5);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(184, 150, 90);
+            doc.text(dateLabel, x + w - pad, cursorY, { align: 'right' });
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(28, 28, 26);
+          }
+          cursorY += 4.0;
+        });
+      } else if (dateLabel && cursorY <= hardBottom) {
+        doc.setFontSize(7.5);
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(184, 150, 90);
         doc.text(dateLabel, x + w - pad, cursorY, { align: 'right' });
+        cursorY += 4.0;
       }
-      cursorY += 5;
     }
 
-    // Opmerking
-    if (label.opmerking) {
-      doc.setFontSize(7.5);
+    // ── Opmerking: volledig tonen in de ruimte die nog overblijft ──
+    if (label.opmerking && cursorY <= hardBottom) {
+      let opmSize = 7;
+      let opmLines = doc.setFontSize(opmSize).splitTextToSize(label.opmerking, tw);
+      const roomLeft = () => Math.max(1, Math.floor((hardBottom - cursorY) / 3.4));
+      while (opmLines.length > roomLeft() && opmSize > 5.5) {
+        opmSize -= 0.5;
+        opmLines = doc.setFontSize(opmSize).splitTextToSize(label.opmerking, tw);
+      }
       doc.setFont('helvetica', 'italic');
       doc.setTextColor(120, 116, 112);
-      const opmWrapped = doc.splitTextToSize(label.opmerking, tw);
-      opmWrapped.slice(0, 2).forEach(line => {
-        if (cursorY < y + h - pad) { doc.text(line, tx, cursorY); cursorY += 4.2; }
+      const opmGap = Math.max(opmSize * 0.5, 2.8);
+      opmLines.forEach(line => {
+        if (cursorY <= hardBottom) {
+          doc.setFontSize(opmSize);
+          doc.text(line, tx, cursorY);
+          cursorY += opmGap;
+        }
       });
     }
 
-    // Personen (rechtsonder)
+    // ── Personen (rechtsonder, altijd gereserveerd) ──
     if (label.persons) {
       doc.setFontSize(9);
       doc.setFont('helvetica', 'bold');
@@ -1094,7 +1150,7 @@
       doc.text(`${label.persons} pers.`, x + w - pad, y + h - pad - 1, { align: 'right' });
     }
 
-    // Etiket nr (als meer dan 1)
+    // ── Etiket nr (als meer dan 1) ──
     if (label.aantalEtiketten > 1) {
       doc.setFontSize(6.5);
       doc.setFont('helvetica', 'bold');
