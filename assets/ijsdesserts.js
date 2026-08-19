@@ -582,7 +582,7 @@
       }
 
       const stamp = new Date().toISOString().slice(0,10);
-      doc.save(`ijsdesserts_${stamp}.pdf`);
+      doc.save(`HVW_IJsdesserts_${stamp}.pdf`);
     } catch (err) {
       alert('Fout bij PDF generatie: ' + err.message);
       console.error(err);
