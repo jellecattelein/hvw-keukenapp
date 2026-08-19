@@ -1325,7 +1325,7 @@
       });
 
       const stamp = new Date().toISOString().slice(0,10);
-      doc.save(`portie_etiketten_${stamp}.pdf`);
+      doc.save(`HVW_Portie-Etiketten_${stamp}.pdf`);
     } catch (err) {
       alert('Fout bij PDF generatie: ' + err.message);
       console.error(err);
