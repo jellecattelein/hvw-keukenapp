@@ -137,6 +137,137 @@ function renderGeneralSettings() {
       <label>Standaard gewicht Small Plates (gr/p)</label>
       <input type="number" id="set-smallplates" value="${appSettings.smallPlates||50}" min="0" step="5" oninput="saveGeneralSetting('smallPlates',parseInt(this.value)||50)">
     </div>`;
+  renderSeizoensgroentenSettings();
+}
+
+/* ══════════════════════════════
+   SEIZOENSGROENTEN ASSORTIMENT
+   Wekelijks wisselend assortiment (chef's keuze). Per groente:
+   naam, eenheid (stuk/gram) en portiegrootte per plateau.
+   Gedeeld met Portie-Etiketten via localStorage 'hvw-groenten-assortiment'.
+   ══════════════════════════════ */
+let groentenAssortiment = []; // [{ id, naam, eenheid: 'stuk'|'gram', perPlateau }]
+
+function loadGroentenAssortiment() {
+  try {
+    groentenAssortiment = JSON.parse(localStorage.getItem('hvw-groenten-assortiment') || '[]');
+  } catch(e) { groentenAssortiment = []; }
+}
+
+function saveGroentenAssortiment() {
+  try { localStorage.setItem('hvw-groenten-assortiment', JSON.stringify(groentenAssortiment)); } catch(e) {}
+}
+
+function renderSeizoensgroentenSettings() {
+  const wrap = document.getElementById('general-settings');
+  if (!wrap) return;
+
+  const el = document.createElement('div');
+  el.className = 'settings-field';
+  el.id = 'seizoensgroenten-assortiment-wrap';
+  el.innerHTML = `
+    <label>Seizoensgroenten — assortiment van deze week</label>
+    <div class="settings-hint" style="margin-top:-2px;margin-bottom:10px">
+      Wisselt wekelijks (keuze van de chef). Wat je hier instelt, verschijnt automatisch als keuze bij Seizoensgroenten in Portie-Etiketten.
+    </div>
+    <div id="groenten-lijst"></div>
+    <button type="button" class="btn-add-groente" onclick="openAddGroente()">+ Groente toevoegen</button>
+  `;
+  wrap.appendChild(el);
+  renderGroentenLijst();
+}
+
+function renderGroentenLijst() {
+  const el = document.getElementById('groenten-lijst');
+  if (!el) return;
+  if (!groentenAssortiment.length) {
+    el.innerHTML = '<p class="settings-empty">Nog geen groenten in het assortiment. Voeg de keuze van deze week toe.</p>';
+    return;
+  }
+  el.innerHTML = groentenAssortiment.map(g => `
+    <div class="groente-card">
+      <div class="groente-info">
+        <div class="groente-naam">${g.naam}</div>
+        <div class="groente-meta">${g.eenheid === 'gram' ? `${g.perPlateau} g per persoon` : `${g.perPlateau} st. per plateau`}</div>
+      </div>
+      <div class="groente-actions">
+        <button class="btn-icon" onclick="editGroente('${g.id}')" title="Bewerken">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>
+        <button class="btn-icon btn-icon-danger" onclick="deleteGroente('${g.id}')" title="Verwijderen">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+        </button>
+      </div>
+    </div>`).join('');
+}
+
+function openAddGroente() {
+  document.getElementById('groente-form-title').textContent = 'Groente toevoegen';
+  document.getElementById('groente-id').value = '';
+  document.getElementById('groente-naam').value = '';
+  document.getElementById('groente-eenheid').value = 'stuk';
+  document.getElementById('groente-perplateau').value = '';
+  window._updateGroentePerLabel();
+  document.getElementById('groente-modal').style.display = 'flex';
+}
+
+function editGroente(id) {
+  const g = groentenAssortiment.find(g => g.id === id);
+  if (!g) return;
+  document.getElementById('groente-form-title').textContent = 'Groente bewerken';
+  document.getElementById('groente-id').value = g.id;
+  document.getElementById('groente-naam').value = g.naam;
+  document.getElementById('groente-eenheid').value = g.eenheid;
+  document.getElementById('groente-perplateau').value = g.perPlateau;
+  window._updateGroentePerLabel();
+  document.getElementById('groente-modal').style.display = 'flex';
+}
+
+window._updateGroentePerLabel = function () {
+  const eenheid = document.getElementById('groente-eenheid').value;
+  const label = document.getElementById('groente-perplateau-label');
+  const hint = document.getElementById('groente-perplateau-hint');
+  const input = document.getElementById('groente-perplateau');
+  if (eenheid === 'gram') {
+    label.textContent = 'Gram per persoon';
+    input.placeholder = 'bv. 20';
+    hint.style.display = 'block';
+  } else {
+    label.textContent = 'Aantal per plateau';
+    input.placeholder = 'bv. 50';
+    hint.style.display = 'none';
+  }
+};
+
+function saveGroenteForm() {
+  const id = document.getElementById('groente-id').value;
+  const naam = document.getElementById('groente-naam').value.trim();
+  const eenheid = document.getElementById('groente-eenheid').value;
+  const perPlateau = parseFloat(document.getElementById('groente-perplateau').value);
+
+  if (!naam) { alert('Vul een naam in.'); return; }
+  if (!perPlateau || perPlateau <= 0) { alert('Vul een geldig aantal in.'); return; }
+
+  if (id) {
+    const g = groentenAssortiment.find(g => g.id === id);
+    if (g) { g.naam = naam; g.eenheid = eenheid; g.perPlateau = perPlateau; }
+  } else {
+    groentenAssortiment.push({ id: Date.now().toString(), naam, eenheid, perPlateau });
+  }
+  saveGroentenAssortiment();
+  closeGroenteModal();
+  renderGroentenLijst();
+}
+
+function deleteGroente(id) {
+  if (!confirm('Deze groente uit het assortiment verwijderen?')) return;
+  groentenAssortiment = groentenAssortiment.filter(g => g.id !== id);
+  saveGroentenAssortiment();
+  renderGroentenLijst();
+}
+
+function closeGroenteModal() {
+  document.getElementById('groente-modal').style.display = 'none';
 }
 
 function saveGeneralSetting(key, val) {
@@ -326,6 +457,7 @@ function closeEmailModal() {
 /* ── Init ── */
 document.addEventListener('DOMContentLoaded', () => {
   loadSuppliers();
+  loadGroentenAssortiment();
   // Pas instellingen toe
   if (appSettings.smallPlates) smallPlatesDefault = appSettings.smallPlates;
 });
