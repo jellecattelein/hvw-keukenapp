@@ -21,6 +21,14 @@
 
   const PAK_FORMATEN = ['1/1 emmer', '2/3 emmer', '1/2 emmer', '1/3 emmer', 'GN 1/1', 'GN 1/2', 'Bak', 'Fles', 'Los'];
 
+  // Compacte weergave voor op het etiket zelf: "1/1 emmer" -> "1/1", "GN 1/2" -> "1/2".
+  // De dropdown in de UI blijft de volledige, leesbare tekst tonen — dit geldt alleen voor het gedrukte etiket.
+  function compactPakformaat(pak) {
+    if (!pak) return '';
+    const m = pak.match(/(\d+\/\d+)/);
+    return m ? m[1] : pak;
+  }
+
   const LOC_LABELS = { TRA:'Traiteur', MAE:'Maelstede', HVW:'Huis van Wonterghem', BIE:'Bierkasteel', AFH:'Afhaal' };
   const LOC_COLORS_RGB = {
     TRA: [26, 63, 111], MAE: [45, 106, 79], HVW: [139, 37, 0], BIE: [107, 58, 125], AFH: [139, 106, 0]
@@ -30,6 +38,7 @@
   /* ── State ── */
   let portieRegels = {};   // { productBase: personenPerEtiket }
   let queue = [];          // [{ id, product, zaal, opmerking, aantalEtiketten, personen, pakformaat }]
+  let nieuwePaginaPerProduct = false; // optie: elk product/groente start op een verse pagina
   let idCounter = 1;
 
   /* ── Storage ── */
@@ -38,6 +47,26 @@
   }
   function loadRegels() {
     try { portieRegels = JSON.parse(localStorage.getItem('hvw-portie-regels') || '{}'); } catch(e) { portieRegels = {}; }
+  }
+
+  // Leest het wekelijkse groenten-assortiment uit dezelfde bron als de
+  // Instellingen-pagina (suppliers.js, localStorage-sleutel
+  // 'hvw-groenten-assortiment'). Eén bron van waarheid: wijzig je het
+  // assortiment in Instellingen, dan verandert het hier automatisch mee.
+  function getGroentenAssortiment() {
+    try {
+      const lijst = JSON.parse(localStorage.getItem('hvw-groenten-assortiment') || '[]');
+      return Array.isArray(lijst) ? lijst : [];
+    } catch(e) { return []; }
+  }
+
+  // Herkent specifiek "Seizoensgroenten (Standaard)" en varianten daarvan,
+  // maar NIET "Repasse seizoensgroenten" — die twee moeten apart blijven
+  // (zie ook de groepering verderop in dit bestand).
+  function isSeizoensgroentenHoofdproduct(productName) {
+    if (!productName) return false;
+    const n = productName.toLowerCase().trim();
+    return n.startsWith('seizoensgroenten') && !n.includes('repasse');
   }
 
   /* ── CSS ── */
@@ -159,6 +188,12 @@
       .pe-summary { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #6B655E; margin-bottom: 14px; flex-wrap: wrap; }
       .pe-summary b { color: #1A1917; }
 
+      .pe-pagebreak-toggle {
+        display: flex; align-items: center; gap: 8px; margin-bottom: 14px;
+        font-size: 12.5px; color: #6B655E; cursor: pointer; user-select: none;
+      }
+      .pe-pagebreak-toggle input[type=checkbox] { width: 15px; height: 15px; accent-color: #1A1917; cursor: pointer; }
+
       .pe-pdf-btn {
         display: inline-flex; align-items: center; gap: 7px; padding: 11px 22px;
         background: #B8965A; color: #fff; border: none; border-radius: 8px;
@@ -204,6 +239,10 @@
         border-bottom: 1px solid #F0EDE8;
       }
       .pe-group-name { font-size: 14px; font-weight: 700; color: #1A1917; flex: 1; }
+      .pe-group-soorten {
+        font-size: 11px; font-weight: 600; color: #2D6A4F; background: #E8F3EC;
+        border: 1px solid #CFE8D8; border-radius: 7px; padding: 5px 9px; white-space: nowrap;
+      }
       .pe-group-select-all { font-size: 11px; color: #6B655E; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
       .pe-group-per {
         display: flex; align-items: center; gap: 6px; font-size: 11px; color: #6B5A38;
@@ -229,6 +268,26 @@
       }
       .pe-row-check-etik { font-family: 'DM Mono', monospace; font-size: 11.5px; color: #1A1917; font-weight: 600; white-space: nowrap; min-width: 50px; text-align: right; }
 
+      /* Seizoensgroenten: groente-chips per feest-rij */
+      .pe-seizoen-row { padding: 10px; border-radius: 8px; margin-bottom: 4px; }
+      .pe-seizoen-row:hover { background: #FAF9F7; }
+      .pe-groente-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+      .pe-groente-chip {
+        display: flex; align-items: center; gap: 6px; padding: 6px 10px;
+        border: 1.5px solid #E8E5E0; border-radius: 20px; cursor: pointer;
+        font-size: 12px; transition: all 0.12s; background: #fff;
+      }
+      .pe-groente-chip:hover { border-color: #C8C2B8; }
+      .pe-groente-chip.checked { border-color: #2D6A4F; background: #E8F3EC; }
+      .pe-groente-chip input[type=checkbox] { width: 14px; height: 14px; accent-color: #2D6A4F; cursor: pointer; }
+      .pe-groente-chip-naam { font-weight: 600; color: #1A1917; }
+      .pe-groente-chip-meta { font-family: 'DM Mono', monospace; font-size: 10.5px; color: #9A9590; }
+      .pe-groente-leeg {
+        font-size: 12.5px; color: #6B655E; padding: 14px; background: #FDF9F2;
+        border: 1px solid #EFE2CC; border-radius: 8px; line-height: 1.5;
+      }
+      .pe-groente-leeg a { color: #B8965A; font-weight: 600; }
+
       .pe-cat-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 18px; padding-top: 16px; border-top: 1px solid #F0EDE8; }
       .pe-cat-selected-count { font-size: 12px; color: #6B655E; }
       .pe-cat-add-btn {
@@ -237,6 +296,17 @@
       }
       .pe-cat-add-btn:hover { opacity: 0.85; }
       .pe-cat-add-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+      .pe-cat-header-bar {
+        display: flex; justify-content: space-between; align-items: center;
+        margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1.5px solid #E8E5E0;
+      }
+      .pe-cat-header-count { font-size: 12px; color: #9A9590; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; }
+      .pe-cat-select-all-global {
+        font-size: 12.5px; font-weight: 600; color: #fff; background: #1A1917;
+        padding: 7px 14px; border-radius: 7px; cursor: pointer; transition: opacity 0.15s;
+      }
+      .pe-cat-select-all-global:hover { opacity: 0.85; }
     `;
     document.head.appendChild(s);
   }
@@ -572,6 +642,11 @@
     renderList();
   };
 
+  window._peTogglePagebreak = function (checked) {
+    nieuwePaginaPerProduct = checked;
+    renderList();
+  };
+
   window._peToggleEdit = function (id) {
     queue = queue.map(it => it.id === id ? { ...it, editing: !it.editing } : it);
     renderList();
@@ -617,6 +692,7 @@
   let activeCatId = null;
   let catChecked = {};   // { rowKey: true }
   let catPerOverride = {}; // { productBase: per } — sessie-override binnen categorie-view
+  let rowGroenteSelectie = {}; // { rowKey: { groenteId: true } } — enkel bij Seizoensgroenten
 
   function categoryRowCounts() {
     const counts = {};
@@ -708,9 +784,18 @@
       });
     });
     const sortedBases = [...groups.keys()].sort((a,b) => a.localeCompare(b));
+    const totalRows = rows.length;
+    const allCategoryChecked = rows.every(({key}) => catChecked[key]);
 
     wrap.innerHTML = `
       <div class="pe-card">
+        <div class="pe-cat-header-bar">
+          <span class="pe-cat-header-count">${totalRows} rij${totalRows===1?'':'en'} in deze categorie</span>
+          <span class="pe-cat-select-all-global" onclick="window._peToggleCategoryAll(${allCategoryChecked ? 'false' : 'true'})">
+            ${allCategoryChecked ? 'Alles uitvinken' : 'Alles aanvinken (hele categorie)'}
+          </span>
+        </div>
+
         ${sortedBases.map(base => renderProductGroup(base, groups.get(base))).join('')}
 
         <div class="pe-cat-actions">
@@ -723,12 +808,37 @@
   }
 
   function countChecked() {
-    return Object.values(catChecked).filter(Boolean).length;
+    const normalCount = Object.values(catChecked).filter(Boolean).length;
+    let groenteCount = 0;
+    Object.values(rowGroenteSelectie).forEach(sel => {
+      groenteCount += Object.values(sel).filter(Boolean).length;
+    });
+    return normalCount + groenteCount;
   }
 
   function renderProductGroup(base, entries) {
+    const isSeizoen = isSeizoensgroentenHoofdproduct(base);
     const per = catPerOverride[base] || portieRegels[base] || 100;
-    const allChecked = entries.every(({key}) => catChecked[key]);
+    const allChecked = isSeizoen
+      ? entries.every(({key}) => Object.values(rowGroenteSelectie[key]||{}).some(Boolean))
+      : entries.every(({key}) => catChecked[key]);
+
+    if (isSeizoen) {
+      const assortiment = getGroentenAssortiment();
+      return `
+        <div class="pe-group">
+          <div class="pe-group-head">
+            <span class="pe-group-name">${escapeHtml(base)}</span>
+            <span class="pe-group-soorten" title="Beheer het assortiment in Instellingen">${assortiment.length} groente${assortiment.length===1?'':'n'} in assortiment</span>
+            ${assortiment.length ? `<span class="pe-group-select-all" onclick="window._peToggleSeizoenGroupAll('${escAttr(base)}', ${allChecked ? 'false' : 'true'})">${allChecked ? 'Alles uitvinken' : 'Alles selecteren'}</span>` : ''}
+          </div>
+          ${!assortiment.length ? `
+            <div class="pe-groente-leeg">
+              Nog geen groenten ingesteld voor deze week.
+              <a href="#" onclick="switchMode('settings'); return false;">Ga naar Instellingen</a> om het assortiment van deze week in te vullen.
+            </div>` : entries.map(({r, key}) => renderSeizoensgroentenRow(r, key, assortiment)).join('')}
+        </div>`;
+    }
 
     return `
       <div class="pe-group">
@@ -757,6 +867,43 @@
     return `${dagLabel}${d}/${m}`;
   }
   const fmtLabelDate = fmtRowDate;
+
+  function renderSeizoensgroentenRow(r, key, assortiment) {
+    const locCode = resolveLocCode(r);
+    const locLabel = locCode ? (LOC_LABELS[locCode] || locCode) : '';
+    const dateLabel = fmtRowDate(r.dateStr);
+    const selectie = rowGroenteSelectie[key] || {};
+
+    return `
+      <div class="pe-seizoen-row">
+        <div class="pe-row-check-main" style="margin-bottom:8px">
+          <div class="pe-row-check-event">${escapeHtml(r.event || r.room)}</div>
+          <div class="pe-row-check-meta">${dateLabel ? `<span class="pe-row-check-date">${escapeHtml(dateLabel)}</span> · ` : ''}${escapeHtml(r.room)}${locLabel ? ` · ${escapeHtml(locLabel)}` : ''} · ${r.persons}p</div>
+        </div>
+        <div class="pe-groente-chips">
+          ${assortiment.map(g => {
+            const checked = !!selectie[g.id];
+            if (g.eenheid === 'gram') {
+              const totaalGram = r.persons * g.perPlateau;
+              const totaalTxt = totaalGram >= 1000 ? `${(totaalGram/1000).toFixed(totaalGram % 1000 === 0 ? 0 : 1)}kg` : `${totaalGram}g`;
+              return `
+                <label class="pe-groente-chip ${checked?'checked':''}">
+                  <input type="checkbox" ${checked?'checked':''} onchange="window._peToggleGroenteRow('${key}','${g.id}', this.checked)">
+                  <span class="pe-groente-chip-naam">${escapeHtml(g.naam)}</span>
+                  <span class="pe-groente-chip-meta">${r.persons}p × ${g.perPlateau}g = ${totaalTxt}</span>
+                </label>`;
+            }
+            const aantalEtiketten = Math.ceil(r.persons / g.perPlateau);
+            return `
+              <label class="pe-groente-chip ${checked?'checked':''}">
+                <input type="checkbox" ${checked?'checked':''} onchange="window._peToggleGroenteRow('${key}','${g.id}', this.checked)">
+                <span class="pe-groente-chip-naam">${escapeHtml(g.naam)}</span>
+                <span class="pe-groente-chip-meta">${g.perPlateau}st/plateau · ${aantalEtiketten}×</span>
+              </label>`;
+          }).join('')}
+        </div>
+      </div>`;
+  }
 
   function renderCheckRow(r, key, per) {
     const checked = !!catChecked[key];
@@ -799,9 +946,40 @@
     document.getElementById('pe-cat-add-btn').disabled = countChecked() === 0;
   };
 
+  window._peToggleGroenteRow = function (key, groenteId, checked) {
+    if (!rowGroenteSelectie[key]) rowGroenteSelectie[key] = {};
+    rowGroenteSelectie[key][groenteId] = checked;
+    // Herrender enkel de chip-styling en telling, niet de hele lijst (voorkomt scroll-jump)
+    const chipInput = document.querySelector(`input[onchange*="_peToggleGroenteRow('${key}','${groenteId}'"]`);
+    if (chipInput) chipInput.closest('.pe-groente-chip')?.classList.toggle('checked', checked);
+    const countEl = document.getElementById('pe-cat-selected-count');
+    if (countEl) countEl.textContent = `${countChecked()} rij(en) geselecteerd`;
+    const addBtn = document.getElementById('pe-cat-add-btn');
+    if (addBtn) addBtn.disabled = countChecked() === 0;
+  };
+
   window._peToggleGroupAll = function (base, setTo) {
     allRows.forEach((r, idx) => {
       if (groupNameOf(r) !== base || r.tabId !== activeCatId || r.persons <= 0) return;
+      catChecked[rowKey(r, idx)] = setTo;
+    });
+    renderCategoryGroups(activeCatId);
+  };
+
+  window._peToggleSeizoenGroupAll = function (base, setTo) {
+    const assortiment = getGroentenAssortiment();
+    allRows.forEach((r, idx) => {
+      if (groupNameOf(r) !== base || r.tabId !== activeCatId || r.persons <= 0) return;
+      const key = rowKey(r, idx);
+      if (!rowGroenteSelectie[key]) rowGroenteSelectie[key] = {};
+      assortiment.forEach(g => { rowGroenteSelectie[key][g.id] = setTo; });
+    });
+    renderCategoryGroups(activeCatId);
+  };
+
+  window._peToggleCategoryAll = function (setTo) {
+    allRows.forEach((r, idx) => {
+      if (r.tabId !== activeCatId || r.persons <= 0) return;
       catChecked[rowKey(r, idx)] = setTo;
     });
     renderCategoryGroups(activeCatId);
@@ -823,9 +1001,44 @@
   window._peBulkAdd = function () {
     if (!countChecked()) return;
     const selectedKeys = Object.keys(catChecked).filter(k => catChecked[k]);
+    const assortiment = getGroentenAssortiment();
+    const assortimentById = {};
+    assortiment.forEach(g => { assortimentById[g.id] = g; });
 
     allRows.forEach((r, idx) => {
       const key = rowKey(r, idx);
+
+      // ── Seizoensgroenten: verwerk aangevinkte groenten voor deze rij ──
+      const groenteSel = rowGroenteSelectie[key];
+      if (groenteSel) {
+        Object.keys(groenteSel).forEach(groenteId => {
+          if (!groenteSel[groenteId]) return;
+          const g = assortimentById[groenteId];
+          if (!g) return;
+          const locCode = resolveLocCode(r);
+          const isGram = g.eenheid === 'gram';
+
+          queue.push({
+            id: idCounter++,
+            product: g.naam,
+            persons: r.persons,
+            per: g.perPlateau,
+            perEenheid: g.eenheid,
+            // Gram-producten (bv. puree): altijd 1 etiket met het totaalgewicht
+            // (personen × gram/persoon), geen plateau-opsplitsing.
+            aantalEtiketten: isGram ? 1 : Math.ceil(r.persons / g.perPlateau),
+            totaalGewicht: isGram ? r.persons * g.perPlateau : null,
+            pakformaat: '',
+            zaal: r.room,
+            opmerking: r.event && r.event !== r.room ? r.event : '',
+            locCode,
+            dateStr: r.dateStr || '',
+            editing: false
+          });
+        });
+      }
+
+      // ── Overige producten: normale checkbox-flow ──
       if (!selectedKeys.includes(key)) return;
       const gName = groupNameOf(r);
       const per = catPerOverride[gName] || portieRegels[gName] || 100;
@@ -851,6 +1064,7 @@
     // Reset selectie na toevoegen
     catChecked = {};
     rowPakOverride = {};
+    rowGroenteSelectie = {};
     renderCategoryGroups(activeCatId);
     renderListInto('pe-right-col-cat');
   };
@@ -877,7 +1091,7 @@
     }
 
     const totalLabels = queue.reduce((s, it) => s + it.aantalEtiketten, 0);
-    const totalPages = Math.ceil(totalLabels / (COLS * ROWS));
+    const totalPages = estimatePageCount(queue, nieuwePaginaPerProduct);
 
     col.innerHTML = `
       <div class="pe-card">
@@ -894,6 +1108,11 @@
           <span>·</span>
           <span><b>${totalPages}</b> pagina${totalPages===1?'':"'s"} A4</span>
         </div>
+
+        <label class="pe-pagebreak-toggle">
+          <input type="checkbox" id="pe-pagebreak-check" ${nieuwePaginaPerProduct?'checked':''} onchange="window._peTogglePagebreak(this.checked)">
+          <span>Nieuwe pagina per product/groente</span>
+        </label>
 
         <button class="pe-pdf-btn" id="pe-pdf-btn" onclick="window._pePdfGenerate()">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
@@ -913,7 +1132,7 @@
           <div class="pe-item-meta">
             ${dateLabel ? `<span class="pe-row-check-date">${escapeHtml(dateLabel)}</span>` : ''}
             ${it.persons ? `<span>${it.persons}p</span>` : ''}
-            ${it.per ? `<span>· 1/${it.per}p</span>` : ''}
+            ${it.per ? (it.perEenheid ? `<span>· ${it.per}${it.perEenheid==='gram'?'g':'st'}/plateau</span>` : `<span>· 1/${it.per}p</span>`) : ''}
             ${it.pakformaat ? `<span>· ${escapeHtml(it.pakformaat)}</span>` : ''}
             ${it.zaal ? `<span>· ${escapeHtml(it.zaal)}</span>` : ''}
             ${locLabel ? `<span>· ${escapeHtml(locLabel)}</span>` : ''}
@@ -978,6 +1197,60 @@
     return escapeHtml(str).replace(/"/g, '&quot;');
   }
 
+  // Verdeelt het totaal aantal personen over de etiketten van één product.
+  // Standaardgeval (aantal = ceil(persons/per)): elke emmer krijgt "per"
+  // personen, behalve de laatste die de rest krijgt (bv. 100p / 30 -> 30,30,30,10).
+  // Is het aantal etiketten handmatig aangepast, dan verdelen we zo gelijk
+  // mogelijk zodat er nooit een emmer op 0 uitkomt.
+  function verdeelPersonenOverEtiketten(persons, aantal, per) {
+    if (!aantal || aantal <= 0) return [];
+    if (!persons || persons <= 0) return new Array(aantal).fill(0);
+
+    // Standaardgeval: vul vooraan met "per", rest (incl. volle emmer) op de laatste
+    if (per > 0 && (aantal - 1) * per < persons && persons <= aantal * per) {
+      const result = new Array(aantal).fill(per);
+      result[aantal - 1] = persons - per * (aantal - 1);
+      return result;
+    }
+
+    // Fallback voor handmatig overschreven aantallen: zo gelijk mogelijk verdelen
+    const basis = Math.floor(persons / aantal);
+    const extra = persons % aantal;
+    return new Array(aantal).fill(basis).map((v, i) => i < extra ? v + 1 : v);
+  }
+
+  // Schat het aantal pagina's dat de PDF-export zal gebruiken, rekening
+  // houdend met de "nieuwe pagina per product"-optie. Puur telwerk — geen
+  // canvas-tekening — zodat de samenvatting boven de knop klopt vóór het
+  // genereren.
+  function estimatePageCount(queueItems, splitPerProduct) {
+    if (!queueItems.length) return 0;
+    const sorted = [...queueItems].sort((a, b) => {
+      const prodCompare = (a.product || '').localeCompare(b.product || '');
+      if (prodCompare !== 0) return prodCompare;
+      const dateCompare = (a.dateStr || '').localeCompare(b.dateStr || '');
+      if (dateCompare !== 0) return dateCompare;
+      return (a.zaal || '').localeCompare(b.zaal || '');
+    });
+    const perPage = COLS * ROWS;
+    let pos = 0, pageCount = 1, isFirst = true, prevProduct = null;
+    sorted.forEach(it => {
+      for (let k = 0; k < it.aantalEtiketten; k++) {
+        if (splitPerProduct && it.product !== prevProduct) {
+          if (!isFirst) { pageCount++; }
+          pos = 0;
+          prevProduct = it.product;
+        } else if (pos === perPage) {
+          pageCount++;
+          pos = 0;
+        }
+        pos++;
+        isFirst = false;
+      }
+    });
+    return pageCount;
+  }
+
   /* ══════════════════════════════
      PDF GENERATIE via jsPDF
      (zelfde grid als etiketten.js / snelle-etiketten.js)
@@ -1002,22 +1275,53 @@
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
+      // Sorteer de printlijst vóór het genereren van de etiketten:
+      // 1) per product/groente (zodat alle Wortelen-etiketten bij elkaar staan, dan Asperge, enz.)
+      // 2) binnen elk product op datum (chronologisch)
+      // 3) binnen dezelfde datum op feest/zaal (zodat de plateaus van 1 feest niet door elkaar lopen)
+      const sortedQueue = [...queue].sort((a, b) => {
+        const prodCompare = (a.product || '').localeCompare(b.product || '');
+        if (prodCompare !== 0) return prodCompare;
+        const dateCompare = (a.dateStr || '').localeCompare(b.dateStr || '');
+        if (dateCompare !== 0) return dateCompare;
+        return (a.zaal || '').localeCompare(b.zaal || '');
+      });
+
       const labels = [];
-      queue.forEach(it => {
+      sortedQueue.forEach(it => {
+        const perEmmerAantallen = verdeelPersonenOverEtiketten(it.persons, it.aantalEtiketten, it.per);
         for (let k = 1; k <= it.aantalEtiketten; k++) {
-          labels.push({ ...it, karNr: k });
+          labels.push({ ...it, karNr: k, emmerPersonen: perEmmerAantallen[k - 1] });
         }
       });
 
       const perPage = COLS * ROWS;
-      labels.forEach((label, li) => {
-        const pos = li % perPage;
-        if (pos === 0 && li > 0) doc.addPage();
+      let pos = 0; // positie binnen de huidige pagina (0 t/m perPage-1)
+      let isFirstLabel = true;
+      let prevProduct = null;
+
+      labels.forEach((label) => {
+        // Nieuwe groente/product? Bij ingeschakelde optie begint elk product
+        // op een verse pagina, ook als de huidige nog niet vol is — handig
+        // om per product een eigen, makkelijk af te scheuren stapel te hebben.
+        // Staat de optie uit, dan vult de grid gewoon door zoals gebruikelijk.
+        if (nieuwePaginaPerProduct && label.product !== prevProduct) {
+          if (!isFirstLabel) doc.addPage();
+          pos = 0;
+          prevProduct = label.product;
+        } else if (pos === perPage) {
+          doc.addPage();
+          pos = 0;
+        }
+
         const col = pos % COLS;
         const row = Math.floor(pos / COLS);
         const x = MARGIN_L + col * (LABEL_W + GAP_X);
         const y = MARGIN_T + row * (LABEL_H + GAP_Y);
         drawLabel(doc, x, y, label);
+
+        pos++;
+        isFirstLabel = false;
       });
 
       const stamp = new Date().toISOString().slice(0,10);
@@ -1083,13 +1387,34 @@
     });
     cursorY += 1.2;
 
-    // ── Verpakkingsformaat ──
-    if (label.pakformaat && cursorY <= hardBottom) {
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(110, 106, 100);
-      doc.text(label.pakformaat, tx, cursorY);
-      cursorY += 4.3;
+    // ── Bij gram-producten (bv. puree): toon de volledige berekening
+    //    "100p × 20g = 2kg" — altijd 1 etiket met het totaalgewicht.
+    //    Bij stuk-producten: het werkelijke aantal in DIT etiket (bv. bij
+    //    110p/50 per plateau toont het laatste etiket "10 st", niet "50 st"). ──
+    if (label.perEenheid === 'gram' && label.totaalGewicht != null) {
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(90, 87, 83);
+      const totaalTxt = label.totaalGewicht >= 1000
+        ? `${(label.totaalGewicht/1000).toFixed(label.totaalGewicht % 1000 === 0 ? 0 : 1)}kg`
+        : `${label.totaalGewicht}g`;
+      doc.text(`${label.persons}p × ${label.per}g = ${totaalTxt}`, tx, cursorY);
+      cursorY += 4.6;
+    } else if (label.perEenheid) {
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(90, 87, 83);
+      const aantalInDitEtiket = (label.emmerPersonen !== undefined && label.emmerPersonen !== null)
+        ? label.emmerPersonen
+        : label.per;
+      doc.text(`${aantalInDitEtiket} st / plateau`, tx, cursorY);
+      cursorY += 4.6;
+    } else if (label.pakformaat && cursorY <= hardBottom) {
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(90, 87, 83);
+      doc.text(compactPakformaat(label.pakformaat), tx, cursorY);
+      cursorY += 4.6;
     }
 
     // ── Zaal (volledig, zoveel regels als nodig) + datum rechts op de eerste regel ──
@@ -1151,12 +1476,17 @@
       });
     }
 
-    // ── Personen (rechtsonder, altijd gereserveerd) ──
-    if (label.persons) {
+    // ── Onderaan rechts: bij groenten het TOTALE aantal personen van het
+    //    feest (want dat staat al per-plateau bovenaan bij de eenheid);
+    //    bij andere producten het aantal in DEZE emmer, zoals voorheen. ──
+    const toonAantal = label.perEenheid
+      ? label.persons
+      : ((label.emmerPersonen !== undefined && label.emmerPersonen !== null) ? label.emmerPersonen : label.persons);
+    if (toonAantal) {
       doc.setFontSize(9);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(28, 28, 26);
-      doc.text(`${label.persons} pers.`, x + w - pad, y + h - pad - 1, { align: 'right' });
+      doc.text(`${toonAantal} pers.`, x + w - pad, y + h - pad - 1, { align: 'right' });
     }
 
     // ── Etiket nr (als meer dan 1) ──
@@ -1167,6 +1497,17 @@
       doc.text(`${label.karNr}/${label.aantalEtiketten}`, x + w - pad, y + pad + 4, { align: 'right' });
     }
   }
+
+  // Wordt aangeroepen door index.html elke keer de Portie-Etiketten pagina
+  // getoond wordt (ook als de DOM al bestond). Nodig omdat het assortiment
+  // in Instellingen kan wijzigen terwijl deze pagina op de achtergrond stond —
+  // zonder deze refresh zou de oude, verouderde groentenlijst blijven staan.
+  window._peRefreshOnShow = function () {
+    renderLeftColumn();
+    if (currentModus === 'categorie') {
+      renderCategoriePicker(); // herrendert ook renderCategoryGroups(activeCatId) indien actief
+    }
+  };
 
   /* ── Init ── */
   document.addEventListener('DOMContentLoaded', () => {
