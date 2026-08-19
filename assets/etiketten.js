@@ -335,7 +335,7 @@
 
       const weekSel = document.getElementById('etik-f-week');
       const weekTxt = weekSel?.options[weekSel.selectedIndex]?.text || 'etiketten';
-      doc.save(`etiketten_${weekTxt.replace(/[^a-z0-9]/gi,'_')}.pdf`);
+      doc.save(`HVW_Karren-Etiketten_${weekTxt.replace(/[^a-z0-9]/gi,'_')}.pdf`);
 
     } catch(err) {
       alert('Fout bij PDF generatie: ' + err.message);
