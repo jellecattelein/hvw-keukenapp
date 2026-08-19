@@ -453,14 +453,8 @@
       <button class="sb-item" data-page="feesten" onclick="sbShow('feesten')">
         <span class="sb-icon">📅</span> Feestenoverzicht
       </button>
-      <button class="sb-item" data-page="broodjes" onclick="sbShow('broodjes')">
-        <span class="sb-icon">🥖</span> Broodjes
-      </button>
       <button class="sb-item" data-page="tijdstool" onclick="sbShow('tijdstool')">
         <span class="sb-icon">⏱️</span> Tijdstool
-      </button>
-      <button class="sb-item" data-page="functionsheets" onclick="sbShow('functionsheets')">
-        <span class="sb-icon">📘</span> Functionsheet Boekconverter
       </button>
 
       <div class="sb-section">Recepten</div>
@@ -480,8 +474,14 @@
       </button>
 
       <div class="sb-section">Productie</div>
+      <button class="sb-item" data-page="functionsheets" onclick="sbShow('functionsheets')">
+        <span class="sb-icon">📘</span> Functionsheet Boekconverter
+      </button>
+      <button class="sb-item" data-page="broodjes" onclick="sbShow('broodjes')">
+        <span class="sb-icon">🥖</span> Broodjes
+      </button>
       <button class="sb-item" data-page="etiketten" onclick="sbShow('etiketten')">
-        <span class="sb-icon">🏷️</span> Etiketten
+        <span class="sb-icon">🏷️</span> Karren-Etiketten
       </button>
       <button class="sb-item" data-page="snel-etiketten" onclick="sbShow('snel-etiketten')">
         <span class="sb-icon">✏️</span> Snelle Etiketten
@@ -799,7 +799,7 @@
 
   <script>
   /* ═══ SIDEBAR ROUTING ═══ */
-  const PAGE_TITLES = { dashboard:'Dashboard', feesten:'Feestenoverzicht', calculator:'Bestelcalculator', ijs:'IJsdesserts', etiketten:'Etiketten', tijdstool:'Tijdstool', functionsheets:'Functionsheet Boekconverter', 'snel-etiketten':'Snelle Etiketten', 'portie-etiketten':'Portie-Etiketten', recepten:'Recepten', overzicht:'Productoverzicht', broodjes:'Broodjesoverzicht', settings:'Instellingen', 'feest-detail':'Feestdetail' };
+  const PAGE_TITLES = { dashboard:'Dashboard', feesten:'Feestenoverzicht', calculator:'Bestelcalculator', ijs:'IJsdesserts', etiketten:'Karren-Etiketten', tijdstool:'Tijdstool', functionsheets:'Functionsheet Boekconverter', 'snel-etiketten':'Snelle Etiketten', 'portie-etiketten':'Portie-Etiketten', recepten:'Recepten', overzicht:'Productoverzicht', broodjes:'Broodjesoverzicht', settings:'Instellingen', 'feest-detail':'Feestdetail' };
   const LOC_DOT = { TRA:'#3D87D4', MAE:'#4CAF82', HVW:'#D4603A', BIE:'#9C6AB5', AFH:'#C4A020' };
   const LOC_LBL = { TRA:'Traiteur', MAE:'Maelstede', HVW:'Huis van Wonterghem', BIE:'Bierkasteel', AFH:'Afhaal' };
 
