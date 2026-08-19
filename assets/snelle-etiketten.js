@@ -315,7 +315,7 @@
       });
 
       const stamp = new Date().toISOString().slice(0,10);
-      doc.save(`etiketten_${stamp}.pdf`);
+      doc.save(`HVW_Snelle-Etiketten_${stamp}.pdf`);
     } catch (err) {
       alert('Fout bij PDF generatie: ' + err.message);
       console.error(err);
