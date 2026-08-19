@@ -718,6 +718,31 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="groente-modal" onclick="if(event.target===this)closeGroenteModal()">
+    <div class="modal">
+      <div class="modal-header"><span class="modal-title" id="groente-form-title">Groente toevoegen</span><button class="modal-close" onclick="closeGroenteModal()">×</button></div>
+      <div class="modal-body">
+        <input type="hidden" id="groente-id">
+        <div class="form-field"><label>Naam</label><input type="text" id="groente-naam" placeholder="bv. Witloof, Puree wortel"></div>
+        <div class="form-field"><label>Eenheid</label>
+          <select id="groente-eenheid" onchange="window._updateGroentePerLabel()">
+            <option value="stuk">Per stuk</option>
+            <option value="gram">Per gram</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label id="groente-perplateau-label">Aantal per plateau</label>
+          <input type="number" id="groente-perplateau" min="1" step="1" placeholder="bv. 50">
+          <div class="settings-hint" id="groente-perplateau-hint" style="display:none">Puree en andere gram-producten komen altijd op 1 etiket met het totaalgewicht (personen × gram/persoon).</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeGroenteModal()">Annuleren</button>
+        <button class="btn btn-primary" onclick="saveGroenteForm()">Opslaan</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="email-modal" onclick="if(event.target===this)closeEmailModal()">
     <div class="modal email-modal">
       <div class="modal-header"><span class="modal-title">Bestellingen versturen</span><button class="modal-close" onclick="closeEmailModal()">×</button></div>
@@ -869,6 +894,7 @@
     if (pageId === 'portie-etiketten') {
       const w = document.getElementById('portie-etiketten-content');
       if (w) w.style.display = 'block';
+      if (typeof window._peRefreshOnShow === 'function') window._peRefreshOnShow();
       return;
     }
     if (pageId === 'overzicht') {
