@@ -31,7 +31,7 @@
   const DESSERTBUFFET_MINIS_PER_TAART  = 8;
 
   const SUB_LABELS = {
-    dessertbuffet_mini:   "Dessertbuffet — mini's",
+    dessertbuffet_mini:   'Dessertbuffet — mini-gebak',
     dessertbuffet_taart:  'Dessertbuffet — taarten',
     to_share_mini:        'Mini-gebak (to share)',
     mini_gebak:            'Mini-gebak',
@@ -166,6 +166,13 @@
       .bak-db-head { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .3px; color: #9A9590; }
       .bak-db-row span:first-child { font-weight: 700; color: #1A1917; }
       .bak-db-num { font-family: 'DM Mono', monospace; font-weight: 700; color: ${BAKKER_COLOR}; }
+
+      .bak-db-table-inline {
+        padding: 4px 0 8px; border-bottom: none; margin-bottom: 4px;
+        border-top: 1px dashed #EFEAE3; border-bottom: 1px dashed #EFEAE3;
+      }
+      .bak-db-table-inline .bak-db-row { padding: 6px 0; }
+      .bak-db-table-inline .bak-db-row span:first-child { font-weight: 700; color: #1A1917; }
 
       .bak-loc-heading {
         padding: 12px 18px 4px; font-size: 10.5px; font-weight: 700; text-transform: uppercase;
@@ -369,25 +376,12 @@
       const dayLabel = dateStr === 'onbekend' ? 'Geen datum' : formatDate(dateStr);
       const dayTotal = dayRows.reduce((s,r) => s + r.persons, 0);
 
-      const dbRows = dayRows.filter(r => r.sub === 'dessertbuffet_mini' || r.sub === 'dessertbuffet_taart');
-      const overigeRows = dayRows.filter(r => r.sub !== 'dessertbuffet_mini' && r.sub !== 'dessertbuffet_taart');
-
-      // Dessertbuffet: mini + taart van dezelfde zaal samen op 1 tabelrij
-      const dbByRoom = {};
-      const dbRoomLocMap = {};
-      dbRows.forEach(r => {
-        const roomName = r.room || 'Geen zaal';
-        if (!dbByRoom[roomName]) dbByRoom[roomName] = { minis: 0, taarten: 0 };
-        if (r.sub === 'dessertbuffet_mini') dbByRoom[roomName].minis += r.persons;
-        else dbByRoom[roomName].taarten += r.persons;
-        if (r.locCode) dbRoomLocMap[roomName] = r.locCode;
-      });
-      const sortedDbRooms = sortRoomsByLocation(Object.keys(dbByRoom), dbRoomLocMap);
-
-      // Mini-gebak/to-share: per zaal, gegroepeerd per locatie zoals voorheen
+      // Eén zaal-groepering over ALLE items heen (dessertbuffet + mini-gebak +
+      // to-share), zodat alles van dezelfde zaal altijd bij elkaar staat —
+      // niet in gescheiden secties per type.
       const byRoom = {};
       const roomLocMap = {};
-      overigeRows.forEach(r => {
+      dayRows.forEach(r => {
         const roomName = r.room || 'Geen zaal';
         (byRoom[roomName] = byRoom[roomName] || []).push(r);
         if (r.locCode) roomLocMap[roomName] = r.locCode;
@@ -410,37 +404,37 @@
             <span class="bak-day-total">${dayTotal} pers. totaal</span>
           </div>
 
-          ${sortedDbRooms.length ? `
-            <div class="bak-subhead">Dessertbuffet — per zaal</div>
-            <div class="bak-db-table">
-              <div class="bak-db-row bak-db-head">
-                <span>Zaal</span><span>Mini's</span><span>Taarten</span>
-              </div>
-              ${sortedDbRooms.map(room => {
-                const d = dbByRoom[room];
-                return `
-                  <div class="bak-db-row">
-                    <span>${escapeHtml(room)}</span>
-                    <span class="bak-db-num">${d.minis}</span>
-                    <span class="bak-db-num">${d.taarten}</span>
-                  </div>`;
-              }).join('')}
-            </div>
-          ` : ''}
-
           ${sortedLocs.map(loc => `
             ${sortedLocs.length > 1 ? `<div class="bak-loc-heading">${escapeHtml(LOC_LABELS[loc] || 'Overig')}</div>` : ''}
             ${roomsByLoc[loc].map(room => {
-              const roomRows = byRoom[room].sort((a,b) => {
-                const order = { to_share_mini: 0, mini_gebak: 1 };
-                const oa = order[a.sub] ?? 9, ob = order[b.sub] ?? 9;
-                if (oa !== ob) return oa - ob;
-                return a.naam.localeCompare(b.naam);
-              });
+              const roomRows = byRoom[room];
+              const dbMini = roomRows.find(r => r.sub === 'dessertbuffet_mini');
+              const dbTaart = roomRows.find(r => r.sub === 'dessertbuffet_taart');
+              const overigeRoomRows = roomRows
+                .filter(r => r.sub !== 'dessertbuffet_mini' && r.sub !== 'dessertbuffet_taart')
+                .sort((a,b) => {
+                  const order = { to_share_mini: 0, mini_gebak: 1 };
+                  const oa = order[a.sub] ?? 9, ob = order[b.sub] ?? 9;
+                  if (oa !== ob) return oa - ob;
+                  return a.naam.localeCompare(b.naam);
+                });
+
               return `
                 <div class="bak-zaal-block">
                   <div class="bak-zaal-title">${escapeHtml(room)}</div>
-                  ${roomRows.map(r => `
+                  ${(dbMini || dbTaart) ? `
+                    <div class="bak-db-table bak-db-table-inline">
+                      <div class="bak-db-row bak-db-head">
+                        <span>Dessertbuffet</span><span>Mini-gebak</span><span>Taarten</span>
+                      </div>
+                      <div class="bak-db-row">
+                        <span></span>
+                        <span class="bak-db-num">${dbMini ? dbMini.persons : 0}</span>
+                        <span class="bak-db-num">${dbTaart ? dbTaart.persons : 0}</span>
+                      </div>
+                    </div>
+                  ` : ''}
+                  ${overigeRoomRows.map(r => `
                     <div class="bak-item-row">
                       <span class="bak-item-sub" style="background:${SUB_COLORS[r.sub]}22;color:${SUB_COLORS[r.sub]}">${SUB_LABELS[r.sub] || r.sub}</span>
                       <span class="bak-item-naam">${escapeHtml(r.naam)}${r.isManual ? ' <span style="color:#B8965A;font-size:10px">· handmatig</span>' : ''}</span>
@@ -580,62 +574,11 @@
         doc.text(`${dayTotal} pers. totaal`, PAGE_W - MARGIN - 3, y + 6.3, { align: 'right' });
         y += 9 + 6;
 
-        const dbRows = dayRows.filter(r => r.sub === 'dessertbuffet_mini' || r.sub === 'dessertbuffet_taart');
-        const overigeRows = dayRows.filter(r => r.sub !== 'dessertbuffet_mini' && r.sub !== 'dessertbuffet_taart');
-
-        // ── Dessertbuffet: tabel per zaal (Zaal · Mini's · Taarten, geen personen) ──
-        const dbByRoom = {};
-        const dbRoomLocMap = {};
-        dbRows.forEach(r => {
-          const roomName = r.room || 'Geen zaal';
-          if (!dbByRoom[roomName]) dbByRoom[roomName] = { minis: 0, taarten: 0 };
-          if (r.sub === 'dessertbuffet_mini') dbByRoom[roomName].minis += r.persons;
-          else dbByRoom[roomName].taarten += r.persons;
-          if (r.locCode) dbRoomLocMap[roomName] = r.locCode;
-        });
-        const sortedDbRooms = sortRoomsByLocation(Object.keys(dbByRoom), dbRoomLocMap);
-
-        if (sortedDbRooms.length) {
-          ensureSpace(8);
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(9);
-          doc.setTextColor(...hexToRgb(BAKKER_COLOR));
-          doc.text('DESSERTBUFFET — PER ZAAL', MARGIN + 3, y);
-          y += 6;
-
-          const dbCol = { zaal: MARGIN+3, mini: MARGIN+110, taart: PAGE_W-MARGIN-3 };
-          ensureSpace(6);
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(7.5);
-          doc.setTextColor(154, 149, 144);
-          doc.text('ZAAL', dbCol.zaal, y);
-          doc.text("MINI'S", dbCol.mini, y);
-          doc.text('TAARTEN', dbCol.taart, y, { align: 'right' });
-          y += 5.5;
-          doc.setDrawColor(232, 229, 224);
-          doc.setLineWidth(0.3);
-          doc.line(MARGIN, y, PAGE_W - MARGIN, y);
-          y += 5;
-
-          sortedDbRooms.forEach(room => {
-            const d = dbByRoom[room];
-            ensureSpace(6.5);
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(9);
-            doc.setTextColor(26, 25, 23);
-            doc.text(room, dbCol.zaal, y);
-            doc.setTextColor(...hexToRgb(BAKKER_COLOR));
-            doc.text(String(d.minis), dbCol.mini, y);
-            doc.text(String(d.taarten), dbCol.taart, y, { align: 'right' });
-            y += 6.5;
-          });
-          y += 6;
-        }
-
-        // ── Mini-gebak/to-share: per zaal, gegroepeerd per locatie ──
+        // Eén zaal-groepering over ALLE items heen — dessertbuffet en
+        // mini-gebak/to-share van dezelfde zaal blijven zo altijd samen.
         const byRoom = {};
         const roomLocMap = {};
-        overigeRows.forEach(r => {
+        dayRows.forEach(r => {
           const roomName = r.room || 'Geen zaal';
           (byRoom[roomName] = byRoom[roomName] || []).push(r);
           if (r.locCode) roomLocMap[roomName] = r.locCode;
@@ -662,12 +605,17 @@
           }
 
           roomsByLoc[loc].forEach(room => {
-            const roomRows = byRoom[room].sort((a,b) => {
-              const order = { to_share_mini: 0, mini_gebak: 1 };
-              const oa = order[a.sub] ?? 9, ob = order[b.sub] ?? 9;
-              if (oa !== ob) return oa - ob;
-              return a.naam.localeCompare(b.naam);
-            });
+            const roomRows = byRoom[room];
+            const dbMini = roomRows.find(r => r.sub === 'dessertbuffet_mini');
+            const dbTaart = roomRows.find(r => r.sub === 'dessertbuffet_taart');
+            const overigeRoomRows = roomRows
+              .filter(r => r.sub !== 'dessertbuffet_mini' && r.sub !== 'dessertbuffet_taart')
+              .sort((a,b) => {
+                const order = { to_share_mini: 0, mini_gebak: 1 };
+                const oa = order[a.sub] ?? 9, ob = order[b.sub] ?? 9;
+                if (oa !== ob) return oa - ob;
+                return a.naam.localeCompare(b.naam);
+              });
 
             ensureSpace(9);
             doc.setFont('helvetica', 'bold');
@@ -676,9 +624,33 @@
             doc.text(room, MARGIN + 3, y);
             y += 7.5;
 
+            // Dessertbuffet-tabelletje (mini-gebak + taarten) direct onder de zaalnaam
+            if (dbMini || dbTaart) {
+              ensureSpace(6);
+              const dbCol = { label: MARGIN+5, mini: MARGIN+115, taart: PAGE_W-MARGIN-3 };
+              doc.setFont('helvetica', 'bold');
+              doc.setFontSize(7.5);
+              doc.setTextColor(154, 149, 144);
+              doc.text('DESSERTBUFFET', dbCol.label, y);
+              doc.text('MINI-GEBAK', dbCol.mini, y);
+              doc.text('TAARTEN', dbCol.taart, y, { align: 'right' });
+              y += 5.5;
+              doc.setDrawColor(232, 229, 224);
+              doc.setLineWidth(0.3);
+              doc.line(MARGIN, y, PAGE_W - MARGIN, y);
+              y += 5.5;
+
+              doc.setFont('helvetica', 'bold');
+              doc.setFontSize(10.5);
+              doc.setTextColor(...hexToRgb(BAKKER_COLOR));
+              doc.text(String(dbMini ? dbMini.persons : 0), dbCol.mini, y);
+              doc.text(String(dbTaart ? dbTaart.persons : 0), dbCol.taart, y, { align: 'right' });
+              y += 8;
+            }
+
             const col = { sub: MARGIN+5, naam: MARGIN+40, aantal: PAGE_W-MARGIN-3 };
 
-            roomRows.forEach(r => {
+            overigeRoomRows.forEach(r => {
               ensureSpace(7);
               doc.setFont('helvetica', 'normal');
               doc.setFontSize(8);
