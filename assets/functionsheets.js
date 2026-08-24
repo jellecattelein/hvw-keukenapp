@@ -63,11 +63,19 @@
 
       .fs-preview-list { margin-top: 20px; }
       .fs-preview-title { font-size: 11px; font-weight: 600; color: #9A9590; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 10px; }
-      .fs-ev-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #F0EDE8; font-size: 13px; }
-      .fs-ev-row:last-child { border-bottom: none; }
+      .fs-ev-row-wrap { padding: 10px 0; border-bottom: 1px solid #F0EDE8; }
+      .fs-ev-row-wrap:last-child { border-bottom: none; }
+      .fs-ev-row { display: flex; align-items: center; gap: 10px; padding: 0 0 6px; font-size: 13px; }
       .fs-ev-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
       .fs-ev-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .fs-ev-meta { font-family: 'DM Mono', monospace; font-size: 11px; color: #9A9590; }
+      .fs-ev-note {
+        width: 100%; box-sizing: border-box; font-family: 'Outfit', sans-serif; font-size: 12.5px;
+        padding: 8px 10px; border: 1.5px solid #DEDAD4; border-radius: 8px; background: #FDFCFA;
+        outline: none; resize: vertical; min-height: 40px; color: #1A1917;
+      }
+      .fs-ev-note:focus { border-color: #B8965A; background: #fff; }
+      .fs-ev-note::placeholder { color: #B8B2A8; }
 
       .fs-actions { margin-top: 24px; display: flex; gap: 10px; }
       .fs-status { margin-top: 14px; font-size: 12px; color: #9A9590; display: flex; align-items: center; gap: 8px; }
@@ -223,6 +231,7 @@
 
   /* ── State ── */
   let currentEvents = [];
+  let dossierNotes = {}; // { eventIndex: 'vrije tekst' } — per feest, eenmalig voor dit boekje
 
   window._fsHandleFile = async function (file) {
     if (!file || file.type !== 'application/pdf') { alert('Kies een PDF-bestand.'); return; }
@@ -274,23 +283,38 @@
     wrap.style.display = 'block';
     wrap.innerHTML = `
       <div class="fs-preview-list">
-        <div class="fs-preview-title">${events.length} feest${events.length===1?'':'en'} herkend</div>
-        ${events.map(e => {
+        <div class="fs-preview-title">${events.length} feest${events.length===1?'':'en'} herkend — vul hieronder eventuele notities per dossier in</div>
+        ${events.map((e, idx) => {
           const col = LOC_COLORS[e.loc] || GOLD;
           const rgbCss = `rgb(${col.map(v=>Math.round(v*255)).join(',')})`;
           const dateStr = e.dateObj ? fmtDateShort(e.dateObj) : '?';
-          return `<div class="fs-ev-row">
-            <span class="fs-ev-dot" style="background:${rgbCss}"></span>
-            <span class="fs-ev-name">${e.affichage}</span>
-            <span class="fs-ev-meta">${dateStr} · ${e.loc}</span>
+          const existingNote = dossierNotes[idx] || '';
+          return `<div class="fs-ev-row-wrap">
+            <div class="fs-ev-row">
+              <span class="fs-ev-dot" style="background:${rgbCss}"></span>
+              <span class="fs-ev-name">${e.affichage}</span>
+              <span class="fs-ev-meta">${dateStr} · ${e.loc}</span>
+            </div>
+            <textarea class="fs-ev-note" placeholder="Notitie voor dit dossier (optioneel) — komt onderaan de functionsheet-pagina in het boekje" oninput="window._fsSetNote(${idx}, this.value)">${escapeHtmlFs(existingNote)}</textarea>
           </div>`;
         }).join('')}
       </div>`;
   }
 
+  function escapeHtmlFs(str) {
+    const div = document.createElement('div');
+    div.textContent = str == null ? '' : String(str);
+    return div.innerHTML;
+  }
+
+  window._fsSetNote = function (idx, value) {
+    dossierNotes[idx] = value;
+  };
+
   window._fsReset = function () {
     lastFile = null;
     currentEvents = [];
+    dossierNotes = {};
     document.getElementById('fs-dropzone').style.display = 'block';
     document.getElementById('fs-file-info-wrap').style.display = 'none';
     document.getElementById('fs-preview-wrap').style.display = 'none';
@@ -339,6 +363,67 @@
         }
       }
 
+      // Breekt tekst in regels die binnen maxWidth passen voor het gegeven
+      // font/grootte (pdf-lib heeft geen ingebouwde word-wrap).
+      function wrapText(text, font, size, maxWidth) {
+        const lines = [];
+        text.split('\n').forEach(paragraph => {
+          const words = paragraph.split(' ');
+          let current = '';
+          words.forEach(word => {
+            const test = current ? current + ' ' + word : word;
+            if (font.widthOfTextAtSize(test, size) > maxWidth && current) {
+              lines.push(current);
+              current = word;
+            } else {
+              current = test;
+            }
+          });
+          lines.push(current);
+        });
+        return lines;
+      }
+
+      // Tekent een duidelijk herkenbaar notitieblok onderaan een bestaande
+      // functionsheet-pagina — een gekleurde balk + kader zodat meteen
+      // zichtbaar is dat dit een toegevoegde notitie is, geen onderdeel
+      // van het origineel. Groeit mee in hoogte met de hoeveelheid tekst.
+      function drawDossierNote(page, text, regFont, boldFont, accentColor) {
+        const margin = 36;
+        const innerPad = 10;
+        const maxTextWidth = PAGE_W - margin*2 - innerPad*2;
+        const lineHeight = 12;
+        const titleText = 'NOTITIE';
+
+        const lines = wrapText(text, regFont, 9.5, maxTextWidth).slice(0, 14); // hard limiet: max 14 regels
+        const blockHeight = 22 + lines.length * lineHeight + innerPad;
+        const blockY = margin; // onderaan de pagina, met marge
+
+        page.drawRectangle({
+          x: margin, y: blockY, width: PAGE_W - margin*2, height: blockHeight,
+          color: rgb(0.988, 0.976, 0.949), // zeer lichte goud-tint achtergrond
+          borderColor: rgb(...accentColor), borderWidth: 1,
+        });
+        page.drawRectangle({
+          x: margin, y: blockY, width: 4, height: blockHeight,
+          color: rgb(...accentColor),
+        });
+
+        page.drawText(titleText, {
+          x: margin + innerPad + 4, y: blockY + blockHeight - 16,
+          size: 8, font: boldFont, color: rgb(...accentColor),
+        });
+
+        let ty = blockY + blockHeight - 16 - lineHeight;
+        lines.forEach(line => {
+          page.drawText(line, {
+            x: margin + innerPad + 4, y: ty,
+            size: 9.5, font: regFont, color: rgb(0.15, 0.14, 0.13),
+          });
+          ty -= lineHeight;
+        });
+      }
+
       /* ── Voorpagina (wit) ── */
       const cover = outDoc.addPage([PAGE_W, PAGE_H]);
       cover.drawRectangle({ x:0, y:0, width:PAGE_W, height:PAGE_H, color: rgb(1,1,1) });
@@ -379,7 +464,7 @@
       for (const e of currentEvents) {
         const col = LOC_COLORS[e.loc] || GOLD;
         cover.drawRectangle({ x:70, y:y-3, width:4, height:12, color: rgb(...col) });
-        const naam = e.affichage.length > 55 ? e.affichage.slice(0,55) : e.affichage;
+        const naam = sanitizeForPdf(e.affichage.length > 55 ? e.affichage.slice(0,55) : e.affichage);
         cover.drawText(naam, { x:80, y, size:10, font:fontBold, color: rgb(...BLACK) });
 
         const dateStr = e.dateObj ? fmtDateShort(e.dateObj) : '?';
@@ -407,7 +492,7 @@
         const col = LOC_COLORS[e.loc] || GOLD;
         div.drawRectangle({ x:0, y:PAGE_H/2 - 1, width:PAGE_W, height:2, color: rgb(...col) });
 
-        const locLabel = LOC_LABELS[e.loc] || e.loc;
+        const locLabel = sanitizeForPdf(LOC_LABELS[e.loc] || e.loc);
         div.drawText(locLabel, { x: centerX(locLabel, fontRegular, 10, PAGE_W), y: PAGE_H/2 + 20, size:10, font:fontRegular, color: rgb(0.87,0.85,0.83) });
 
         if (e.dateObj) {
@@ -417,6 +502,13 @@
 
         const copiedPages = await outDoc.copyPages(srcDoc, range(e.startPage, e.endPage));
         copiedPages.forEach(p => outDoc.addPage(p));
+
+        // Dossier-notitie (indien ingevuld) onderaan de LAATSTE pagina van dit feest bijschrijven
+        const eventIdx = currentEvents.indexOf(e);
+        const noteText = sanitizeForPdf((dossierNotes[eventIdx] || '').trim());
+        if (noteText && copiedPages.length) {
+          drawDossierNote(copiedPages[copiedPages.length - 1], noteText, fontRegular, fontBold, col);
+        }
       }
 
       /* ── Notitiepagina's ── */
@@ -443,6 +535,30 @@
 
   function centerX(text, font, size, pageW) {
     return (pageW - font.widthOfTextAtSize(text, size)) / 2;
+  }
+
+  // De standaard PDF-lettertypes (Helvetica) gebruiken WinAnsi-encodering en
+  // kunnen bepaalde tekens niet weergeven — pijltjes, emoji, sommige
+  // aanhalingstekens/dashes uit copy-paste, enz. Die komen voor in de
+  // geüploade PDF-tekst (bv. "Contract Nr: 349778 →") en in vrij ingetikte
+  // dossier-notities. We vervangen ze door een veilig, leesbaar alternatief
+  // zodat het genereren nooit crasht op een onverwacht teken.
+  const PDF_SAFE_REPLACEMENTS = {
+    '\u2192': '->', '\u2190': '<-', '\u2191': '^', '\u2193': 'v',   // → ← ↑ ↓
+    '\u2013': '-', '\u2014': '-',                                    // – —
+    '\u2018': "'", '\u2019': "'", '\u201C': '"', '\u201D': '"',      // ‘ ’ “ ”
+    '\u2026': '...',                                                  // …
+    '\u00A0': ' ',                                                    // non-breaking space
+    '\u2022': '-',                                                    // •
+  };
+  function sanitizeForPdf(str) {
+    if (!str) return str;
+    let out = String(str).replace(/[\u2192\u2190\u2191\u2193\u2013\u2014\u2018\u2019\u201C\u201D\u2026\u00A0\u2022]/g,
+      ch => PDF_SAFE_REPLACEMENTS[ch] || ch);
+    // Vang alles op wat nog buiten de veilige WinAnsi-range valt (bv. emoji,
+    // zeldzame symbolen) en strip dat, in plaats van te crashen.
+    out = out.replace(/[^\x00-\x7E\u00A1-\u017F\u0192\u02C6\u02DC\u2013\u2014\u2018-\u201A\u201C-\u201E\u2020\u2021\u2022\u2026\u2030\u2039\u203A\u20AC\u2122]/g, '');
+    return out;
   }
 
   function fmtToday() {
