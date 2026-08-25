@@ -696,13 +696,29 @@ body {
 .groente-naam { font-size: 14px; font-weight: 600; color: var(--text); }
 .groente-meta { font-size: 12px; color: var(--text-muted); font-family: 'DM Mono', monospace; }
 .groente-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.groente-actionrow {
+  display: flex; gap: 8px; margin-top: 4px; flex-wrap: wrap;
+}
 .btn-add-groente {
-  width: 100%; margin-top: 4px; padding: 10px; background: transparent;
+  flex: 1 1 160px; margin-top: 0; padding: 10px; background: transparent;
   border: 1.5px dashed var(--border-strong); border-radius: var(--radius);
   color: var(--text-muted); font-size: 13px; font-weight: 600; cursor: pointer;
   transition: all 0.15s;
 }
 .btn-add-groente:hover { background: var(--surface3); color: var(--text); border-color: var(--text); }
+.btn-groente-export, .btn-groente-import {
+  flex: 0 0 auto; padding: 10px 14px; background: transparent;
+  border: 1.5px solid var(--border-strong); border-radius: var(--radius);
+  color: var(--text-muted); font-size: 13px; font-weight: 600; cursor: pointer;
+  transition: all 0.15s; white-space: nowrap;
+}
+.btn-groente-export:hover, .btn-groente-import:hover {
+  background: var(--surface3); color: var(--text); border-color: var(--text);
+}
+@media (max-width: 480px) {
+  .groente-actionrow { flex-direction: column; }
+  .btn-add-groente, .btn-groente-export, .btn-groente-import { flex: 1 1 auto; }
+}
 
 /* ── Modals ── */
 .modal-overlay {
