@@ -142,72 +142,101 @@ function renderGeneralSettings() {
 
 /* ══════════════════════════════
    SEIZOENSGROENTEN ASSORTIMENT
-   Wekelijks wisselend assortiment (chef's keuze). Per groente:
-   naam, eenheid (stuk/gram) en portiegrootte per plateau.
-   Gedeeld met Portie-Etiketten via localStorage 'hvw-groenten-assortiment'.
+   Twee aparte, instelbare assortimenten:
+   - 'standaard'    → wekelijks wisselend (chef's keuze)
+   - 'rouwmaaltijd' → apart, meestal vast assortiment voor Rouwmaaltijd
+   Per groente: naam, eenheid (stuk/gram), portiegrootte per plateau.
+   Gedeeld met Portie-Etiketten via localStorage. Elke variant heeft
+   zijn eigen sleutel zodat ze nooit door elkaar lopen.
    ══════════════════════════════ */
-let groentenAssortiment = []; // [{ id, naam, eenheid: 'stuk'|'gram', perPlateau }]
+const GROENTEN_VARIANTEN = [
+  {
+    key: 'standaard',
+    storageKey: 'hvw-groenten-assortiment',
+    label: 'Seizoensgroenten — assortiment van deze week',
+    hint: 'Wisselt wekelijks (keuze van de chef). Wat je hier instelt, verschijnt automatisch als keuze bij "Seizoensgroenten" in Portie-Etiketten.'
+  },
+  {
+    key: 'rouwmaaltijd',
+    storageKey: 'hvw-groenten-assortiment-rouwmaaltijd',
+    label: 'Seizoensgroenten — Rouwmaaltijd',
+    hint: 'Apart assortiment, los van de wekelijkse keuze hierboven. Verschijnt bij "Seizoensgroenten (Rouwmaaltijd)" in Portie-Etiketten.'
+  }
+];
 
-function loadGroentenAssortiment() {
-  try {
-    groentenAssortiment = JSON.parse(localStorage.getItem('hvw-groenten-assortiment') || '[]');
-  } catch(e) { groentenAssortiment = []; }
+let groentenAssortimenten = { standaard: [], rouwmaaltijd: [] }; // { [variant]: [{ id, naam, eenheid: 'stuk'|'gram', perPlateau }] }
+
+function variantConfig(variant) {
+  return GROENTEN_VARIANTEN.find(v => v.key === variant) || GROENTEN_VARIANTEN[0];
 }
 
-function saveGroentenAssortiment() {
-  try { localStorage.setItem('hvw-groenten-assortiment', JSON.stringify(groentenAssortiment)); } catch(e) {}
+function loadGroentenAssortiment() {
+  GROENTEN_VARIANTEN.forEach(v => {
+    try {
+      groentenAssortimenten[v.key] = JSON.parse(localStorage.getItem(v.storageKey) || '[]');
+    } catch(e) { groentenAssortimenten[v.key] = []; }
+  });
+}
+
+function saveGroentenAssortiment(variant) {
+  const cfg = variantConfig(variant);
+  try { localStorage.setItem(cfg.storageKey, JSON.stringify(groentenAssortimenten[variant] || [])); } catch(e) {}
 }
 
 function renderSeizoensgroentenSettings() {
   const wrap = document.getElementById('general-settings');
   if (!wrap) return;
 
-  const el = document.createElement('div');
-  el.className = 'settings-field';
-  el.id = 'seizoensgroenten-assortiment-wrap';
-  el.innerHTML = `
-    <label>Seizoensgroenten — assortiment van deze week</label>
-    <div class="settings-hint" style="margin-top:-2px;margin-bottom:10px">
-      Wisselt wekelijks (keuze van de chef). Wat je hier instelt, verschijnt automatisch als keuze bij Seizoensgroenten in Portie-Etiketten.
-    </div>
-    <div id="groenten-lijst"></div>
-    <div class="groente-actionrow">
-      <button type="button" class="btn-add-groente" onclick="openAddGroente()">+ Groente toevoegen</button>
-      <button type="button" class="btn-groente-export" onclick="exportGroentenAssortiment()" title="Download als JSON-bestand">⬇ Exporteren</button>
-      <button type="button" class="btn-groente-import" onclick="document.getElementById('groenten-import-file').click()" title="JSON-bestand terug inladen">⬆ Importeren</button>
-      <input type="file" id="groenten-import-file" accept="application/json" style="display:none" onchange="importGroentenAssortiment(event)">
-    </div>
-  `;
-  wrap.appendChild(el);
-  renderGroentenLijst();
+  GROENTEN_VARIANTEN.forEach(cfg => {
+    const el = document.createElement('div');
+    el.className = 'settings-field';
+    el.id = `seizoensgroenten-assortiment-wrap-${cfg.key}`;
+    el.innerHTML = `
+      <label>${cfg.label}</label>
+      <div class="settings-hint" style="margin-top:-2px;margin-bottom:10px">
+        ${cfg.hint}
+      </div>
+      <div id="groenten-lijst-${cfg.key}"></div>
+      <div class="groente-actionrow">
+        <button type="button" class="btn-add-groente" onclick="openAddGroente('${cfg.key}')">+ Groente toevoegen</button>
+        <button type="button" class="btn-groente-export" onclick="exportGroentenAssortiment('${cfg.key}')" title="Download als JSON-bestand">⬇ Exporteren</button>
+        <button type="button" class="btn-groente-import" onclick="document.getElementById('groenten-import-file-${cfg.key}').click()" title="JSON-bestand terug inladen">⬆ Importeren</button>
+        <input type="file" id="groenten-import-file-${cfg.key}" accept="application/json" style="display:none" onchange="importGroentenAssortiment(event, '${cfg.key}')">
+      </div>
+    `;
+    wrap.appendChild(el);
+    renderGroentenLijst(cfg.key);
+  });
 }
 
-function renderGroentenLijst() {
-  const el = document.getElementById('groenten-lijst');
+function renderGroentenLijst(variant) {
+  const el = document.getElementById(`groenten-lijst-${variant}`);
   if (!el) return;
-  if (!groentenAssortiment.length) {
-    el.innerHTML = '<p class="settings-empty">Nog geen groenten in het assortiment. Voeg de keuze van deze week toe.</p>';
+  const lijst = groentenAssortimenten[variant] || [];
+  if (!lijst.length) {
+    el.innerHTML = '<p class="settings-empty">Nog geen groenten in dit assortiment.</p>';
     return;
   }
-  el.innerHTML = groentenAssortiment.map(g => `
+  el.innerHTML = lijst.map(g => `
     <div class="groente-card">
       <div class="groente-info">
         <div class="groente-naam">${g.naam}</div>
         <div class="groente-meta">${g.eenheid === 'gram' ? `${g.perPlateau} g per persoon` : `${g.perPlateau} st. per plateau`}</div>
       </div>
       <div class="groente-actions">
-        <button class="btn-icon" onclick="editGroente('${g.id}')" title="Bewerken">
+        <button class="btn-icon" onclick="editGroente('${variant}', '${g.id}')" title="Bewerken">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         </button>
-        <button class="btn-icon btn-icon-danger" onclick="deleteGroente('${g.id}')" title="Verwijderen">
+        <button class="btn-icon btn-icon-danger" onclick="deleteGroente('${variant}', '${g.id}')" title="Verwijderen">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
         </button>
       </div>
     </div>`).join('');
 }
 
-function openAddGroente() {
-  document.getElementById('groente-form-title').textContent = 'Groente toevoegen';
+function openAddGroente(variant) {
+  document.getElementById('groente-variant').value = variant;
+  document.getElementById('groente-form-title').textContent = 'Groente toevoegen — ' + variantConfig(variant).label;
   document.getElementById('groente-id').value = '';
   document.getElementById('groente-naam').value = '';
   document.getElementById('groente-eenheid').value = 'stuk';
@@ -216,10 +245,11 @@ function openAddGroente() {
   document.getElementById('groente-modal').style.display = 'flex';
 }
 
-function editGroente(id) {
-  const g = groentenAssortiment.find(g => g.id === id);
+function editGroente(variant, id) {
+  const g = (groentenAssortimenten[variant] || []).find(g => g.id === id);
   if (!g) return;
-  document.getElementById('groente-form-title').textContent = 'Groente bewerken';
+  document.getElementById('groente-variant').value = variant;
+  document.getElementById('groente-form-title').textContent = 'Groente bewerken — ' + variantConfig(variant).label;
   document.getElementById('groente-id').value = g.id;
   document.getElementById('groente-naam').value = g.naam;
   document.getElementById('groente-eenheid').value = g.eenheid;
@@ -245,6 +275,7 @@ window._updateGroentePerLabel = function () {
 };
 
 function saveGroenteForm() {
+  const variant = document.getElementById('groente-variant').value || 'standaard';
   const id = document.getElementById('groente-id').value;
   const naam = document.getElementById('groente-naam').value.trim();
   const eenheid = document.getElementById('groente-eenheid').value;
@@ -253,22 +284,23 @@ function saveGroenteForm() {
   if (!naam) { alert('Vul een naam in.'); return; }
   if (!perPlateau || perPlateau <= 0) { alert('Vul een geldig aantal in.'); return; }
 
+  const lijst = groentenAssortimenten[variant] || (groentenAssortimenten[variant] = []);
   if (id) {
-    const g = groentenAssortiment.find(g => g.id === id);
+    const g = lijst.find(g => g.id === id);
     if (g) { g.naam = naam; g.eenheid = eenheid; g.perPlateau = perPlateau; }
   } else {
-    groentenAssortiment.push({ id: Date.now().toString(), naam, eenheid, perPlateau });
+    lijst.push({ id: Date.now().toString(), naam, eenheid, perPlateau });
   }
-  saveGroentenAssortiment();
+  saveGroentenAssortiment(variant);
   closeGroenteModal();
-  renderGroentenLijst();
+  renderGroentenLijst(variant);
 }
 
-function deleteGroente(id) {
+function deleteGroente(variant, id) {
   if (!confirm('Deze groente uit het assortiment verwijderen?')) return;
-  groentenAssortiment = groentenAssortiment.filter(g => g.id !== id);
-  saveGroentenAssortiment();
-  renderGroentenLijst();
+  groentenAssortimenten[variant] = (groentenAssortimenten[variant] || []).filter(g => g.id !== id);
+  saveGroentenAssortiment(variant);
+  renderGroentenLijst(variant);
 }
 
 function closeGroenteModal() {
@@ -276,25 +308,29 @@ function closeGroenteModal() {
 }
 
 /* ── Export/Import groenten-assortiment (JSON-bestand) ──
-   Dit is de enige manier om het assortiment mee te nemen naar een
+   Dit is de enige manier om een assortiment mee te nemen naar een
    ander toestel/browser: het staat NIET in de code op GitHub, enkel
-   lokaal in de localStorage van het toestel waar het is ingevoerd. */
-function exportGroentenAssortiment() {
-  if (!groentenAssortiment.length) { alert('Nog geen groenten om te exporteren.'); return; }
-  const data = JSON.stringify(groentenAssortiment, null, 2);
+   lokaal in de localStorage van het toestel waar het is ingevoerd.
+   Elke variant (Standaard / Rouwmaaltijd) wordt apart geëxporteerd
+   en geïmporteerd, zodat ze nooit door elkaar lopen. */
+function exportGroentenAssortiment(variant) {
+  const lijst = groentenAssortimenten[variant] || [];
+  if (!lijst.length) { alert('Nog geen groenten om te exporteren.'); return; }
+  const data = JSON.stringify(lijst, null, 2);
   const blob = new Blob([data], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   const stamp = new Date().toISOString().slice(0, 10);
+  const naamDeel = variant === 'rouwmaaltijd' ? 'Rouwmaaltijd' : 'Standaard';
   a.href = url;
-  a.download = `HVW_Seizoensgroenten_${stamp}.json`;
+  a.download = `HVW_Seizoensgroenten_${naamDeel}_${stamp}.json`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
 
-function importGroentenAssortiment(event) {
+function importGroentenAssortiment(event, variant) {
   const file = event.target.files[0];
   if (!file) return;
 
@@ -318,24 +354,25 @@ function importGroentenAssortiment(event) {
       return;
     }
 
-    const doMerge = groentenAssortiment.length > 0
-      ? confirm(`Er staan al ${groentenAssortiment.length} groente(n) in het assortiment.\n\nOK = samenvoegen met bestaande lijst\nAnnuleren = volledig vervangen door het geïmporteerde bestand`)
+    const bestaande = groentenAssortimenten[variant] || (groentenAssortimenten[variant] = []);
+    const doMerge = bestaande.length > 0
+      ? confirm(`Er staan al ${bestaande.length} groente(n) in dit assortiment.\n\nOK = samenvoegen met bestaande lijst\nAnnuleren = volledig vervangen door het geïmporteerde bestand`)
       : true;
 
-    if (doMerge && groentenAssortiment.length > 0) {
+    if (doMerge && bestaande.length > 0) {
       // Samenvoegen: bestaande namen niet dupliceren, nieuwe id's voor geïmporteerde items
-      const bestaandeNamen = groentenAssortiment.map(g => g.naam.toLowerCase());
+      const bestaandeNamen = bestaande.map(g => g.naam.toLowerCase());
       imported.forEach(g => {
         if (!bestaandeNamen.includes(g.naam.toLowerCase())) {
-          groentenAssortiment.push({ id: Date.now().toString() + Math.random().toString(36).slice(2, 6), naam: g.naam, eenheid: g.eenheid, perPlateau: g.perPlateau });
+          bestaande.push({ id: Date.now().toString() + Math.random().toString(36).slice(2, 6), naam: g.naam, eenheid: g.eenheid, perPlateau: g.perPlateau });
         }
       });
     } else {
-      groentenAssortiment = imported.map(g => ({ id: Date.now().toString() + Math.random().toString(36).slice(2, 6), naam: g.naam, eenheid: g.eenheid, perPlateau: g.perPlateau }));
+      groentenAssortimenten[variant] = imported.map(g => ({ id: Date.now().toString() + Math.random().toString(36).slice(2, 6), naam: g.naam, eenheid: g.eenheid, perPlateau: g.perPlateau }));
     }
 
-    saveGroentenAssortiment();
-    renderGroentenLijst();
+    saveGroentenAssortiment(variant);
+    renderGroentenLijst(variant);
     if (typeof window._peRefreshOnShow === 'function') window._peRefreshOnShow();
     alert(`${imported.length} groente(n) geïmporteerd.`);
     event.target.value = '';
