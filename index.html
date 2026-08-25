@@ -726,6 +726,7 @@
       <div class="modal-header"><span class="modal-title" id="groente-form-title">Groente toevoegen</span><button class="modal-close" onclick="closeGroenteModal()">×</button></div>
       <div class="modal-body">
         <input type="hidden" id="groente-id">
+        <input type="hidden" id="groente-variant" value="standaard">
         <div class="form-field"><label>Naam</label><input type="text" id="groente-naam" placeholder="bv. Witloof, Puree wortel"></div>
         <div class="form-field"><label>Eenheid</label>
           <select id="groente-eenheid" onchange="window._updateGroentePerLabel()">
