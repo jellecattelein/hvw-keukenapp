@@ -283,6 +283,7 @@ function processData(data) {
       location: (r['Location'] || '').toString().trim(),
       rooms: (r['Room name']  || '').toString().trim().split(';').map(s=>s.trim()).filter(Boolean),
       event: (r['Event name'] || '').toString().trim(),
+      bookingId: (r['Booking ID'] || '').toString().trim(),
     });
   });
   rawData = data;
