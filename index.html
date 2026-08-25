@@ -492,6 +492,9 @@
       <button class="sb-item" data-page="portie-etiketten" onclick="sbShow('portie-etiketten')">
         <span class="sb-icon">🍽️</span> Portie-Etiketten
       </button>
+      <button class="sb-item" data-page="weekmap" onclick="sbShow('weekmap')">
+        <span class="sb-icon">📑</span> Weekmap Voorpagina's
+      </button>
 
       <div class="sb-section">Beheer</div>
       <button class="sb-item" data-page="settings" onclick="sbShow('settings')">
@@ -797,6 +800,7 @@
   <script src="assets/functionsheets.js"></script>
   <script src="assets/snelle-etiketten.js"></script>
   <script src="assets/portie-etiketten.js"></script>
+  <script src="assets/weekmap.js"></script>
   <script src="assets/bakker.js"></script>
   <script src="assets/broodjes.js"></script>
   <script src="assets/recepten.js"></script>
@@ -804,7 +808,7 @@
 
   <script>
   /* ═══ SIDEBAR ROUTING ═══ */
-  const PAGE_TITLES = { dashboard:'Dashboard', feesten:'Feestenoverzicht', calculator:'Bestelcalculator', ijs:'IJsdesserts', etiketten:'Karren-Etiketten', tijdstool:'Tijdstool', functionsheets:'Functionsheet Boekconverter', 'snel-etiketten':'Snelle Etiketten', 'portie-etiketten':'Portie-Etiketten', bakker:'Bakker Bestelformulier', recepten:'Recepten', overzicht:'Productoverzicht', broodjes:'Broodjesoverzicht', settings:'Instellingen', 'feest-detail':'Feestdetail' };
+  const PAGE_TITLES = { dashboard:'Dashboard', feesten:'Feestenoverzicht', calculator:'Bestelcalculator', ijs:'IJsdesserts', etiketten:'Karren-Etiketten', tijdstool:'Tijdstool', functionsheets:'Functionsheet Boekconverter', 'snel-etiketten':'Snelle Etiketten', 'portie-etiketten':'Portie-Etiketten', weekmap:'Weekmap Voorpagina\'s', bakker:'Bakker Bestelformulier', recepten:'Recepten', overzicht:'Productoverzicht', broodjes:'Broodjesoverzicht', settings:'Instellingen', 'feest-detail':'Feestdetail' };
   const LOC_DOT = { TRA:'#3D87D4', MAE:'#4CAF82', HVW:'#D4603A', BIE:'#9C6AB5', AFH:'#C4A020' };
   const LOC_LBL = { TRA:'Traiteur', MAE:'Maelstede', HVW:'Huis van Wonterghem', BIE:'Bierkasteel', AFH:'Afhaal' };
 
@@ -858,7 +862,7 @@
     // Verberg alle pages
     document.querySelectorAll('.page').forEach(p => { p.classList.remove('active'); });
     // Verberg module divs
-    ['ijs-content-wrap','etiketten-content','tijdstool-content','recepten-content','overzicht-content','broodjes-content','functionsheets-content','snel-etiketten-content','portie-etiketten-content','bakker-content'].forEach(id => { const e = document.getElementById(id); if(e) e.style.display='none'; });
+    ['ijs-content-wrap','etiketten-content','tijdstool-content','recepten-content','overzicht-content','broodjes-content','functionsheets-content','snel-etiketten-content','portie-etiketten-content','bakker-content','weekmap-content'].forEach(id => { const e = document.getElementById(id); if(e) e.style.display='none'; });
     // Sluit sidebar alleen op mobile
     if (window.innerWidth <= 768) closeSidebar();
     // Sidebar actief zetten
@@ -900,6 +904,11 @@
       const w = document.getElementById('portie-etiketten-content');
       if (w) w.style.display = 'block';
       if (typeof window._peRefreshOnShow === 'function') window._peRefreshOnShow();
+      return;
+    }
+    if (pageId === 'weekmap') {
+      const w = document.getElementById('weekmap-content');
+      if (w) w.style.display = 'block';
       return;
     }
     if (pageId === 'bakker') {
