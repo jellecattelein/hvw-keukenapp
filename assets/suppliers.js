@@ -171,7 +171,12 @@ function renderSeizoensgroentenSettings() {
       Wisselt wekelijks (keuze van de chef). Wat je hier instelt, verschijnt automatisch als keuze bij Seizoensgroenten in Portie-Etiketten.
     </div>
     <div id="groenten-lijst"></div>
-    <button type="button" class="btn-add-groente" onclick="openAddGroente()">+ Groente toevoegen</button>
+    <div class="groente-actionrow">
+      <button type="button" class="btn-add-groente" onclick="openAddGroente()">+ Groente toevoegen</button>
+      <button type="button" class="btn-groente-export" onclick="exportGroentenAssortiment()" title="Download als JSON-bestand">⬇ Exporteren</button>
+      <button type="button" class="btn-groente-import" onclick="document.getElementById('groenten-import-file').click()" title="JSON-bestand terug inladen">⬆ Importeren</button>
+      <input type="file" id="groenten-import-file" accept="application/json" style="display:none" onchange="importGroentenAssortiment(event)">
+    </div>
   `;
   wrap.appendChild(el);
   renderGroentenLijst();
@@ -268,6 +273,74 @@ function deleteGroente(id) {
 
 function closeGroenteModal() {
   document.getElementById('groente-modal').style.display = 'none';
+}
+
+/* ── Export/Import groenten-assortiment (JSON-bestand) ──
+   Dit is de enige manier om het assortiment mee te nemen naar een
+   ander toestel/browser: het staat NIET in de code op GitHub, enkel
+   lokaal in de localStorage van het toestel waar het is ingevoerd. */
+function exportGroentenAssortiment() {
+  if (!groentenAssortiment.length) { alert('Nog geen groenten om te exporteren.'); return; }
+  const data = JSON.stringify(groentenAssortiment, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const stamp = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = `HVW_Seizoensgroenten_${stamp}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function importGroentenAssortiment(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    let imported;
+    try {
+      imported = JSON.parse(e.target.result);
+      if (!Array.isArray(imported)) throw new Error('Geen lijst');
+    } catch (err) {
+      alert('Kon dit bestand niet lezen. Is het een geldig geëxporteerd groenten-JSON-bestand?');
+      event.target.value = '';
+      return;
+    }
+
+    // Basale validatie per item
+    const valid = imported.every(g => g && typeof g.naam === 'string' && (g.eenheid === 'stuk' || g.eenheid === 'gram'));
+    if (!valid) {
+      alert('Het bestand bevat geen geldige groenten-data.');
+      event.target.value = '';
+      return;
+    }
+
+    const doMerge = groentenAssortiment.length > 0
+      ? confirm(`Er staan al ${groentenAssortiment.length} groente(n) in het assortiment.\n\nOK = samenvoegen met bestaande lijst\nAnnuleren = volledig vervangen door het geïmporteerde bestand`)
+      : true;
+
+    if (doMerge && groentenAssortiment.length > 0) {
+      // Samenvoegen: bestaande namen niet dupliceren, nieuwe id's voor geïmporteerde items
+      const bestaandeNamen = groentenAssortiment.map(g => g.naam.toLowerCase());
+      imported.forEach(g => {
+        if (!bestaandeNamen.includes(g.naam.toLowerCase())) {
+          groentenAssortiment.push({ id: Date.now().toString() + Math.random().toString(36).slice(2, 6), naam: g.naam, eenheid: g.eenheid, perPlateau: g.perPlateau });
+        }
+      });
+    } else {
+      groentenAssortiment = imported.map(g => ({ id: Date.now().toString() + Math.random().toString(36).slice(2, 6), naam: g.naam, eenheid: g.eenheid, perPlateau: g.perPlateau }));
+    }
+
+    saveGroentenAssortiment();
+    renderGroentenLijst();
+    if (typeof window._peRefreshOnShow === 'function') window._peRefreshOnShow();
+    alert(`${imported.length} groente(n) geïmporteerd.`);
+    event.target.value = '';
+  };
+  reader.readAsText(file);
 }
 
 function saveGeneralSetting(key, val) {
