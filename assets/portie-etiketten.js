@@ -1026,38 +1026,53 @@
       getGroentenAssortiment(variant).forEach(g => { assortimentById[g.id] = g; });
     });
 
+    // ── Seizoensgroenten: verzamel per (groente + zaal + gelegenheid + datum +
+    // locatie) en tel de personen samen. Eén gelegenheid komt in de CCM-Excel
+    // soms als meerdere losse rijen binnen (bv. hoofdtafel + een paar extra
+    // couverts apart geboekt) — dat moet in de keuken gewoon ÉÉN etiket
+    // wortelpuree/groente worden, niet drie aparte met een handvol personen. ──
+    const seizoenMerge = {}; // mergeKey -> { g, persons, room, opmerking, locCode, dateStr }
     allRows.forEach((r, idx) => {
       const key = rowKey(r, idx);
-
-      // ── Seizoensgroenten: verwerk aangevinkte groenten voor deze rij ──
       const groenteSel = rowGroenteSelectie[key];
-      if (groenteSel) {
-        Object.keys(groenteSel).forEach(groenteId => {
-          if (!groenteSel[groenteId]) return;
-          const g = assortimentById[groenteId];
-          if (!g) return;
-          const locCode = resolveLocCode(r);
-          const isGram = g.eenheid === 'gram';
+      if (!groenteSel) return;
+      Object.keys(groenteSel).forEach(groenteId => {
+        if (!groenteSel[groenteId]) return;
+        const g = assortimentById[groenteId];
+        if (!g) return;
+        const locCode = resolveLocCode(r);
+        const opmerking = r.event && r.event !== r.room ? r.event : '';
+        const mergeKey = [groenteId, r.room, opmerking, r.dateStr || '', locCode || ''].join('::');
+        if (!seizoenMerge[mergeKey]) {
+          seizoenMerge[mergeKey] = { g, persons: 0, room: r.room, opmerking, locCode, dateStr: r.dateStr || '' };
+        }
+        seizoenMerge[mergeKey].persons += r.persons;
+      });
+    });
+    Object.values(seizoenMerge).forEach(m => {
+      const g = m.g;
+      const isGram = g.eenheid === 'gram';
+      queue.push({
+        id: idCounter++,
+        product: g.naam,
+        persons: m.persons,
+        per: g.perPlateau,
+        perEenheid: g.eenheid,
+        // Gram-producten (bv. puree): altijd 1 etiket met het totaalgewicht
+        // (personen × gram/persoon), geen plateau-opsplitsing.
+        aantalEtiketten: isGram ? 1 : Math.ceil(m.persons / g.perPlateau),
+        totaalGewicht: isGram ? m.persons * g.perPlateau : null,
+        pakformaat: '',
+        zaal: m.room,
+        opmerking: m.opmerking,
+        locCode: m.locCode,
+        dateStr: m.dateStr,
+        editing: false
+      });
+    });
 
-          queue.push({
-            id: idCounter++,
-            product: g.naam,
-            persons: r.persons,
-            per: g.perPlateau,
-            perEenheid: g.eenheid,
-            // Gram-producten (bv. puree): altijd 1 etiket met het totaalgewicht
-            // (personen × gram/persoon), geen plateau-opsplitsing.
-            aantalEtiketten: isGram ? 1 : Math.ceil(r.persons / g.perPlateau),
-            totaalGewicht: isGram ? r.persons * g.perPlateau : null,
-            pakformaat: '',
-            zaal: r.room,
-            opmerking: r.event && r.event !== r.room ? r.event : '',
-            locCode,
-            dateStr: r.dateStr || '',
-            editing: false
-          });
-        });
-      }
+    allRows.forEach((r, idx) => {
+      const key = rowKey(r, idx);
 
       // ── Overige producten: normale checkbox-flow ──
       if (!selectedKeys.includes(key)) return;
