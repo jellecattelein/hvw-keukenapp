@@ -49,15 +49,31 @@
     try { portieRegels = JSON.parse(localStorage.getItem('hvw-portie-regels') || '{}'); } catch(e) { portieRegels = {}; }
   }
 
-  // Leest het wekelijkse groenten-assortiment uit dezelfde bron als de
-  // Instellingen-pagina (suppliers.js, localStorage-sleutel
-  // 'hvw-groenten-assortiment'). Eén bron van waarheid: wijzig je het
-  // assortiment in Instellingen, dan verandert het hier automatisch mee.
-  function getGroentenAssortiment() {
+  // Leest het groenten-assortiment uit dezelfde bron als de
+  // Instellingen-pagina (suppliers.js). Er bestaan TWEE aparte
+  // assortimenten met elk hun eigen localStorage-sleutel:
+  // - 'standaard'    → 'hvw-groenten-assortiment' (wekelijkse chef's keuze)
+  // - 'rouwmaaltijd' → 'hvw-groenten-assortiment-rouwmaaltijd' (apart, vast)
+  // Eén bron van waarheid per variant: wijzig je een assortiment in
+  // Instellingen, dan verandert het hier automatisch mee.
+  const GROENTEN_STORAGE_KEYS = {
+    standaard: 'hvw-groenten-assortiment',
+    rouwmaaltijd: 'hvw-groenten-assortiment-rouwmaaltijd'
+  };
+
+  function getGroentenAssortiment(variant) {
+    const storageKey = GROENTEN_STORAGE_KEYS[variant] || GROENTEN_STORAGE_KEYS.standaard;
     try {
-      const lijst = JSON.parse(localStorage.getItem('hvw-groenten-assortiment') || '[]');
+      const lijst = JSON.parse(localStorage.getItem(storageKey) || '[]');
       return Array.isArray(lijst) ? lijst : [];
     } catch(e) { return []; }
+  }
+
+  // Leidt welk assortiment (variant) van toepassing is af uit de
+  // volledige productnaam, bv. "Seizoensgroenten (Rouwmaaltijd)" -> 'rouwmaaltijd'.
+  function seizoenVariantOf(productName) {
+    const n = (productName || '').toLowerCase();
+    return n.includes('rouwmaaltijd') ? 'rouwmaaltijd' : 'standaard';
   }
 
   // Herkent specifiek "Seizoensgroenten (Standaard)" en varianten daarvan,
@@ -824,7 +840,8 @@
       : entries.every(({key}) => catChecked[key]);
 
     if (isSeizoen) {
-      const assortiment = getGroentenAssortiment();
+      const variant = seizoenVariantOf(base);
+      const assortiment = getGroentenAssortiment(variant);
       return `
         <div class="pe-group">
           <div class="pe-group-head">
@@ -834,8 +851,8 @@
           </div>
           ${!assortiment.length ? `
             <div class="pe-groente-leeg">
-              Nog geen groenten ingesteld voor deze week.
-              <a href="#" onclick="switchMode('settings'); return false;">Ga naar Instellingen</a> om het assortiment van deze week in te vullen.
+              Nog geen groenten ingesteld voor ${variant === 'rouwmaaltijd' ? 'Rouwmaaltijd' : 'deze week'}.
+              <a href="#" onclick="switchMode('settings'); return false;">Ga naar Instellingen</a> om dit assortiment in te vullen.
             </div>` : entries.map(({r, key}) => renderSeizoensgroentenRow(r, key, assortiment)).join('')}
         </div>`;
     }
@@ -967,7 +984,7 @@
   };
 
   window._peToggleSeizoenGroupAll = function (base, setTo) {
-    const assortiment = getGroentenAssortiment();
+    const assortiment = getGroentenAssortiment(seizoenVariantOf(base));
     allRows.forEach((r, idx) => {
       if (groupNameOf(r) !== base || r.tabId !== activeCatId || r.persons <= 0) return;
       const key = rowKey(r, idx);
@@ -1001,9 +1018,13 @@
   window._peBulkAdd = function () {
     if (!countChecked()) return;
     const selectedKeys = Object.keys(catChecked).filter(k => catChecked[k]);
-    const assortiment = getGroentenAssortiment();
+    // Combineer beide assortimenten (standaard + rouwmaaltijd) in één lookup-tabel:
+    // rowGroenteSelectie kan groente-id's uit elk van de twee varianten bevatten,
+    // afhankelijk van welk seizoensgroenten-product de rij hoort.
     const assortimentById = {};
-    assortiment.forEach(g => { assortimentById[g.id] = g; });
+    Object.keys(GROENTEN_STORAGE_KEYS).forEach(variant => {
+      getGroentenAssortiment(variant).forEach(g => { assortimentById[g.id] = g; });
+    });
 
     allRows.forEach((r, idx) => {
       const key = rowKey(r, idx);
