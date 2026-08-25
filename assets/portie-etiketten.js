@@ -159,6 +159,7 @@
         background: #F4F3F0; border: 1px solid #E8E5E0; border-radius: 20px; font-size: 12px; margin-bottom: 14px;
       }
       .pe-feest-chip button { border: none; background: none; cursor: pointer; color: #9A9590; padding: 0; display: flex; }
+      .pe-feest-hint { font-size: 12px; color: #9A9590; margin-bottom: 14px; line-height: 1.4; }
 
       .pe-list-title { font-size: 11px; font-weight: 600; color: #9A9590; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 10px; display:flex; justify-content:space-between; align-items:center; }
       .pe-list-clear { font-size: 11px; color: #B03A2E; cursor: pointer; text-transform: none; letter-spacing: 0; font-weight: 500; }
@@ -328,7 +329,7 @@
   }
 
   /* ── UI skelet ── */
-  let currentModus = 'los'; // 'los' | 'categorie'
+  let currentModus = 'los'; // 'los' | 'categorie' | 'zaal'
 
   function injectUI() {
     const wrap = document.createElement('div');
@@ -337,6 +338,7 @@
       <div class="pe-mode-tabs">
         <button class="pe-mode-tab active" id="pe-mode-los" onclick="window._peSwitchModus('los')">Los toevoegen</button>
         <button class="pe-mode-tab" id="pe-mode-cat" onclick="window._peSwitchModus('categorie')">Per categorie</button>
+        <button class="pe-mode-tab" id="pe-mode-zaal" onclick="window._peSwitchModus('zaal')">Per zaal</button>
       </div>
       <div id="pe-modus-los">
         <div class="pe-layout">
@@ -348,7 +350,12 @@
         <div id="pe-cat-picker-wrap"></div>
         <div id="pe-cat-groups-wrap"></div>
       </div>
-      <div id="pe-right-col-cat" style="margin-top:20px"></div>`;
+      <div id="pe-modus-zaal" style="display:none">
+        <div id="pe-zaal-picker-wrap"></div>
+        <div id="pe-zaal-groups-wrap"></div>
+      </div>
+      <div id="pe-right-col-cat" style="margin-top:20px"></div>
+      <div id="pe-right-col-zaal" style="margin-top:20px"></div>`;
     const appWrap = document.getElementById('app-wrap') || document.body;
     appWrap.appendChild(wrap);
 
@@ -358,6 +365,7 @@
     document.addEventListener('dataLoaded', () => {
       renderLeftColumn();
       if (currentModus === 'categorie') renderCategoriePicker();
+      if (currentModus === 'zaal') renderZaalPicker();
     });
   }
 
@@ -365,13 +373,19 @@
     currentModus = modus;
     document.getElementById('pe-mode-los').classList.toggle('active', modus === 'los');
     document.getElementById('pe-mode-cat').classList.toggle('active', modus === 'categorie');
+    document.getElementById('pe-mode-zaal').classList.toggle('active', modus === 'zaal');
     document.getElementById('pe-modus-los').style.display = modus === 'los' ? 'block' : 'none';
     document.getElementById('pe-modus-categorie').style.display = modus === 'categorie' ? 'block' : 'none';
+    document.getElementById('pe-modus-zaal').style.display = modus === 'zaal' ? 'block' : 'none';
     document.getElementById('pe-right-col-cat').style.display = modus === 'categorie' ? 'block' : 'none';
+    document.getElementById('pe-right-col-zaal').style.display = modus === 'zaal' ? 'block' : 'none';
     document.getElementById('pe-right-col').parentElement.style.display = modus === 'los' ? 'grid' : 'none';
     if (modus === 'categorie') {
       renderCategoriePicker();
       renderListInto('pe-right-col-cat');
+    } else if (modus === 'zaal') {
+      renderZaalPicker();
+      renderListInto('pe-right-col-zaal');
     } else {
       renderListInto('pe-right-col');
     }
@@ -452,7 +466,19 @@
   function renderFeestPicker() {
     const wrap = document.getElementById('pe-feest-picker-wrap');
     if (!wrap) return;
-    const events = (typeof allEvents !== 'undefined') ? allEvents : [];
+    let events = (typeof allEvents !== 'undefined') ? allEvents : [];
+
+    // Enkel feesten tonen die dit product ook effectief besteld hebben —
+    // anders kan je per ongeluk appelmoes koppelen aan een zaal die geen
+    // appelmoes op de kaart heeft staan.
+    if (selectedProduct) {
+      const bookingIds = new Set(
+        allRows
+          .filter(r => r.base === selectedProduct.base && r.bookingId)
+          .map(r => r.bookingId)
+      );
+      events = events.filter(e => bookingIds.has(e.bookingId));
+    }
 
     if (selectedFeest) {
       const label = `${selectedFeest.room} · ${fmtEventDate(selectedFeest)} · ${selectedFeest.persons}p`;
@@ -466,7 +492,15 @@
       return;
     }
 
-    if (!events.length) { wrap.innerHTML = ''; return; }
+    if (!selectedProduct) {
+      wrap.innerHTML = `<div class="pe-feest-hint">Kies eerst een product — dan tonen we enkel de zalen die dat product ook effectief besteld hebben.</div>`;
+      return;
+    }
+
+    if (!events.length) {
+      wrap.innerHTML = `<div class="pe-feest-hint">Geen enkel feest heeft "${escapeHtml(selectedProduct.base)}" besteld. Typ hieronder zelf een zaal in, of kies een ander product.</div>`;
+      return;
+    }
 
     const sorted = [...events].sort((a,b) => (a.date||'').localeCompare(b.date||''));
     wrap.innerHTML = `
@@ -490,7 +524,18 @@
     if (!ev) return;
     selectedFeest = ev;
     document.getElementById('pe-zaal').value = ev.room;
-    document.getElementById('pe-personen').value = ev.persons;
+
+    // Vul het aantal personen automatisch in met de werkelijk bestelde
+    // hoeveelheid van dit product voor dit feest — dat kan afwijken van het
+    // totaal aantal gasten (bv. niet iedereen krijgt appelmoes). Is er om
+    // wat voor reden geen exacte match, val dan terug op het totaal gasten.
+    let personen = ev.persons;
+    if (selectedProduct) {
+      const matchRow = allRows.find(r => r.base === selectedProduct.base && r.bookingId === bookingId);
+      if (matchRow) personen = matchRow.persons;
+    }
+    document.getElementById('pe-personen').value = personen;
+
     renderFeestPicker();
     window._peRecalc();
   };
@@ -550,7 +595,22 @@
     selectedProduct = { base };
     document.getElementById('pe-product-search').value = base;
     document.getElementById('pe-ac-list').innerHTML = '';
+
+    if (selectedFeest) {
+      // Zoek de werkelijk bestelde hoeveelheid van dit product voor het
+      // reeds gekoppelde feest, en vul personen daarmee automatisch in.
+      const matchRow = allRows.find(r => r.base === selectedProduct.base && r.bookingId === selectedFeest.bookingId);
+      if (matchRow) {
+        document.getElementById('pe-personen').value = matchRow.persons;
+      } else {
+        // Dit feest heeft dit product niet besteld — loskoppelen om een
+        // mismatch te vermijden.
+        selectedFeest = null;
+      }
+    }
+
     renderPortieHint();
+    renderFeestPicker();
     window._peRecalc();
   };
 
@@ -770,6 +830,187 @@
   function groupNameOf(r) { return r.name || r.base; }
 
   function rowKey(r, idx) { return r.tabId + '::' + groupNameOf(r) + '::' + idx; }
+
+  /* ══════════════════════════════
+     MODUS "PER ZAAL"
+     Kies eerst een feest/zaal, en zie meteen alles wat daarvoor
+     besteld is (over alle categorieën heen) om in bulk toe te voegen.
+     Seizoensgroenten-producten worden hier bewust NIET getoond — die
+     hebben hun eigen flow (Per categorie) omdat je daar een specifieke
+     groente uit het assortiment moet kiezen.
+     ══════════════════════════════ */
+  let activeZaalBookingId = null;
+  let zaalChecked = {};            // { groupKey: bool }
+  let zaalPersonenOverride = {};   // { groupKey: number }
+  let zaalPakformaat = '1/1 emmer';
+
+  function renderZaalPicker() {
+    const wrap = document.getElementById('pe-zaal-picker-wrap');
+    if (!wrap) return;
+
+    if (!hasData()) {
+      wrap.innerHTML = `
+        <div class="pe-card pe-no-data">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <div class="pe-no-data-title">Nog geen Excel-data geladen</div>
+          <div class="pe-no-data-sub">Upload eerst een CCM-export via de Calculator tab.</div>
+          <button class="btn btn-upload" onclick="switchMode('calculator')">Naar Calculator</button>
+        </div>`;
+      document.getElementById('pe-zaal-groups-wrap').innerHTML = '';
+      return;
+    }
+
+    const events = (typeof allEvents !== 'undefined') ? allEvents : [];
+    const sorted = [...events].sort((a,b) => (a.date||'').localeCompare(b.date||''));
+
+    wrap.innerHTML = `
+      <div class="pe-card">
+        <h3>Kies een zaal / feest</h3>
+        <div class="pe-card-sub">Alles wat voor dit feest besteld is, verschijnt automatisch als aanvinklijst hieronder.</div>
+        <select id="pe-zaal-select" onchange="window._peSelectZaal(this.value)">
+          <option value="">— Kies een feest —</option>
+          ${sorted.map(e => `<option value="${e.bookingId}" ${e.bookingId===activeZaalBookingId?'selected':''}>${escapeHtml(e.room)} · ${fmtEventDate(e)} · ${e.persons}p</option>`).join('')}
+        </select>
+      </div>`;
+
+    renderZaalGroups(activeZaalBookingId);
+  }
+
+  window._peSelectZaal = function (bookingId) {
+    activeZaalBookingId = bookingId || null;
+    zaalChecked = {};
+    zaalPersonenOverride = {};
+    renderZaalGroups(activeZaalBookingId);
+  };
+
+  // Bouwt de samengevoegde productenlijst voor één feest: per (base + tabId)
+  // worden meerdere Excel-rijen van datzelfde feest opgeteld tot 1 rij.
+  function computeZaalGroups(bookingId) {
+    if (!bookingId) return [];
+    const rows = allRows.filter(r => r.bookingId === bookingId && !isSeizoensgroentenHoofdproduct(groupNameOf(r)));
+    const map = {};
+    rows.forEach(r => {
+      const gName = groupNameOf(r);
+      const key = r.tabId + '::' + gName;
+      if (!map[key]) map[key] = { key, base: gName, tabId: r.tabId, persons: 0, rows: [] };
+      map[key].persons += r.persons;
+      map[key].rows.push(r);
+    });
+    return Object.values(map).sort((a,b) => a.base.localeCompare(b.base));
+  }
+
+  function renderZaalGroups(bookingId) {
+    const wrap = document.getElementById('pe-zaal-groups-wrap');
+    if (!wrap) return;
+    if (!bookingId) { wrap.innerHTML = ''; return; }
+
+    const events = (typeof allEvents !== 'undefined') ? allEvents : [];
+    const ev = events.find(e => e.bookingId === bookingId);
+    const groups = computeZaalGroups(bookingId);
+
+    if (!groups.length) {
+      wrap.innerHTML = `<div class="pe-groente-leeg" style="margin-top:12px">Geen (niet-seizoensgroente) producten gevonden voor dit feest.</div>`;
+      return;
+    }
+
+    const checkedCount = groups.filter(g => zaalChecked[g.key]).length;
+    const allChecked = checkedCount === groups.length;
+
+    wrap.innerHTML = `
+      <div class="pe-card" style="margin-top:14px">
+        <div class="pe-cat-header-bar">
+          <span class="pe-cat-header-count">${groups.length} product${groups.length===1?'':'en'} besteld${ev ? ` · ${escapeHtml(ev.room)} · ${fmtEventDate(ev)}` : ''}</span>
+          <span class="pe-cat-select-all-global" onclick="window._peZaalToggleAll(${allChecked ? 'false' : 'true'})">${allChecked ? 'Alles uitvinken' : 'Alles selecteren'}</span>
+        </div>
+
+        ${groups.map(g => {
+          const per = portieRegels[g.base] || 100;
+          const persons = zaalPersonenOverride[g.key] ?? g.persons;
+          const aantal = Math.ceil(persons / per);
+          const checked = !!zaalChecked[g.key];
+          const safeKey = g.key.replace(/[^a-zA-Z0-9]/g, '_');
+          return `
+            <label class="pe-row-check">
+              <input type="checkbox" ${checked?'checked':''} onchange="window._peZaalToggleRow('${escAttr(g.key)}', this.checked)">
+              <div class="pe-row-check-main">
+                <div class="pe-row-check-event">${escapeHtml(g.base)}</div>
+                <div class="pe-row-check-meta">${TAB_LABELS[g.tabId] || g.tabId} · 1 etiket per ${per}p</div>
+              </div>
+              <input type="number" min="1" value="${persons}" style="width:64px" title="Aantal personen"
+                     onchange="window._peZaalSetPersonen('${escAttr(g.key)}', this.value)">
+              <span class="pe-row-check-etik">${aantal} et.</span>
+            </label>`;
+        }).join('')}
+
+        <div class="pe-cat-actions">
+          <div class="pe-field" style="margin-bottom:0;max-width:180px">
+            <label>Verpakkingsformaat</label>
+            <select onchange="window._peZaalSetPak(this.value)">
+              ${PAK_FORMATEN.map(p => `<option value="${p}" ${p===zaalPakformaat?'selected':''}>${p}</option>`).join('')}
+            </select>
+          </div>
+          <div>
+            <span class="pe-cat-selected-count">${checkedCount} product(en) geselecteerd</span>
+            <button class="pe-cat-add-btn" id="pe-zaal-add-btn" onclick="window._peZaalBulkAdd()" ${checkedCount?'':'disabled'}>+ Toevoegen aan lijst</button>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  window._peZaalToggleRow = function (key, checked) {
+    zaalChecked[key] = checked;
+    renderZaalGroups(activeZaalBookingId);
+  };
+
+  window._peZaalSetPersonen = function (key, val) {
+    const n = Math.max(0, parseInt(val, 10) || 0);
+    zaalPersonenOverride[key] = n;
+  };
+
+  window._peZaalSetPak = function (val) {
+    zaalPakformaat = val;
+  };
+
+  window._peZaalToggleAll = function (setTo) {
+    computeZaalGroups(activeZaalBookingId).forEach(g => { zaalChecked[g.key] = setTo; });
+    renderZaalGroups(activeZaalBookingId);
+  };
+
+  window._peZaalBulkAdd = function () {
+    const groups = computeZaalGroups(activeZaalBookingId);
+    const events = (typeof allEvents !== 'undefined') ? allEvents : [];
+    const ev = events.find(e => e.bookingId === activeZaalBookingId);
+    let toegevoegd = 0;
+
+    groups.forEach(g => {
+      if (!zaalChecked[g.key]) return;
+      const per = portieRegels[g.base] || 100;
+      const persons = zaalPersonenOverride[g.key] ?? g.persons;
+      const eersteRij = g.rows[0];
+      const opmerking = eersteRij.event && eersteRij.event !== eersteRij.room ? eersteRij.event : '';
+
+      queue.push({
+        id: idCounter++,
+        product: g.base,
+        persons,
+        per,
+        aantalEtiketten: Math.ceil(persons / per),
+        pakformaat: zaalPakformaat,
+        zaal: ev ? ev.room : eersteRij.room,
+        opmerking,
+        locCode: resolveLocCode(eersteRij),
+        dateStr: eersteRij.dateStr || '',
+        editing: false
+      });
+      toegevoegd++;
+    });
+
+    zaalChecked = {};
+    zaalPersonenOverride = {};
+    renderZaalGroups(activeZaalBookingId);
+    renderList();
+    if (!toegevoegd) alert('Niets geselecteerd om toe te voegen.');
+  };
 
   function renderCategoryGroups(catId) {
     const wrap = document.getElementById('pe-cat-groups-wrap');
@@ -1542,6 +1783,9 @@
     renderLeftColumn();
     if (currentModus === 'categorie') {
       renderCategoriePicker(); // herrendert ook renderCategoryGroups(activeCatId) indien actief
+    }
+    if (currentModus === 'zaal') {
+      renderZaalPicker(); // herrendert ook renderZaalGroups(activeZaalBookingId) indien actief
     }
   };
 
