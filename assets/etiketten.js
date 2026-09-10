@@ -48,10 +48,21 @@
         padding: 9px 20px; background: var(--text); color: #fff;
         border: none; border-radius: var(--radius);
         font-size: 13px; font-weight: 600; cursor: pointer;
-        transition: opacity 0.15s; margin-left: auto;
+        transition: opacity 0.15s;
       }
       .etik-pdf-btn:hover { opacity: 0.82; }
       .etik-pdf-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+      .etik-print-actions { display: flex; gap: 8px; margin-left: auto; }
+      .etik-dymo-btn {
+        display: inline-flex; align-items: center; gap: 7px;
+        padding: 9px 20px; background: #fff; color: var(--text);
+        border: 1.5px solid var(--text); border-radius: var(--radius);
+        font-size: 13px; font-weight: 600; cursor: pointer;
+        transition: all 0.15s;
+      }
+      .etik-dymo-btn:hover { background: var(--text); color: #fff; }
+      .etik-dymo-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
       .etik-list {
         display: flex; flex-direction: column; gap: 10px;
@@ -345,6 +356,55 @@
     }
   }
 
+  /* ══════════════════════════════
+     PRINT NAAR DYMO/123INKT (28×89mm)
+     Gebruikt exact dezelfde sortering en kar-expansie
+     als de PDF-export, zodat beide altijd overeenkomen.
+     ══════════════════════════════ */
+  const DYMO_LOC_COLORS = {
+    TRA: [26, 63, 111], MAE: [45, 106, 79], HVW: [139, 37, 0],
+    BIE: [107, 58, 125], AFH: [139, 106, 0],
+  };
+
+  function buildExpandedEtikLabels() {
+    const selected = etiketData.filter(e => e.selected);
+    const sorted = [...selected].sort((a, b) => {
+      if (a.date !== b.date) return a.date.localeCompare(b.date);
+      if (a.time !== b.time) return (a.time || '').localeCompare(b.time || '');
+      return (a.room || '').localeCompare(b.room || '');
+    });
+    const labels = [];
+    sorted.forEach(e => {
+      for (let k = 1; k <= e.karren; k++) labels.push({ ...e, karNr: k });
+    });
+    return labels;
+  }
+
+  function toDymoLabel(label) {
+    const rgb = DYMO_LOC_COLORS[label.locCode] || [100, 100, 100];
+    let badge = '';
+    if (label.date) {
+      const [yr, mo, da] = label.date.split('-');
+      badge = `${shortDay(label.date)} ${+da}/${+mo}`;
+    }
+    if (label.karren > 1) badge += `  ${label.karNr}/${label.karren}`;
+    return {
+      heading: label.room || '',
+      sub: label.locLabel || label.locCode || '',
+      badge,
+      footerRight: `${label.persons} pers.`,
+      note: label.time ? `start ${label.time}` : '',
+      color: rgb,
+    };
+  }
+
+  window._etikPrintDymo = function () {
+    const selected = etiketData.filter(e => e.selected);
+    if (!selected.length) { alert('Selecteer minstens één feest.'); return; }
+    const dymoLabels = buildExpandedEtikLabels().map(toDymoLabel);
+    window.hvwDymoPrint(dymoLabels);
+  };
+
   function drawLabel(doc, x, y, label) {
     const w = LABEL_W;
     const h = LABEL_H;
@@ -496,15 +556,21 @@
             }).call(this)">
           <span class="etik-karren-label">karren</span>
         </div>
-        <button class="etik-pdf-btn" id="etik-pdf-btn" onclick="window._generateEtiketPDF()">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-            <polyline points="14 2 14 8 20 8"/>
-            <line x1="12" y1="18" x2="12" y2="12"/>
-            <line x1="9" y1="15" x2="15" y2="15"/>
-          </svg>
-          PDF afdrukken
-        </button>
+        <div class="etik-print-actions">
+          <button class="etik-pdf-btn" id="etik-pdf-btn" onclick="window._generateEtiketPDF()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="12" y1="18" x2="12" y2="12"/>
+              <line x1="9" y1="15" x2="15" y2="15"/>
+            </svg>
+            PDF afdrukken
+          </button>
+          <button class="etik-dymo-btn" id="etik-dymo-btn" onclick="window._etikPrintDymo()" title="Print rechtstreeks naar de Dymo/123inkt labelprinter (28×89mm)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="9" width="20" height="6" rx="1"/><path d="M7 15v3M17 15v3"/></svg>
+            Print naar Dymo
+          </button>
+        </div>
       </div>
       <div class="etik-stats-bar" id="etik-stats"></div>
       <div class="etik-list" id="etik-list">
