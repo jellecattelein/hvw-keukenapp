@@ -36,6 +36,14 @@
         font-family: 'Cormorant Garamond', serif;
         font-size: 17px; font-weight: 500;
       }
+      .broodjes-day-actions { display: flex; align-items: center; gap: 8px; }
+      .broodjes-day-btn {
+        display: inline-flex; align-items: center; gap: 5px;
+        padding: 5px 10px; font-size: 11px; font-weight: 600;
+        border: 1.5px solid #DEDAD4; background: #fff; color: #1A1917;
+        border-radius: 20px; cursor: pointer; transition: all 0.15s;
+      }
+      .broodjes-day-btn:hover { background: #1A1917; color: #fff; border-color: #1A1917; }
       .broodjes-day-total {
         font-family: 'DM Mono', monospace; font-size: 13px;
         font-weight: 600; color: #B8965A;
@@ -60,6 +68,21 @@
       }
       .broodjes-table tr:last-child td { border-bottom: none; }
       .broodjes-table tr:hover td { background: #FAFAF8; }
+      .broodjes-table tr.broodjes-row-uit { opacity: 0.4; }
+      .broodjes-cb { width: 30px; text-align: center !important; }
+      .broodjes-cb input { width: 16px; height: 16px; cursor: pointer; }
+      .broodjes-row-print {
+        width: 26px; height: 26px; border-radius: 6px; border: 1px solid #DEDAD4;
+        background: #fff; color: #9A9590; cursor: pointer;
+        display: flex; align-items: center; justify-content: center; transition: all 0.15s;
+      }
+      .broodjes-row-print:hover { background: #1A1917; color: #fff; border-color: #1A1917; }
+
+      .broodjes-day-all {
+        display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600;
+        color: #6B655E; cursor: pointer; user-select: none;
+      }
+      .broodjes-day-all input { width: 14px; height: 14px; cursor: pointer; }
 
       .broodjes-room { font-weight: 600; font-size: 13px; }
       .broodjes-sub  { font-size: 11px; color: #9A9590; margin-top: 2px; }
@@ -130,6 +153,29 @@
     return { hg: heeftHG, soep: heeftSoep, aantal, persons, perPersoon };
   }
 
+  // Onthoudt welke feesten uitgevinkt zijn (uitgesloten van printen). Alles
+  // staat standaard aan; enkel expliciet uitgevinkte sleutels staan hierin.
+  let excludedFeesten = new Set();
+
+  function feestKey(e) {
+    return `${e.bookingId || ''}|${e.date || ''}|${e.time || ''}`;
+  }
+
+  window._broodjesToggleRow = function (key, checked) {
+    if (checked) excludedFeesten.delete(key); else excludedFeesten.add(key);
+    renderBroodjes();
+  };
+
+  window._broodjesToggleDay = function (date, checked) {
+    (typeof allEvents !== 'undefined' ? allEvents : [])
+      .filter(e => e.date === date)
+      .forEach(e => {
+        const key = feestKey(e);
+        if (checked) excludedFeesten.delete(key); else excludedFeesten.add(key);
+      });
+    renderBroodjes();
+  };
+
   /* ── Render ── */
   window.renderBroodjes = function(weekFilter) {
     const el = document.getElementById('broodjes-content');
@@ -165,15 +211,20 @@
     });
 
     let totalBroodjes = 0;
+    let uitgeslotenCount = 0;
     let dagHtml = '';
 
     Object.keys(byDate).sort().forEach(date => {
       const dagEvents = byDate[date].sort((a, b) => (a.time || '').localeCompare(b.time || ''));
       let dagTotal = 0;
+      let dagAangevinkt = 0;
 
       const rows = dagEvents.map(e => {
         const { hg, soep, aantal, persons, perPersoon } = berekenBroodjes(e);
         dagTotal += aantal;
+        const key = feestKey(e);
+        const checked = !excludedFeesten.has(key);
+        if (checked) dagAangevinkt++; else uitgeslotenCount++;
 
         const rooms = (e.room || '').split(';').map(r => r.trim()).join(', ');
         const tagHtml = hg
@@ -185,7 +236,10 @@
           : '';
 
         return `
-          <tr>
+          <tr class="${checked ? '' : 'broodjes-row-uit'}">
+            <td class="broodjes-cb no-print">
+              <input type="checkbox" ${checked ? 'checked' : ''} onchange="window._broodjesToggleRow('${key}', this.checked)" title="Meenemen bij printen">
+            </td>
             <td>
               <div class="broodjes-room">${rooms}</div>
               <div class="broodjes-sub">${e.time || '—'} &nbsp;·&nbsp; ${tagHtml}</div>
@@ -193,25 +247,47 @@
             <td class="broodjes-pers">${persons}</td>
             <td><div class="broodjes-sub" style="text-align:right">${subTxt}</div></td>
             <td><span class="broodjes-num ${aantal === 0 ? 'zero' : ''}">${aantal || '—'}</span></td>
+            <td class="no-print">
+              ${hg && aantal > 0 ? `<button class="broodjes-row-print" onclick="broodjesPrintDymoFeest('${key}')" title="Print enkel dit feest naar Dymo">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="9" width="20" height="6" rx="1"/><path d="M7 15v3M17 15v3"/></svg>
+              </button>` : ''}
+            </td>
           </tr>`;
       }).join('');
 
       totalBroodjes += dagTotal;
+      const alleAangevinkt = dagAangevinkt === dagEvents.length;
 
       const fmt = typeof formatDate === 'function' ? formatDate(date) : date;
       dagHtml += `
         <div class="broodjes-card">
           <div class="broodjes-day-header">
             <span class="broodjes-day-title">${fmt}</span>
-            <span class="broodjes-day-total">${dagTotal} broodjes</span>
+            <div class="broodjes-day-actions no-print">
+              <label class="broodjes-day-all">
+                <input type="checkbox" ${alleAangevinkt ? 'checked' : ''} onchange="window._broodjesToggleDay('${date}', this.checked)">
+                Alles
+              </label>
+              <button class="broodjes-day-btn" onclick="broodjesPDFDag('${date}')" title="PDF voor deze dag (enkel aangevinkte feesten)">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                PDF
+              </button>
+              <button class="broodjes-day-btn" onclick="broodjesPrintDymoDag('${date}')" title="Print naar Dymo voor deze dag (enkel aangevinkte feesten)">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="9" width="20" height="6" rx="1"/><path d="M7 15v3M17 15v3"/></svg>
+                Dymo
+              </button>
+              <span class="broodjes-day-total">${dagTotal} broodjes</span>
+            </div>
           </div>
           <table class="broodjes-table">
             <thead>
               <tr>
+                <th style="width:30px"></th>
                 <th>Feest</th>
                 <th style="width:80px">Pers.</th>
                 <th style="width:120px">Berekening</th>
                 <th style="width:100px">Broodjes</th>
+                <th style="width:36px"></th>
               </tr>
             </thead>
             <tbody>${rows}</tbody>
@@ -230,7 +306,7 @@
         </select>
         <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
           <span style="font-family:'DM Mono',monospace;font-size:13px;color:#9A9590">
-            Totaal: <strong style="color:#1A1917">${totalBroodjes} broodjes</strong>
+            Totaal: <strong style="color:#1A1917">${totalBroodjes} broodjes</strong>${uitgeslotenCount ? ` <span style="color:#B03A2E">(${uitgeslotenCount} feest${uitgeslotenCount===1?'':'en'} uitgesloten van printen)</span>` : ''}
           </span>
           <button class="btn btn-primary no-print" onclick="broodjesPDF()">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
@@ -262,7 +338,7 @@
 
     const wk  = document.getElementById('broodjes-week')?.value || '';
     const events = (typeof allEvents !== 'undefined' ? allEvents : [])
-      .filter(e => !wk || e.weekKey === wk)
+      .filter(e => (!wk || e.weekKey === wk) && !excludedFeesten.has(feestKey(e)))
       .sort((a, b) => a.date !== b.date ? a.date.localeCompare(b.date) : (a.time||'').localeCompare(b.time||''));
 
     const byDate = {};
@@ -371,6 +447,184 @@
     doc.save(`HVW_Broodjes_${new Date().toLocaleDateString('nl-BE').replace(/\//g, '-')}.pdf`);
   };
 
+  /* ── PDF export: één specifieke dag ── */
+  window.broodjesPDFDag = async function(date) {
+    if (!window.jspdf) {
+      await new Promise((res, rej) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+        s.onload = res; s.onerror = rej;
+        document.head.appendChild(s);
+      });
+    }
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const W = 210; const margin = 16;
+    let y = 0;
+
+    const events = (typeof allEvents !== 'undefined' ? allEvents : [])
+      .filter(e => e.date === date && !excludedFeesten.has(feestKey(e)))
+      .sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+
+    if (!events.length) { alert('Geen aangevinkte feesten gevonden voor deze dag.'); return; }
+
+    const fmt = typeof formatDate === 'function' ? formatDate(date) : date;
+
+    // Header
+    doc.setFillColor(17, 17, 16);
+    doc.rect(0, 0, W, 16, 'F');
+    doc.setFontSize(8); doc.setFont('helvetica', 'bold');
+    doc.setTextColor(184, 150, 90);
+    doc.text('HUIS VAN WONTERGHEM — KEUKENAPP', margin, 10);
+    doc.setTextColor(255, 255, 255);
+    doc.text('Broodjesoverzicht — ' + fmt, W - margin, 10, { align: 'right' });
+    y = 24;
+
+    doc.setFontSize(18); doc.setFont('helvetica', 'bold'); doc.setTextColor(26, 25, 23);
+    doc.text('Broodjesoverzicht per feest', margin, y); y += 12;
+
+    let dagTotal = 0;
+
+    // Dag header
+    doc.setFillColor(244, 243, 240);
+    doc.rect(margin, y - 5, W - margin * 2, 9, 'F');
+    doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(26, 25, 23);
+    doc.text(fmt, margin + 2, y);
+    y += 6;
+
+    // Tabel header
+    doc.setFontSize(8); doc.setFont('helvetica', 'bold'); doc.setTextColor(154, 144, 129);
+    doc.text('FEEST', margin + 2, y);
+    doc.text('PERS.', 130, y);
+    doc.text('P/P', 155, y);
+    doc.text('BROODJES', W - margin - 2, y, { align: 'right' });
+    doc.setDrawColor(232, 229, 224); doc.setLineWidth(0.3);
+    doc.line(margin, y + 2, W - margin, y + 2);
+    y += 7;
+
+    events.forEach(e => {
+      const { hg, soep, aantal, persons, perPersoon } = berekenBroodjes(e);
+      dagTotal += aantal;
+
+      if (y > 274) { doc.addPage(); y = 16; }
+
+      const rooms = (e.room || '').split(';').map(r => r.trim()).join(', ');
+      const roomLines = doc.splitTextToSize(`${e.time || '—'}  ${rooms}`, 108);
+
+      doc.setFontSize(10); doc.setFont('helvetica', 'normal'); doc.setTextColor(26, 25, 23);
+      doc.text(roomLines, margin + 2, y);
+
+      doc.setTextColor(154, 144, 129);
+      doc.text(String(persons), 130, y);
+      doc.text(hg ? String(perPersoon) : '—', 155, y);
+
+      if (aantal > 0) {
+        doc.setFont('helvetica', 'bold'); doc.setTextColor(26, 25, 23);
+      } else {
+        doc.setFont('helvetica', 'normal'); doc.setTextColor(200, 194, 184);
+      }
+      doc.text(aantal > 0 ? String(aantal) : '—', W - margin - 2, y, { align: 'right' });
+
+      if (soep) {
+        doc.setFontSize(7); doc.setFont('helvetica', 'normal'); doc.setTextColor(26, 63, 111);
+        doc.text('incl. soep', W - margin - 2, y + 4, { align: 'right' });
+      }
+
+      y += roomLines.length * 5 + 3;
+    });
+
+    // Dag totaal
+    doc.setFillColor(247, 240, 228);
+    doc.rect(margin, y, W - margin * 2, 7, 'F');
+    doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.setTextColor(26, 25, 23);
+    doc.text('Totaal ' + fmt, margin + 2, y + 5);
+    doc.setTextColor(184, 150, 90);
+    doc.text(dagTotal + ' broodjes', W - margin - 2, y + 5, { align: 'right' });
+
+    // Footer
+    doc.setFontSize(8); doc.setTextColor(180, 174, 170);
+    doc.text('Huis van Wonterghem — Keukenapp', margin, 292);
+    doc.text(new Date().toLocaleDateString('nl-BE'), W - margin, 292, { align: 'right' });
+
+    doc.save(`HVW_Broodjes_${date}.pdf`);
+  };
+
+  /* ── Print naar Dymo/123inkt: plateaukaartjes voor één specifieke dag ──
+     Gebruikt dezelfde plateauverdeling (25 st/plateau, 50 st/plateau voor
+     Maelstede/HVW) als de bestaande "Plateaukaartjes" PDF-export. ── */
+  const LOC_RGB_BROODJES = {
+    TRA: [26,63,111], MAE: [45,106,79], HVW: [139,37,0], BIE: [107,58,125], AFH: [139,106,0]
+  };
+  const LOC_LBL_BROODJES = {
+    TRA: 'Traiteur', MAE: 'Maelstede', HVW: 'Huis van Wonterghem', BIE: 'Bierkasteel', AFH: 'Afhaal'
+  };
+  function getPerPlateauBroodjes(locCode) {
+    return ['MAE', 'HVW'].includes(locCode) ? 50 : 25;
+  }
+
+  function fmtShortDayDate(dateStr) {
+    if (!dateStr) return '';
+    const DAG_KORT = ['zo','ma','di','wo','do','vr','za'];
+    const [y, m, d] = dateStr.split('-');
+    const dt = new Date(Number(y), Number(m) - 1, Number(d));
+    const dagLabel = isNaN(dt.getTime()) ? '' : DAG_KORT[dt.getDay()] + ' ';
+    return `${dagLabel}${Number(d)}/${Number(m)}`;
+  }
+
+  // Bouwt Dymo-labels (plateaukaartjes) voor een lijst events — gedeeld door
+  // de dag-brede en de per-feest print.
+  function buildBroodjesDymoLabels(events) {
+    const dymoLabels = [];
+    events.forEach(e => {
+      const { hg, aantal, persons } = berekenBroodjes(e);
+      if (!hg || aantal <= 0) return;
+
+      const perPlateau = getPerPlateauBroodjes(e.location || '');
+      const plateaus = Math.ceil(aantal / perPlateau);
+      const room = (e.room || '').split(';')[0].trim();
+
+      for (let p = 1; p <= plateaus; p++) {
+        const stuks = p < plateaus ? perPlateau : (aantal - (plateaus - 1) * perPlateau);
+        dymoLabels.push({
+          heading: room,
+          sub: LOC_LBL_BROODJES[e.location] || e.location || '',
+          badge: fmtShortDayDate(e.date) + (plateaus > 1 ? `  ${p}/${plateaus}` : ''),
+          footerRight: `${stuks} st.`,
+          note: `${persons} pers. · ${aantal} broodjes totaal`,
+          color: LOC_RGB_BROODJES[e.location] || [100, 100, 100],
+        });
+      }
+    });
+    return dymoLabels;
+  }
+
+  window.broodjesPrintDymoDag = function(date) {
+    const events = (typeof allEvents !== 'undefined' ? allEvents : [])
+      .filter(e => e.date === date && !excludedFeesten.has(feestKey(e)))
+      .sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+
+    const dymoLabels = buildBroodjesDymoLabels(events);
+    if (!dymoLabels.length) {
+      alert('Geen aangevinkte broodjes-plateaus gevonden voor deze dag.');
+      return;
+    }
+    window.hvwDymoPrint(dymoLabels);
+  };
+
+  // Print de plateaukaartjes voor precies één feest, ongeacht de checkbox-status.
+  window.broodjesPrintDymoFeest = function(key) {
+    const [bookingId, date, time] = key.split('|');
+    const events = (typeof allEvents !== 'undefined' ? allEvents : [])
+      .filter(e => (e.bookingId || '') === bookingId && (e.date || '') === date && (e.time || '') === time);
+
+    const dymoLabels = buildBroodjesDymoLabels(events);
+    if (!dymoLabels.length) {
+      alert('Geen broodjes-plateaus voor dit feest (geen hoofdgerecht besteld).');
+      return;
+    }
+    window.hvwDymoPrint(dymoLabels);
+  };
+
   /* ── Init ── */
   document.addEventListener('DOMContentLoaded', () => {
     injectCSS();
@@ -424,7 +678,7 @@
     // Verzamel alle plateau-kaartjes — gesorteerd op datum dan tijd
     const wk = document.getElementById('broodjes-week')?.value || '';
     const events = (typeof allEvents !== 'undefined' ? allEvents : [])
-      .filter(e => !wk || e.weekKey === wk)
+      .filter(e => (!wk || e.weekKey === wk) && !excludedFeesten.has(feestKey(e)))
       .sort((a, b) => {
         if (a.date !== b.date) return a.date.localeCompare(b.date);
         return (a.time || '').localeCompare(b.time || '');
