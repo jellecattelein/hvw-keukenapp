@@ -694,12 +694,29 @@
       </div>
 
       <!-- Wagenpark -->
-      <div class="settings-card" style="margin-top:18px">
+      <div class="settings-card" id="settings-card-wagenpark" style="margin-top:18px">
         <div class="settings-card-header">
           <span class="settings-card-title">🚐 Wagenpark</span>
           <button class="btn btn-primary" onclick="openAddCar()">+ Voertuig</button>
         </div>
         <div class="settings-card-body"><div id="car-settings-list"></div></div>
+      </div>
+
+      <!-- Kioskmodus -->
+      <div class="settings-card" id="settings-card-kiosk" style="margin-top:18px">
+        <div class="settings-card-header">
+          <span class="settings-card-title">🖥️ Kioskmodus</span>
+        </div>
+        <div class="settings-card-body">
+          <p style="font-size:13px;color:#6B655E;margin:0 0 14px;line-height:1.5;">
+            Toont een vereenvoudigd startscherm met grote knoppen (Recepten, Etiketten, Besteltools) — ideaal voor een toestel in de keuken dat door het kokenteam gebruikt wordt. Deze instelling geldt enkel voor dit toestel/browser.
+          </p>
+          <label style="display:flex;align-items:center;gap:10px;font-size:14px;font-weight:600;color:#1A1917;cursor:pointer;margin-bottom:14px;">
+            <input type="checkbox" id="kiosk-toggle" onchange="window._kioskToggle(this.checked)" style="width:18px;height:18px;cursor:pointer;">
+            Start dit toestel altijd op in kioskmodus
+          </label>
+          <button class="btn btn-primary" onclick="window._kioskEnter()">Kioskmodus nu tonen (test)</button>
+        </div>
       </div>
     </div>
 
@@ -798,9 +815,11 @@
   <script src="assets/cars.js"></script>
   <script src="assets/tijdstool.js"></script>
   <script src="assets/functionsheets.js"></script>
+  <script src="assets/dymo-print.js"></script>
   <script src="assets/snelle-etiketten.js"></script>
   <script src="assets/portie-etiketten.js"></script>
   <script src="assets/weekmap.js"></script>
+  <script src="assets/kiosk.js"></script>
   <script src="assets/bakker.js"></script>
   <script src="assets/broodjes.js"></script>
   <script src="assets/recepten.js"></script>
