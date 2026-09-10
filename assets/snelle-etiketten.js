@@ -111,6 +111,17 @@
       .se-pdf-btn:hover { opacity: 0.88; }
       .se-pdf-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
+      .se-print-actions { display: flex; gap: 8px; }
+      .se-print-actions .se-pdf-btn, .se-print-actions .se-dymo-btn { flex: 1; }
+      .se-dymo-btn {
+        display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+        padding: 11px 16px; background: #fff; color: #1A1917;
+        border: 1.5px solid #1A1917; border-radius: 8px;
+        font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s;
+      }
+      .se-dymo-btn:hover { background: #1A1917; color: #fff; }
+      .se-dymo-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
       @media (max-width: 768px) {
         #snel-etiketten-content { padding: 14px !important; }
         .se-card { padding: 18px; }
@@ -138,6 +149,10 @@
             <div class="se-field" style="margin-bottom:0">
               <label>Aantal kopieën</label>
               <input type="number" id="se-copies" min="1" value="1" step="1">
+            </div>
+            <div class="se-field" style="margin-bottom:0">
+              <label>Bewaren (dagen)</label>
+              <input type="number" id="se-bewaardagen" min="1" value="7" step="1">
             </div>
           </div>
 
@@ -186,15 +201,18 @@
   window._seAdd = function () {
     const textEl = document.getElementById('se-text');
     const copiesEl = document.getElementById('se-copies');
+    const bewaarEl = document.getElementById('se-bewaardagen');
     const raw = textEl.value.trim();
     if (!raw) { textEl.focus(); return; }
 
     const lines = raw.split('\n').map(l => l.trim()).filter(Boolean).slice(0, 5);
     const copies = Math.max(1, parseInt(copiesEl.value, 10) || 1);
+    const bewaarDagen = Math.max(1, parseInt(bewaarEl?.value, 10) || 7);
 
-    items.push({ id: idCounter++, lines, color: selectedColor, copies });
+    items.push({ id: idCounter++, lines, color: selectedColor, copies, bewaarDagen });
     textEl.value = '';
     copiesEl.value = '1';
+    bewaarEl.value = '7';
     textEl.focus();
 
     renderList();
@@ -215,6 +233,21 @@
   function colorRgb(key) {
     const c = COLOR_OPTIONS.find(c => c.key === key);
     return c ? c.rgb : [100, 100, 100];
+  }
+
+  // Productiedatum = dag van afdrukken; THT = productiedatum + bewaarDagen.
+  function fmtShortDate(d) {
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    return `${dd}/${mm}`;
+  }
+
+  function computeProductieEnTht(bewaarDagen) {
+    const now = new Date();
+    const prod = fmtShortDate(now);
+    const thtDate = new Date(now);
+    thtDate.setDate(thtDate.getDate() + (bewaarDagen || 7));
+    return { prod, tht: fmtShortDate(thtDate) };
   }
 
   function renderList() {
@@ -260,10 +293,16 @@
           <span><b>${totalPages}</b> pagina${totalPages===1?'':"'s"} A4</span>
         </div>
 
-        <button class="se-pdf-btn" id="se-pdf-btn" onclick="window._seGeneratePDF()">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-          PDF genereren &amp; afdrukken
-        </button>
+        <div class="se-print-actions">
+          <button class="se-pdf-btn" id="se-pdf-btn" onclick="window._seGeneratePDF()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            PDF genereren &amp; afdrukken
+          </button>
+          <button class="se-dymo-btn" id="se-dymo-btn" onclick="window._sePrintDymo()" title="Print rechtstreeks naar de Dymo LabelWriter (28×89mm)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="9" width="20" height="6" rx="1"/><path d="M7 15v3M17 15v3"/></svg>
+            Print naar Dymo
+          </button>
+        </div>
       </div>`;
   }
 
@@ -297,10 +336,14 @@
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
-      // Expandeer naar individuele labels o.b.v. copies
+      // Expandeer naar individuele labels o.b.v. copies, met productie-
+      // en houdbaarheidsdatum als extra regel (dag van afdrukken + bewaartermijn).
       const labels = [];
       items.forEach(it => {
-        for (let k = 0; k < it.copies; k++) labels.push(it);
+        const { prod, tht } = computeProductieEnTht(it.bewaarDagen);
+        const lines = [...it.lines, `Geprod ${prod} · THT ${tht}`];
+        const labelWithDate = { ...it, lines };
+        for (let k = 0; k < it.copies; k++) labels.push(labelWithDate);
       });
 
       const perPage = COLS * ROWS;
@@ -325,6 +368,25 @@
         btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> PDF genereren & afdrukken`;
       }
     }
+  };
+
+  window._sePrintDymo = function () {
+    if (!items.length) return;
+    const dymoLabels = [];
+    items.forEach(it => {
+      const lines = it.lines.length ? it.lines : [''];
+      const { prod, tht } = computeProductieEnTht(it.bewaarDagen);
+      const dateLine = `Geprod ${prod} · THT ${tht}`;
+      const restLines = lines.slice(2).join(' · ');
+      const dymoLabel = {
+        heading: lines[0] || '',
+        sub: lines[1] || '',
+        note: restLines ? `${dateLine} — ${restLines}` : dateLine,
+        color: colorRgb(it.color),
+      };
+      for (let k = 0; k < it.copies; k++) dymoLabels.push(dymoLabel);
+    });
+    window.hvwDymoPrint(dymoLabels);
   };
 
   function drawLabel(doc, x, y, label) {
