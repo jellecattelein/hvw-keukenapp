@@ -161,6 +161,30 @@
       .pe-feest-chip button { border: none; background: none; cursor: pointer; color: #9A9590; padding: 0; display: flex; }
       .pe-feest-hint { font-size: 12px; color: #9A9590; margin-bottom: 14px; line-height: 1.4; }
 
+      .pe-feest-multi {
+        border: 1.5px solid #DEDAD4; border-radius: 8px; padding: 10px 12px 12px;
+        margin-bottom: 14px; background: #FAFAF8;
+      }
+      .pe-feest-multi-all {
+        display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700;
+        color: #1A1917; text-transform: uppercase; letter-spacing: .3px;
+        padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid #E8E5E0; cursor: pointer;
+      }
+      .pe-feest-multi-all input { width: 15px; height: 15px; cursor: pointer; }
+      .pe-feest-multi-list { display: flex; flex-direction: column; gap: 2px; max-height: 220px; overflow-y: auto; }
+      .pe-feest-multi-item {
+        display: flex; align-items: center; gap: 9px; font-size: 13px; color: #1A1917;
+        padding: 6px 4px; border-radius: 6px; cursor: pointer;
+      }
+      .pe-feest-multi-item:hover { background: #F0EEE9; }
+      .pe-feest-multi-item input { width: 15px; height: 15px; cursor: pointer; flex-shrink: 0; }
+      .pe-bulk-add-btn {
+        width: 100%; margin-top: 10px; padding: 9px; background: #1A1917; color: #fff;
+        border: none; border-radius: 8px; font-size: 12.5px; font-weight: 600; cursor: pointer;
+        transition: opacity 0.15s;
+      }
+      .pe-bulk-add-btn:hover { opacity: 0.85; }
+
       .pe-list-title { font-size: 11px; font-weight: 600; color: #9A9590; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 10px; display:flex; justify-content:space-between; align-items:center; }
       .pe-list-clear { font-size: 11px; color: #B03A2E; cursor: pointer; text-transform: none; letter-spacing: 0; font-weight: 500; }
       .pe-list-clear:hover { text-decoration: underline; }
@@ -219,6 +243,17 @@
       }
       .pe-pdf-btn:hover { opacity: 0.88; }
       .pe-pdf-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+      .pe-print-actions { display: flex; gap: 8px; }
+      .pe-print-actions .pe-pdf-btn, .pe-print-actions .pe-dymo-btn { flex: 1; }
+      .pe-dymo-btn {
+        display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+        padding: 11px 16px; background: #fff; color: #1A1917;
+        border: 1.5px solid #1A1917; border-radius: 8px;
+        font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s;
+      }
+      .pe-dymo-btn:hover { background: #1A1917; color: #fff; }
+      .pe-dymo-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
       @media (max-width: 768px) {
         #portie-etiketten-content { padding: 14px !important; }
@@ -395,7 +430,6 @@
      LINKERKOLOM: formulier
      ══════════════════════════════ */
   let selectedProduct = null; // { base, tabId, name }
-  let selectedFeest = null;   // allEvents entry of null
   let acIndex = -1;
 
   function hasData() {
@@ -425,9 +459,10 @@
         <div class="pe-field">
           <label>Product</label>
           <input type="text" id="pe-product-search" placeholder="Bijv. Pepersaus" autocomplete="off"
+                 value="${selectedProduct ? escAttr(selectedProduct.base) : ''}"
                  oninput="window._peSearchProduct(this.value)"
                  onkeydown="window._peSearchKeydown(event)"
-                 onfocus="window._peSearchProduct(this.value)">
+                 onfocus="this.select(); window._peSearchProduct(this.value)">
           <div id="pe-ac-list"></div>
         </div>
 
@@ -447,8 +482,17 @@
         </div>
 
         <div class="pe-field">
-          <label>Zaal / locatie</label>
+          <label>Bewaren (dagen) — bepaalt de THT op het etiket</label>
+          <input type="number" id="pe-bewaardagen" min="1" step="1" value="7">
+        </div>
+
+        <div class="pe-field">
+          <label>Zalen die dit product besteld hebben</label>
           <div id="pe-feest-picker-wrap"></div>
+        </div>
+
+        <div class="pe-field">
+          <label>Of typ zelf een zaal (los, zonder feest-koppeling)</label>
           <input type="text" id="pe-zaal" placeholder="Bijv. Traiteur 1, of typ zelf een zaal">
         </div>
 
@@ -457,45 +501,31 @@
           <textarea id="pe-opmerking" placeholder="Bijv. zonder look, apart voor allergie-tafel..."></textarea>
         </div>
 
-        <button class="pe-add-btn" onclick="window._peAdd()">+ Toevoegen aan lijst</button>
+        <button class="pe-add-btn" onclick="window._peAdd()">+ Toevoegen (los, zonder feest)</button>
       </div>`;
 
+    renderPortieHint();
     renderFeestPicker();
   }
 
   function renderFeestPicker() {
     const wrap = document.getElementById('pe-feest-picker-wrap');
     if (!wrap) return;
-    let events = (typeof allEvents !== 'undefined') ? allEvents : [];
+
+    if (!selectedProduct) {
+      wrap.innerHTML = `<div class="pe-feest-hint">Kies eerst een product — dan tonen we hier alle zalen die dat product besteld hebben, zodat je ze in één keer kan toevoegen.</div>`;
+      return;
+    }
 
     // Enkel feesten tonen die dit product ook effectief besteld hebben —
     // anders kan je per ongeluk appelmoes koppelen aan een zaal die geen
     // appelmoes op de kaart heeft staan.
-    if (selectedProduct) {
-      const bookingIds = new Set(
-        allRows
-          .filter(r => r.base === selectedProduct.base && r.bookingId)
-          .map(r => r.bookingId)
-      );
-      events = events.filter(e => bookingIds.has(e.bookingId));
-    }
-
-    if (selectedFeest) {
-      const label = `${selectedFeest.room} · ${fmtEventDate(selectedFeest)} · ${selectedFeest.persons}p`;
-      wrap.innerHTML = `
-        <div class="pe-feest-chip">
-          <span>${escapeHtml(label)}</span>
-          <button onclick="window._peClearFeest()" title="Loskoppelen">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          </button>
-        </div>`;
-      return;
-    }
-
-    if (!selectedProduct) {
-      wrap.innerHTML = `<div class="pe-feest-hint">Kies eerst een product — dan tonen we enkel de zalen die dat product ook effectief besteld hebben.</div>`;
-      return;
-    }
+    const bookingIds = new Set(
+      allRows
+        .filter(r => r.base === selectedProduct.base && r.bookingId)
+        .map(r => r.bookingId)
+    );
+    let events = ((typeof allEvents !== 'undefined') ? allEvents : []).filter(e => bookingIds.has(e.bookingId));
 
     if (!events.length) {
       wrap.innerHTML = `<div class="pe-feest-hint">Geen enkel feest heeft "${escapeHtml(selectedProduct.base)}" besteld. Typ hieronder zelf een zaal in, of kies een ander product.</div>`;
@@ -504,11 +534,19 @@
 
     const sorted = [...events].sort((a,b) => (a.date||'').localeCompare(b.date||''));
     wrap.innerHTML = `
-      <div class="pe-feest-picker">
-        <select id="pe-feest-select" onchange="window._pePickFeest(this.value)">
-          <option value="">— Koppel aan feest (optioneel) —</option>
-          ${sorted.map(e => `<option value="${e.bookingId}">${escapeHtml(e.room)} · ${fmtEventDate(e)} · ${e.persons}p</option>`).join('')}
-        </select>
+      <div class="pe-feest-multi">
+        <label class="pe-feest-multi-all">
+          <input type="checkbox" id="pe-feest-all-cb" onchange="window._peToggleAllFeesten(this.checked)">
+          <span>Alle zalen selecteren (${sorted.length})</span>
+        </label>
+        <div class="pe-feest-multi-list">
+          ${sorted.map(e => `
+            <label class="pe-feest-multi-item">
+              <input type="checkbox" class="pe-feest-cb" value="${e.bookingId}" onchange="window._peFeestCbChange()">
+              <span>${escapeHtml(e.room)} · ${fmtEventDate(e)} · ${e.persons}p</span>
+            </label>`).join('')}
+        </div>
+        <button class="pe-bulk-add-btn" id="pe-bulk-add-btn" style="display:none" onclick="window._peFeestBulkAdd()">+ Toevoegen voor geselecteerde zalen</button>
       </div>`;
   }
 
@@ -518,31 +556,77 @@
     return `${d}/${m}`;
   }
 
-  window._pePickFeest = function (bookingId) {
-    const events = (typeof allEvents !== 'undefined') ? allEvents : [];
-    const ev = events.find(e => e.bookingId === bookingId);
-    if (!ev) return;
-    selectedFeest = ev;
-    document.getElementById('pe-zaal').value = ev.room;
-
-    // Vul het aantal personen automatisch in met de werkelijk bestelde
-    // hoeveelheid van dit product voor dit feest — dat kan afwijken van het
-    // totaal aantal gasten (bv. niet iedereen krijgt appelmoes). Is er om
-    // wat voor reden geen exacte match, val dan terug op het totaal gasten.
-    let personen = ev.persons;
-    if (selectedProduct) {
-      const matchRow = allRows.find(r => r.base === selectedProduct.base && r.bookingId === bookingId);
-      if (matchRow) personen = matchRow.persons;
-    }
-    document.getElementById('pe-personen').value = personen;
-
-    renderFeestPicker();
-    window._peRecalc();
+  window._peToggleAllFeesten = function (checked) {
+    document.querySelectorAll('.pe-feest-cb').forEach(cb => { cb.checked = checked; });
+    window._peFeestCbChange();
   };
 
-  window._peClearFeest = function () {
-    selectedFeest = null;
+  window._peFeestCbChange = function () {
+    const checked = document.querySelectorAll('.pe-feest-cb:checked');
+    const total = document.querySelectorAll('.pe-feest-cb').length;
+    const btn = document.getElementById('pe-bulk-add-btn');
+    if (btn) {
+      if (checked.length > 0) {
+        btn.style.display = 'block';
+        btn.textContent = `+ Toevoegen voor ${checked.length} zaal${checked.length === 1 ? '' : 'en'}`;
+      } else {
+        btn.style.display = 'none';
+      }
+    }
+    const allCb = document.getElementById('pe-feest-all-cb');
+    if (allCb) allCb.checked = total > 0 && checked.length === total;
+  };
+
+  // Voegt in één keer een etiket toe voor elke aangevinkte zaal — elk met de
+  // werkelijk bestelde hoeveelheid van dit product voor dat specifieke feest.
+  window._peFeestBulkAdd = function () {
+    const productInput = document.getElementById('pe-product-search');
+    const productVal = (productInput?.value || '').trim() || (selectedProduct ? selectedProduct.base : '');
+    if (!productVal) { productInput?.focus(); return; }
+
+    const checkedCbs = [...document.querySelectorAll('.pe-feest-cb:checked')];
+    if (!checkedCbs.length) return;
+
+    const pakformaat = document.getElementById('pe-pakformaat')?.value || '';
+    const opmerking  = (document.getElementById('pe-opmerking')?.value || '').trim();
+    const bewaarDagen = Math.max(1, parseInt(document.getElementById('pe-bewaardagen')?.value, 10) || 7);
+    const per = portieRegels[productVal] || (selectedProduct && selectedProduct.base === productVal ? portieRegels[selectedProduct.base] : null) || 100;
+
+    const events = (typeof allEvents !== 'undefined') ? allEvents : [];
+    checkedCbs.forEach(cb => {
+      const ev = events.find(e => e.bookingId === cb.value);
+      if (!ev) return;
+      const matchRow = allRows.find(r => r.base === productVal && r.bookingId === ev.bookingId);
+      const persons = matchRow ? matchRow.persons : ev.persons;
+      const aantalEtiketten = persons > 0 ? Math.ceil(persons / per) : 1;
+
+      queue.push({
+        id: idCounter++,
+        product: productVal,
+        persons,
+        per,
+        aantalEtiketten,
+        pakformaat,
+        zaal: ev.room,
+        opmerking,
+        bewaarDagen,
+        locCode: ev.location || null,
+        dateStr: ev.date || '',
+        editing: false
+      });
+    });
+
+    // Formulier resetten
+    productInput.value = '';
+    document.getElementById('pe-personen').value = '';
+    document.getElementById('pe-opmerking').value = '';
+    document.getElementById('pe-bewaardagen').value = '7';
+    selectedProduct = null;
+    document.getElementById('pe-portie-hint-wrap').innerHTML = '';
     renderFeestPicker();
+    productInput.focus();
+
+    renderList();
   };
 
   /* ── Product autocomplete ── */
@@ -561,6 +645,15 @@
     const list = document.getElementById('pe-ac-list');
     if (!list) return;
     const q = (query || '').trim().toLowerCase();
+
+    // Veld leeggemaakt zonder nieuw product te kiezen: koppel los zodat de
+    // zalen-checklist niet blijft hangen op het vorige, niet meer zichtbare product.
+    if (!q && selectedProduct) {
+      selectedProduct = null;
+      renderPortieHint();
+      renderFeestPicker();
+    }
+
     const all = uniqueProducts();
     const filtered = q ? all.filter(p => p.base.toLowerCase().includes(q)) : all.slice(0, 30);
     acIndex = -1;
@@ -595,19 +688,6 @@
     selectedProduct = { base };
     document.getElementById('pe-product-search').value = base;
     document.getElementById('pe-ac-list').innerHTML = '';
-
-    if (selectedFeest) {
-      // Zoek de werkelijk bestelde hoeveelheid van dit product voor het
-      // reeds gekoppelde feest, en vul personen daarmee automatisch in.
-      const matchRow = allRows.find(r => r.base === selectedProduct.base && r.bookingId === selectedFeest.bookingId);
-      if (matchRow) {
-        document.getElementById('pe-personen').value = matchRow.persons;
-      } else {
-        // Dit feest heeft dit product niet besteld — loskoppelen om een
-        // mismatch te vermijden.
-        selectedFeest = null;
-      }
-    }
 
     renderPortieHint();
     renderFeestPicker();
@@ -667,19 +747,20 @@
   /* ── Toevoegen aan lijst ── */
   window._peAdd = function () {
     const productInput = document.getElementById('pe-product-search');
-    const productVal = (productInput?.value || '').trim();
+    const productVal = (productInput?.value || '').trim() || (selectedProduct ? selectedProduct.base : '');
     if (!productVal) { productInput?.focus(); return; }
 
     const persons = parseInt(document.getElementById('pe-personen')?.value, 10) || 0;
     const pakformaat = document.getElementById('pe-pakformaat')?.value || '';
     const zaal = (document.getElementById('pe-zaal')?.value || '').trim();
     const opmerking = (document.getElementById('pe-opmerking')?.value || '').trim();
+    const bewaarDagen = Math.max(1, parseInt(document.getElementById('pe-bewaardagen')?.value, 10) || 7);
 
     const per = portieRegels[productVal] || (selectedProduct && selectedProduct.base === productVal ? portieRegels[selectedProduct.base] : null) || 100;
     const aantalEtiketten = persons > 0 ? Math.ceil(persons / per) : 1;
 
-    const locCode = selectedFeest ? selectedFeest.location : null;
-    const dateStr = selectedFeest ? (selectedFeest.date || '') : '';
+    const locCode = null;
+    const dateStr = '';
 
     queue.push({
       id: idCounter++,
@@ -690,6 +771,7 @@
       pakformaat,
       zaal,
       opmerking,
+      bewaarDagen,
       locCode,
       dateStr,
       editing: false
@@ -699,6 +781,7 @@
     productInput.value = '';
     document.getElementById('pe-personen').value = '';
     document.getElementById('pe-opmerking').value = '';
+    document.getElementById('pe-bewaardagen').value = '7';
     selectedProduct = null;
     document.getElementById('pe-portie-hint-wrap').innerHTML = '';
     productInput.focus();
@@ -739,6 +822,8 @@
       it.aantalEtiketten = it.persons > 0 ? Math.ceil(it.persons / it.per) : it.aantalEtiketten;
     } else if (field === 'aantalEtiketten') {
       it.aantalEtiketten = Math.max(1, parseInt(value, 10) || 1);
+    } else if (field === 'bewaarDagen') {
+      it.bewaarDagen = Math.max(1, parseInt(value, 10) || 7);
     } else {
       it[field] = value;
     }
@@ -998,6 +1083,7 @@
         pakformaat: zaalPakformaat,
         zaal: ev ? ev.room : eersteRij.room,
         opmerking,
+        bewaarDagen: 7,
         locCode: resolveLocCode(eersteRij),
         dateStr: eersteRij.dateStr || '',
         editing: false
@@ -1111,6 +1197,21 @@
         </div>
         ${entries.map(({r, key}) => renderCheckRow(r, key, per)).join('')}
       </div>`;
+  }
+
+  // Productiedatum = dag van afdrukken; THT = productiedatum + bewaarDagen.
+  function fmtShortDate(d) {
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    return `${dd}/${mm}`;
+  }
+
+  function computeProductieEnTht(bewaarDagen) {
+    const now = new Date();
+    const prod = fmtShortDate(now);
+    const thtDate = new Date(now);
+    thtDate.setDate(thtDate.getDate() + (bewaarDagen || 7));
+    return { prod, tht: fmtShortDate(thtDate) };
   }
 
   function fmtRowDate(dateStr) {
@@ -1306,6 +1407,7 @@
         pakformaat: '',
         zaal: m.room,
         opmerking: m.opmerking,
+        bewaarDagen: 7,
         locCode: m.locCode,
         dateStr: m.dateStr,
         editing: false
@@ -1332,6 +1434,7 @@
         pakformaat,
         zaal: r.room,
         opmerking: r.event && r.event !== r.room ? r.event : '',
+        bewaarDagen: 7,
         locCode,
         dateStr: r.dateStr || '',
         editing: false
@@ -1391,10 +1494,16 @@
           <span>Nieuwe pagina per product/groente</span>
         </label>
 
-        <button class="pe-pdf-btn" id="pe-pdf-btn" onclick="window._pePdfGenerate()">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-          PDF genereren &amp; afdrukken
-        </button>
+        <div class="pe-print-actions">
+          <button class="pe-pdf-btn" id="pe-pdf-btn" onclick="window._pePdfGenerate()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            PDF genereren &amp; afdrukken
+          </button>
+          <button class="pe-dymo-btn" id="pe-dymo-btn" onclick="window._pePrintDymo()" title="Print rechtstreeks naar de Dymo LabelWriter (28×89mm)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="9" width="20" height="6" rx="1"/><path d="M7 15v3M17 15v3"/></svg>
+            Print naar Dymo
+          </button>
+        </div>
       </div>`;
   }
 
@@ -1447,6 +1556,10 @@
         <div class="pe-field">
           <label>Aantal etiketten (overschrijven)</label>
           <input type="number" min="1" value="${it.aantalEtiketten}" onchange="window._peUpdateField(${it.id},'aantalEtiketten',this.value)">
+        </div>
+        <div class="pe-field">
+          <label>Bewaren (dagen)</label>
+          <input type="number" min="1" value="${it.bewaarDagen || 7}" onchange="window._peUpdateField(${it.id},'bewaarDagen',this.value)">
         </div>
         <div class="pe-field">
           <label>Verpakkingsformaat</label>
@@ -1614,6 +1727,77 @@
     }
   };
 
+  // Bouwt de gesorteerde/geëxpandeerde lijst van individuele labels op uit
+  // de queue — exact dezelfde volgorde en per-etiket-verdeling als de PDF-
+  // export (_pePdfGenerate), zodat Dymo en PDF altijd hetzelfde tonen.
+  function buildExpandedLabels() {
+    const sortedQueue = [...queue].sort((a, b) => {
+      const prodCompare = (a.product || '').localeCompare(b.product || '');
+      if (prodCompare !== 0) return prodCompare;
+      const dateCompare = (a.dateStr || '').localeCompare(b.dateStr || '');
+      if (dateCompare !== 0) return dateCompare;
+      return (a.zaal || '').localeCompare(b.zaal || '');
+    });
+    const labels = [];
+    sortedQueue.forEach(it => {
+      const perEmmerAantallen = verdeelPersonenOverEtiketten(it.persons, it.aantalEtiketten, it.per);
+      for (let k = 1; k <= it.aantalEtiketten; k++) {
+        labels.push({ ...it, karNr: k, emmerPersonen: perEmmerAantallen[k - 1] });
+      }
+    });
+    return labels;
+  }
+
+  // Zet één geëxpandeerd label om naar het generieke formaat dat
+  // dymo-print.js verwacht (zie window.hvwDymoPrint).
+  function toDymoLabel(label) {
+    const rgbColor = label.locCode ? (LOC_COLORS_RGB[label.locCode] || DEFAULT_COLOR) : DEFAULT_COLOR;
+
+    // Onderaan rechts: bij groenten/producten-per-plateau het totaal aantal
+    // personen van het feest, anders het aantal in dit specifieke etiket —
+    // exact dezelfde regel als in drawLabel() voor de PDF.
+    const toonAantal = label.perEenheid
+      ? label.persons
+      : ((label.emmerPersonen !== undefined && label.emmerPersonen !== null) ? label.emmerPersonen : label.persons);
+
+    let sub = '';
+    if (label.perEenheid === 'gram' && label.totaalGewicht != null) {
+      const totaalTxt = label.totaalGewicht >= 1000
+        ? `${(label.totaalGewicht/1000).toFixed(label.totaalGewicht % 1000 === 0 ? 0 : 1)}kg`
+        : `${label.totaalGewicht}g`;
+      sub = `${label.persons}p × ${label.per}g = ${totaalTxt}`;
+    } else if (label.perEenheid) {
+      const aantalInDitEtiket = (label.emmerPersonen !== undefined && label.emmerPersonen !== null)
+        ? label.emmerPersonen : label.per;
+      sub = `${aantalInDitEtiket} st / plateau`;
+    } else if (label.pakformaat) {
+      sub = compactPakformaat(label.pakformaat);
+    }
+    if (label.zaal) sub = sub ? `${sub} · ${label.zaal}` : label.zaal;
+
+    let note = label.opmerking || '';
+    if (label.bewaarDagen) {
+      const { prod, tht } = computeProductieEnTht(label.bewaarDagen);
+      const dateNote = `Geprod ${prod} · THT ${tht}`;
+      note = note ? `${dateNote} — ${note}` : dateNote;
+    }
+
+    return {
+      heading: label.product || '',
+      sub,
+      badge: fmtLabelDate(label.dateStr) + (label.aantalEtiketten > 1 ? `  ${label.karNr}/${label.aantalEtiketten}` : ''),
+      footerRight: toonAantal ? `${toonAantal} pers.` : '',
+      note,
+      color: rgbColor,
+    };
+  }
+
+  window._pePrintDymo = function () {
+    if (!queue.length) return;
+    const labels = buildExpandedLabels().map(toDymoLabel);
+    window.hvwDymoPrint(labels);
+  };
+
   function drawLabel(doc, x, y, label) {
     const w = LABEL_W, h = LABEL_H, pad = 2.4;
 
@@ -1751,6 +1935,16 @@
           cursorY += opmGap;
         }
       });
+    }
+
+    // ── Productie- en houdbaarheidsdatum (dag van afdrukken + bewaartermijn) ──
+    if (label.bewaarDagen && cursorY <= hardBottom) {
+      const { prod, tht } = computeProductieEnTht(label.bewaarDagen);
+      doc.setFontSize(6.3);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(140, 136, 130);
+      doc.text(`Geprod: ${prod}  ·  THT: ${tht}`, tx, cursorY);
+      cursorY += 3.2;
     }
 
     // ── Onderaan rechts: bij groenten het TOTALE aantal personen van het
