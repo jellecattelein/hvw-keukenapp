@@ -74,6 +74,36 @@
         color: #1A1917; text-align: center; margin: 0 0 30px;
       }
 
+      /* Stap 1: Excel uploaden */
+      .kiosk-upload-wrap {
+        flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+        padding: 20px 26px 40px; max-width: 480px; margin: 0 auto; width: 100%; box-sizing: border-box;
+        text-align: center;
+      }
+      .kiosk-upload-icon {
+        width: 76px; height: 76px; border-radius: 50%; background: #fff;
+        border: 1.5px solid #E8E5E0; display: flex; align-items: center; justify-content: center;
+        color: #B8965A; margin-bottom: 22px;
+      }
+      .kiosk-upload-title {
+        font-family: 'Cormorant Garamond', serif; font-size: 26px; font-weight: 600;
+        color: #1A1917; margin: 0 0 10px;
+      }
+      .kiosk-upload-sub {
+        font-size: 14px; color: #6B655E; line-height: 1.5; margin: 0 0 30px;
+      }
+      .kiosk-upload-btn {
+        width: 100%; padding: 16px; background: #B8965A; color: #fff; border: none;
+        border-radius: 14px; font-size: 16px; font-weight: 700; cursor: pointer;
+        transition: opacity 0.15s; margin-bottom: 14px;
+      }
+      .kiosk-upload-btn:hover { opacity: 0.88; }
+      .kiosk-skip-btn {
+        width: 100%; padding: 13px; background: none; color: #9A9590; border: none;
+        font-size: 13.5px; font-weight: 600; cursor: pointer; text-decoration: underline;
+      }
+      .kiosk-skip-btn:hover { color: #1A1917; }
+
       .kiosk-grid {
         display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;
       }
@@ -119,7 +149,16 @@
         <img src="assets/logo.png" alt="Huis van Wonterghem">
         <button class="kiosk-exit-btn" onclick="window._kioskExit()" title="Volledige app (admin)">⚙️</button>
       </div>
-      <div class="kiosk-tiles-wrap">
+      <div class="kiosk-upload-wrap" id="kiosk-upload-wrap">
+        <div class="kiosk-upload-icon">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        </div>
+        <div class="kiosk-upload-title">Excel uploaden</div>
+        <div class="kiosk-upload-sub">Upload eerst de CCM-export van vandaag, zodat alle feesten en gegevens beschikbaar zijn.</div>
+        <button class="kiosk-upload-btn" onclick="document.getElementById('xl-input').click()">Excel uploaden</button>
+        <button class="kiosk-skip-btn" onclick="window._kioskShowMain()">Doorgaan zonder Excel →</button>
+      </div>
+      <div class="kiosk-tiles-wrap" id="kiosk-tiles-wrap" style="display:none">
         <div class="kiosk-title">Waarmee wil je aan de slag?</div>
         <div class="kiosk-grid" id="kiosk-main-grid"></div>
         <div id="kiosk-sub-wrap" style="display:none">
@@ -157,7 +196,19 @@
     document.getElementById('kiosk-sub-wrap').style.display = 'block';
   };
 
+  function hasExcelData() {
+    return typeof allRows !== 'undefined' && allRows && allRows.length > 0;
+  }
+
+  // Stap 1: vraagt om de Excel-upload (of "Doorgaan zonder Excel").
+  window._kioskShowUpload = function () {
+    document.getElementById('kiosk-upload-wrap').style.display = 'flex';
+    document.getElementById('kiosk-tiles-wrap').style.display = 'none';
+  };
+
   window._kioskShowMain = function () {
+    document.getElementById('kiosk-upload-wrap').style.display = 'none';
+    document.getElementById('kiosk-tiles-wrap').style.display = 'flex';
     document.getElementById('kiosk-sub-wrap').style.display = 'none';
     document.getElementById('kiosk-main-grid').style.display = 'grid';
   };
@@ -213,13 +264,19 @@
     document.body.appendChild(btn);
   }
 
-  // Toont het kiosk-startscherm (admin-testknop + automatische opstart).
+  // Toont het kiosk-startscherm. Is er al Excel-data geladen (bv. na een
+  // eerdere upload deze sessie), spring dan meteen naar de tegels — anders
+  // eerst de uploadstap.
   window._kioskEnter = function () {
     const appWrap = document.getElementById('app-wrap');
     const kioskHome = document.getElementById('kiosk-home');
     if (appWrap) appWrap.style.display = 'none';
     if (kioskHome) kioskHome.style.display = 'flex';
-    window._kioskShowMain();
+    if (hasExcelData()) {
+      window._kioskShowMain();
+    } else {
+      window._kioskShowUpload();
+    }
   };
 
   // Verlaat kioskmodus voor deze sessie (admin-toegang via het tandwiel-icoon).
@@ -254,6 +311,17 @@
     if (localStorage.getItem(STORAGE_KEY) === 'on') {
       window._kioskEnter();
     }
+
+    // Zodra een Excel-bestand succesvol geladen is (via de knop op de
+    // uploadstap), automatisch doorschakelen naar de tegels — enkel als het
+    // kiosk-startscherm op dat moment nog de uploadstap toont.
+    document.addEventListener('dataLoaded', () => {
+      const kioskHome = document.getElementById('kiosk-home');
+      const uploadWrap = document.getElementById('kiosk-upload-wrap');
+      if (kioskHome && kioskHome.style.display !== 'none' && uploadWrap && uploadWrap.style.display !== 'none') {
+        window._kioskShowMain();
+      }
+    });
   });
 
 })();
