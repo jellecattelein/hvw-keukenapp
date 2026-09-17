@@ -720,6 +720,28 @@ body {
   .btn-add-groente, .btn-groente-export, .btn-groente-import { flex: 1 1 auto; }
 }
 
+/* Samengesteld gerecht — onderdeel-rijen in de modal */
+.sgo-row {
+  display: grid; grid-template-columns: 1fr 100px 90px 30px;
+  gap: 8px; align-items: center; margin-bottom: 8px;
+}
+.sgo-row input, .sgo-row select {
+  font-family: 'Outfit', sans-serif; font-size: 13px; padding: 7px 9px;
+  border: 1.5px solid var(--border-strong); border-radius: 8px;
+  background: var(--surface); color: var(--text); outline: none; width: 100%; box-sizing: border-box;
+}
+.sgo-row input:focus, .sgo-row select:focus { border-color: var(--text); }
+.sgo-remove {
+  width: 28px; height: 28px; border-radius: 6px; border: none; background: transparent;
+  color: var(--text-faint); cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: all 0.12s;
+}
+.sgo-remove:hover { background: #FBEAE8; color: #B03A2E; }
+@media (max-width: 480px) {
+  .sgo-row { grid-template-columns: 1fr; gap: 4px; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+  .sgo-remove { justify-self: end; }
+}
+
 /* ── Modals ── */
 .modal-overlay {
   display: none; position: fixed; inset: 0;

@@ -226,10 +226,10 @@
       return;
     }
 
-    const perPerson = totalSec / persons;
+    const perPerson = Math.round(totalSec / persons);
     const uur = Math.floor(perPerson / 3600);
     const min = Math.floor((perPerson % 3600) / 60);
-    const sec = Math.round(perPerson % 60);
+    const sec = perPerson % 60;
 
     document.getElementById('tijds-val-uur').textContent = uur;
     document.getElementById('tijds-val-min').textContent = min;

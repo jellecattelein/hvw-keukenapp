@@ -120,8 +120,14 @@
   // Bouwt één DYMO Label XML (DieCutLabel, preset "30252 Address" = S0722370 28×89mm)
   // met tot 4 tekstvelden. Canvas: X 0–5040 twips (breedte), Y 0–1620 twips (hoogte).
   function buildDymoLabelXml(label) {
+    // Canvas: X 0–5040 twips (breedte, 89mm), Y 0–1620 twips (hoogte, 28mm).
+    // Layout: links een tekstkolom (heading/sub/note), rechts één samengevoegd
+    // blok met datum+plateau ÉN personen — vlak bij elkaar, verticaal
+    // gecentreerd, zodat er geen geïsoleerde elementen in de hoeken hangen.
     const hasBadge = !!label.badge;
-    const headingWidth = hasBadge ? 3150 : 4750;
+    const rightColX = 3280;
+    const rightColW = 1660;
+    const leftColW = hasBadge ? 3020 : 4750;
 
     function textObject(name, text, x, y, w, h, opts) {
       opts = opts || {};
@@ -159,18 +165,28 @@
     }
 
     const objs = [];
-    if (hasBadge) {
-      objs.push(textObject('BADGE', label.badge, 3350, 60, 1600, 360, { size: 7, align: 'Right', color: [154, 144, 129] }));
-    }
-    objs.push(textObject('HEADING', label.heading || '', 150, 60, headingWidth, 640, { size: 12, bold: true }));
+
+    // ── Linkerkolom: beschrijvende tekst ──
+    objs.push(textObject('HEADING', label.heading || '', 150, 90, leftColW, 620, { size: 13.5, bold: true }));
     if (label.sub) {
-      objs.push(textObject('SUB', label.sub, 150, 720, 4750, 380, { size: 8, bold: true, color: [90, 87, 83] }));
+      objs.push(textObject('SUB', label.sub, 150, 760, leftColW, 360, { size: 9.5, bold: true, color: [90, 87, 83] }));
     }
     if (label.note) {
-      objs.push(textObject('NOTE', label.note, 150, 1130, 3150, 380, { size: 6.5, italic: true, color: [120, 116, 112] }));
+      objs.push(textObject('NOTE', label.note, 150, 1180, leftColW, 380, { size: 7.5, italic: true, color: [120, 116, 112] }));
+    }
+
+    // ── Rechterkolom: datum/plateau + personen, samen als één blok ──
+    if (hasBadge) {
+      objs.push(textObject('BADGE', label.badge, rightColX, 420, rightColW, 340, { size: 9, align: 'Right', bold: true, color: [154, 128, 74] }));
     }
     if (label.footerRight) {
-      objs.push(textObject('FOOTER', label.footerRight, 3350, 1110, 1600, 400, { size: 10, bold: true, align: 'Right' }));
+      const hasSub = !!label.footerSub;
+      const badgeOffset = hasBadge ? 800 : 560;
+      const footerH = hasSub ? 340 : 500;
+      objs.push(textObject('FOOTER', label.footerRight, rightColX, badgeOffset, rightColW, footerH, { size: 16, bold: true, align: 'Right' }));
+      if (hasSub) {
+        objs.push(textObject('FOOTERSUB', label.footerSub, rightColX, badgeOffset + 350, rightColW, 260, { size: 7.5, align: 'Right', color: [140, 136, 130] }));
+      }
     }
 
     return `<?xml version="1.0" encoding="utf-8"?>
@@ -219,11 +235,16 @@
       <div class="dymo-label">
         <div class="dymo-bar" style="background:${barColor}"></div>
         <div class="dymo-content">
-          ${label.badge ? `<div class="dymo-badge">${esc(label.badge)}</div>` : ''}
-          <div class="dymo-heading">${esc(label.heading || '')}</div>
-          ${label.sub ? `<div class="dymo-sub">${esc(label.sub)}</div>` : ''}
-          ${label.note ? `<div class="dymo-note">${esc(label.note)}</div>` : ''}
-          ${label.footerRight ? `<div class="dymo-footer-right">${esc(label.footerRight)}</div>` : ''}
+          <div class="dymo-left">
+            <div class="dymo-heading">${esc(label.heading || '')}</div>
+            ${label.sub ? `<div class="dymo-sub">${esc(label.sub)}</div>` : ''}
+            ${label.note ? `<div class="dymo-note">${esc(label.note)}</div>` : ''}
+          </div>
+          <div class="dymo-right">
+            ${label.badge ? `<div class="dymo-badge">${esc(label.badge)}</div>` : ''}
+            ${label.footerRight ? `<div class="dymo-footer-right">${esc(label.footerRight)}</div>` : ''}
+            ${label.footerSub ? `<div class="dymo-footer-sub">${esc(label.footerSub)}</div>` : ''}
+          </div>
         </div>
       </div>`;
   }
@@ -257,46 +278,60 @@
 
   .dymo-content {
     position: absolute;
-    left: 5.5mm; right: 3mm; top: 1.6mm; bottom: 1.4mm;
+    left: 5.5mm; right: 3mm; top: 1.4mm; bottom: 1.4mm;
+    display: flex; flex-direction: row; align-items: stretch; gap: 2.5mm;
+  }
+
+  .dymo-left {
+    flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center;
+  }
+
+  .dymo-right {
+    flex: 0 0 21mm; display: flex; flex-direction: column; justify-content: center;
+    align-items: flex-end; gap: 1.2mm; text-align: right;
   }
 
   .dymo-badge {
-    position: absolute; top: 0; right: 0;
-    font-size: 7pt; color: #B8965A; font-weight: 400;
+    font-size: 8.5pt; font-weight: 700; color: #B8965A;
   }
 
   .dymo-heading {
-    font-size: 12.5pt;
+    font-size: 13.5pt;
     font-weight: 700;
     color: #1A1917;
     line-height: 1.15;
-    max-height: 8.5mm;
+    max-height: 9mm;
     overflow: hidden;
-    padding-right: 14mm;
   }
 
   .dymo-sub {
-    font-size: 8.5pt;
+    font-size: 9.5pt;
     font-weight: 700;
     color: #5A5753;
-    margin-top: 0.8mm;
+    margin-top: 0.9mm;
   }
 
   .dymo-note {
-    font-size: 7pt;
+    font-size: 7.5pt;
     font-style: italic;
     color: #78746E;
-    margin-top: 0.6mm;
-    max-height: 5mm;
+    margin-top: 0.7mm;
+    max-height: 5.5mm;
     overflow: hidden;
   }
 
   .dymo-footer-right {
-    position: absolute;
-    bottom: 0; right: 0;
-    font-size: 9.5pt;
+    font-size: 15pt;
     font-weight: 700;
     color: #1A1917;
+    line-height: 1;
+  }
+
+  .dymo-footer-sub {
+    font-size: 7.5pt;
+    font-weight: 400;
+    color: #8C8882;
+    margin-top: 0.6mm;
   }
 </style>
 </head>

@@ -161,6 +161,18 @@
     return `${e.bookingId || ''}|${e.date || ''}|${e.time || ''}`;
   }
 
+  // Escaped een waarde voor veilig gebruik binnen een enkel aangehaalde
+  // JS-string in een inline onclick/onchange-attribuut — zie de uitgebreide
+  // toelichting in portie-etiketten.js. Defensief toegepast op feestKey()
+  // omdat bookingId rechtstreeks uit de Excel-export komt.
+  function jsStr(str) {
+    return String(str == null ? '' : str)
+      .replace(/\\/g, '\\\\')
+      .replace(/'/g, "\\'")
+      .replace(/\n/g, '\\n')
+      .replace(/\r/g, '');
+  }
+
   window._broodjesToggleRow = function (key, checked) {
     if (checked) excludedFeesten.delete(key); else excludedFeesten.add(key);
     renderBroodjes();
@@ -238,7 +250,7 @@
         return `
           <tr class="${checked ? '' : 'broodjes-row-uit'}">
             <td class="broodjes-cb no-print">
-              <input type="checkbox" ${checked ? 'checked' : ''} onchange="window._broodjesToggleRow('${key}', this.checked)" title="Meenemen bij printen">
+              <input type="checkbox" ${checked ? 'checked' : ''} onchange="window._broodjesToggleRow('${jsStr(key)}', this.checked)" title="Meenemen bij printen">
             </td>
             <td>
               <div class="broodjes-room">${rooms}</div>

@@ -767,6 +767,30 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="samengesteld-modal" onclick="if(event.target===this)closeSamengesteldModal()">
+    <div class="modal">
+      <div class="modal-header"><span class="modal-title" id="samengesteld-form-title">Samengesteld gerecht toevoegen</span><button class="modal-close" onclick="closeSamengesteldModal()">×</button></div>
+      <div class="modal-body">
+        <input type="hidden" id="samengesteld-id">
+        <div class="form-field">
+          <label>Productnaam (exact zoals in de Excel-export)</label>
+          <input type="text" id="samengesteld-productnaam" list="samengesteld-productnaam-lijst" placeholder="bv. Groene asperge met parmezaankorst, Bimi, Tartelette...">
+          <datalist id="samengesteld-productnaam-lijst"></datalist>
+          <div class="settings-hint">Moet exact overeenkomen met de productnaam in je Excel — begin te typen voor suggesties uit de laatst geladen data.</div>
+        </div>
+        <div class="form-field">
+          <label>Onderdelen</label>
+          <div id="samengesteld-onderdelen-lijst"></div>
+          <button type="button" class="btn-add-groente" onclick="addSamengesteldOnderdeelRow()">+ Onderdeel toevoegen</button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeSamengesteldModal()">Annuleren</button>
+        <button class="btn btn-primary" onclick="saveSamengesteldForm()">Opslaan</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="email-modal" onclick="if(event.target===this)closeEmailModal()">
     <div class="modal email-modal">
       <div class="modal-header"><span class="modal-title">Bestellingen versturen</span><button class="modal-close" onclick="closeEmailModal()">×</button></div>
@@ -810,6 +834,7 @@
   </div>
 
   <script src="assets/app.js"></script>
+  <script src="assets/bestelling_pdf.js"></script>
   <script src="assets/suppliers.js"></script>
   <script src="assets/ijsdesserts.js"></script>
   <script src="assets/cars.js"></script>
@@ -1023,8 +1048,8 @@
     const rows   = allRows.filter(r => !wk || r.weekKey === wk);
 
     const totalP = events.reduce((s,e)=>s+e.persons,0);
-    const vleesKg = rows.filter(r=>r.cat==='vlees').reduce((s,r)=>{ const g=getGrams(r); return s+(g>0?r.persons*g/1000:0);},0);
-    const visKg   = rows.filter(r=>r.cat==='vis').reduce((s,r)=>{ const g=getGrams(r); return s+(g>0?r.persons*g/1000:0);},0);
+    const vleesKg = rows.filter(r=>r.tabId==='vlees').reduce((s,r)=>{ const g=getGrams(r); return s+(g>0?r.persons*g/1000:0);},0);
+    const visKg   = rows.filter(r=>r.tabId==='vis').reduce((s,r)=>{ const g=getGrams(r); return s+(g>0?r.persons*g/1000:0);},0);
 
     document.getElementById('dash-kpis').innerHTML = `
       <div class="kpi" style="--c:#B8965A"><div class="kpi-lbl">Feesten</div><div class="kpi-val">${events.length}</div><div class="kpi-sub">deze periode</div></div>
@@ -1049,9 +1074,9 @@
 
     // Gewichten bars
     const cats = [{id:'vlees',label:'Vlees',c:'#8B2500'},{id:'vis',label:'Vis',c:'#1A3F6F'},{id:'groenten',label:'Groenten',c:'#2D6A4F'},{id:'hapjes',label:'Hapjes',c:'#8B6A00'}];
-    const maxKg = Math.max(1,...cats.map(c=>rows.filter(r=>r.cat===c.id).reduce((s,r)=>{ const g=getGrams(r); return s+(g>0?r.persons*g/1000:0);},0)));
+    const maxKg = Math.max(1,...cats.map(c=>rows.filter(r=>r.tabId===c.id).reduce((s,r)=>{ const g=getGrams(r); return s+(g>0?r.persons*g/1000:0);},0)));
     document.getElementById('dash-weights').innerHTML = cats.map(c=>{
-      const kg=rows.filter(r=>r.cat===c.id).reduce((s,r)=>{ const g=getGrams(r); return s+(g>0?r.persons*g/1000:0);},0);
+      const kg=rows.filter(r=>r.tabId===c.id).reduce((s,r)=>{ const g=getGrams(r); return s+(g>0?r.persons*g/1000:0);},0);
       return `<div class="bar-item"><div class="bar-labels"><span style="font-weight:600">${c.label}</span><span style="font-family:'DM Mono';font-weight:600;color:${c.c}">${kg.toFixed(1)} kg</span></div><div class="bar-track"><div class="bar-fill" style="width:${(kg/maxKg*100).toFixed(0)}%;background:${c.c}"></div></div></div>`;
     }).join('');
 

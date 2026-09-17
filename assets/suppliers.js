@@ -73,7 +73,7 @@ function renderAssignmentList() {
   const safeRows = (typeof allRows !== 'undefined') ? allRows : [];
   const bases = [...new Set(
     safeRows
-      .filter(r => r.cat === 'vlees' || r.cat === 'vis')
+      .filter(r => r.tabId === 'vlees' || r.tabId === 'vis')
       .map(r => r.base)
   )].sort();
 
@@ -138,6 +138,7 @@ function renderGeneralSettings() {
       <input type="number" id="set-smallplates" value="${appSettings.smallPlates||50}" min="0" step="5" oninput="saveGeneralSetting('smallPlates',parseInt(this.value)||50)">
     </div>`;
   renderSeizoensgroentenSettings();
+  renderSamengesteldSettings();
 }
 
 /* ══════════════════════════════
@@ -380,6 +381,186 @@ function importGroentenAssortiment(event, variant) {
   reader.readAsText(file);
 }
 
+/* ══════════════════════════════
+   SAMENGESTELDE GERECHTEN
+   Voor gerechten waarvan de onderdelen al letterlijk in de productnaam
+   staan (bv. "Groene asperge met parmezaankorst, Bimi, Tartelette met
+   crème van erwtjes en jonge kruidensalade"). In tegenstelling tot
+   Seizoensgroenten (één wisselend assortiment) beheer je hier een
+   groeiende lijst van eigen, exacte gerechten — elk met zijn eigen vaste
+   onderdelen, en per onderdeel dezelfde stuk/gram-verdeling als bij
+   Seizoensgroenten (bv. "40 p/plateau"). Gedeeld met Portie-Etiketten
+   via localStorage.
+   ══════════════════════════════ */
+const SAMENGESTELD_STORAGE_KEY = 'hvw-samengestelde-gerechten';
+let samengesteldeGerechten = []; // [{ id, productNaam, onderdelen: [{id, naam, eenheid, perPlateau}, ...] }]
+let samengesteldModalOnderdelen = []; // werkkopie tijdens het bewerken in de modal
+
+function loadSamengesteldeGerechten() {
+  try {
+    samengesteldeGerechten = JSON.parse(localStorage.getItem(SAMENGESTELD_STORAGE_KEY) || '[]');
+    if (!Array.isArray(samengesteldeGerechten)) samengesteldeGerechten = [];
+  } catch (e) { samengesteldeGerechten = []; }
+}
+
+function saveSamengesteldeGerechten() {
+  try { localStorage.setItem(SAMENGESTELD_STORAGE_KEY, JSON.stringify(samengesteldeGerechten)); } catch (e) {}
+}
+
+function renderSamengesteldSettings() {
+  const wrap = document.getElementById('general-settings');
+  if (!wrap) return;
+
+  const el = document.createElement('div');
+  el.className = 'settings-field';
+  el.id = 'samengesteld-gerechten-wrap';
+  el.innerHTML = `
+    <label>Samengestelde gerechten</label>
+    <div class="settings-hint" style="margin-top:-2px;margin-bottom:10px">
+      Voor gerechten waarvan de onderdelen al in de productnaam staan (bv. "Groene asperge met parmezaankorst, Bimi, Tartelette..."). Elk onderdeel dat je hier instelt, kan je in Portie-Etiketten → Per categorie apart aanvinken en afdrukken — met een eigen stuk/gram-verdeling, net als bij Seizoensgroenten.
+    </div>
+    <div id="samengesteld-lijst"></div>
+    <button type="button" class="btn-add-groente" onclick="openAddSamengesteld()">+ Samengesteld gerecht toevoegen</button>
+  `;
+  wrap.appendChild(el);
+  renderSamengesteldLijst();
+  vulSamengesteldProductnaamLijst();
+}
+
+function renderSamengesteldLijst() {
+  const el = document.getElementById('samengesteld-lijst');
+  if (!el) return;
+  if (!samengesteldeGerechten.length) {
+    el.innerHTML = '<p class="settings-empty">Nog geen samengestelde gerechten ingesteld.</p>';
+    return;
+  }
+  el.innerHTML = samengesteldeGerechten.map(g => `
+    <div class="groente-card">
+      <div class="groente-info">
+        <div class="groente-naam">${escapeHtmlSuppliers(g.productNaam)}</div>
+        <div class="groente-meta">${g.onderdelen.map(o => `${escapeHtmlSuppliers(o.naam)} (${o.eenheid === 'gram' ? o.perPlateau + 'g/p' : o.perPlateau + 'p/plateau'})`).join(' · ')}</div>
+      </div>
+      <div class="groente-actions">
+        <button class="btn-icon" onclick="editSamengesteld('${g.id}')" title="Bewerken">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>
+        <button class="btn-icon btn-icon-danger" onclick="deleteSamengesteld('${g.id}')" title="Verwijderen">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+        </button>
+      </div>
+    </div>`).join('');
+}
+
+function escapeHtmlSuppliers(str) {
+  const div = document.createElement('div');
+  div.textContent = str == null ? '' : String(str);
+  return div.innerHTML;
+}
+
+// Vult de datalist met unieke productnamen uit de laatst geladen Excel-data,
+// zodat je bij het toevoegen kan kiezen i.p.v. exact moeten overtypen.
+function vulSamengesteldProductnaamLijst() {
+  const dl = document.getElementById('samengesteld-productnaam-lijst');
+  if (!dl) return;
+  if (typeof allRows === 'undefined' || !allRows.length) { dl.innerHTML = ''; return; }
+  const namen = [...new Set(allRows.map(r => r.name || r.base).filter(Boolean))].sort();
+  dl.innerHTML = namen.map(n => `<option value="${escapeHtmlSuppliers(n)}">`).join('');
+}
+
+function renderSamengesteldOnderdelenLijst() {
+  const el = document.getElementById('samengesteld-onderdelen-lijst');
+  if (!el) return;
+  if (!samengesteldModalOnderdelen.length) {
+    el.innerHTML = '<p class="settings-empty">Nog geen onderdelen toegevoegd.</p>';
+    return;
+  }
+  el.innerHTML = samengesteldModalOnderdelen.map((o, i) => `
+    <div class="sgo-row">
+      <input type="text" placeholder="Naam onderdeel" value="${escapeHtmlSuppliers(o.naam)}"
+             onchange="window._sgoUpdate(${i}, 'naam', this.value)">
+      <select onchange="window._sgoUpdate(${i}, 'eenheid', this.value)">
+        <option value="stuk" ${o.eenheid==='stuk'?'selected':''}>Per plateau</option>
+        <option value="gram" ${o.eenheid==='gram'?'selected':''}>Per gram</option>
+      </select>
+      <input type="number" min="1" placeholder="${o.eenheid==='gram'?'g/pers':'p/plateau'}" value="${o.perPlateau || ''}"
+             onchange="window._sgoUpdate(${i}, 'perPlateau', this.value)">
+      <button type="button" class="sgo-remove" onclick="window._sgoRemove(${i})" title="Verwijderen">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>`).join('');
+}
+
+window._sgoUpdate = function (i, field, value) {
+  if (!samengesteldModalOnderdelen[i]) return;
+  samengesteldModalOnderdelen[i][field] = field === 'perPlateau' ? (parseFloat(value) || '') : value;
+};
+
+window._sgoRemove = function (i) {
+  samengesteldModalOnderdelen.splice(i, 1);
+  renderSamengesteldOnderdelenLijst();
+};
+
+function addSamengesteldOnderdeelRow() {
+  samengesteldModalOnderdelen.push({ id: Date.now().toString() + Math.random().toString(36).slice(2, 6), naam: '', eenheid: 'stuk', perPlateau: '' });
+  renderSamengesteldOnderdelenLijst();
+}
+
+function openAddSamengesteld() {
+  document.getElementById('samengesteld-form-title').textContent = 'Samengesteld gerecht toevoegen';
+  document.getElementById('samengesteld-id').value = '';
+  document.getElementById('samengesteld-productnaam').value = '';
+  samengesteldModalOnderdelen = [];
+  renderSamengesteldOnderdelenLijst();
+  vulSamengesteldProductnaamLijst();
+  document.getElementById('samengesteld-modal').style.display = 'flex';
+}
+
+function editSamengesteld(id) {
+  const g = samengesteldeGerechten.find(g => g.id === id);
+  if (!g) return;
+  document.getElementById('samengesteld-form-title').textContent = 'Samengesteld gerecht bewerken';
+  document.getElementById('samengesteld-id').value = g.id;
+  document.getElementById('samengesteld-productnaam').value = g.productNaam;
+  samengesteldModalOnderdelen = g.onderdelen.map(o => ({ ...o }));
+  renderSamengesteldOnderdelenLijst();
+  vulSamengesteldProductnaamLijst();
+  document.getElementById('samengesteld-modal').style.display = 'flex';
+}
+
+function saveSamengesteldForm() {
+  const id = document.getElementById('samengesteld-id').value;
+  const productNaam = document.getElementById('samengesteld-productnaam').value.trim();
+  const onderdelen = samengesteldModalOnderdelen
+    .map(o => ({ id: o.id, naam: (o.naam || '').trim(), eenheid: o.eenheid === 'gram' ? 'gram' : 'stuk', perPlateau: parseFloat(o.perPlateau) }))
+    .filter(o => o.naam && o.perPlateau > 0);
+
+  if (!productNaam) { alert('Vul de exacte productnaam in.'); return; }
+  if (!onderdelen.length) { alert('Vul minstens één geldig onderdeel in (naam + aantal).'); return; }
+
+  if (id) {
+    const g = samengesteldeGerechten.find(g => g.id === id);
+    if (g) { g.productNaam = productNaam; g.onderdelen = onderdelen; }
+  } else {
+    samengesteldeGerechten.push({ id: Date.now().toString(), productNaam, onderdelen });
+  }
+  saveSamengesteldeGerechten();
+  closeSamengesteldModal();
+  renderSamengesteldLijst();
+  if (typeof window._peRefreshOnShow === 'function') window._peRefreshOnShow();
+}
+
+function deleteSamengesteld(id) {
+  if (!confirm('Dit samengesteld gerecht verwijderen?')) return;
+  samengesteldeGerechten = samengesteldeGerechten.filter(g => g.id !== id);
+  saveSamengesteldeGerechten();
+  renderSamengesteldLijst();
+  if (typeof window._peRefreshOnShow === 'function') window._peRefreshOnShow();
+}
+
+function closeSamengesteldModal() {
+  document.getElementById('samengesteld-modal').style.display = 'none';
+}
+
 function saveGeneralSetting(key, val) {
   appSettings[key] = val;
   saveSuppliers();
@@ -455,7 +636,7 @@ function buildOrderEmails(weekKeyFilter) {
   // Filter rijen: vlees + vis, voor de geselecteerde week
   const safeRows2 = (typeof allRows !== 'undefined') ? allRows : [];
   const filtered = safeRows2.filter(r => {
-    if (r.cat !== 'vlees' && r.cat !== 'vis') return false;
+    if (r.tabId !== 'vlees' && r.tabId !== 'vis') return false;
     if (weekKeyFilter && r.weekKey !== weekKeyFilter) return false;
     return true;
   });
@@ -568,6 +749,11 @@ function closeEmailModal() {
 document.addEventListener('DOMContentLoaded', () => {
   loadSuppliers();
   loadGroentenAssortiment();
+  loadSamengesteldeGerechten();
   // Pas instellingen toe
   if (appSettings.smallPlates) smallPlatesDefault = appSettings.smallPlates;
+
+  document.addEventListener('dataLoaded', () => {
+    vulSamengesteldProductnaamLijst();
+  });
 });
