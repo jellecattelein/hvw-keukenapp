@@ -421,22 +421,28 @@
     }
   };
 
+  const DAGEN_LANG = ['zondag','maandag','dinsdag','woensdag','donderdag','vrijdag','zaterdag'];
+
+  // Print in de "Keukenetiket 1B"-stijl (zelfde ontwerp als Portie-Etiketten):
+  // links naam/zaal/extra + Geprod/THT, rechts de datum groot i.p.v. een aantal
+  // (Snelle Etiketten heeft geen stuks/personen).
   window._sePrintDymo = function () {
     if (!items.length) return;
-    const dymoLabels = [];
+    const freeLabels = [];
     items.forEach(it => {
       const { prod, tht } = computeProductieEnTht(it.datum, it.bewaarDagen);
-      const dateLine = `Geprod ${prod} · THT ${tht}`;
-      const noteParts = [it.extra, dateLine].filter(Boolean);
-      const dymoLabel = {
-        heading: it.naam || '',
-        sub: it.zaal || '',
-        note: noteParts.join(' — '),
-        color: colorRgb(it.color),
+      const freeLabel = {
+        naam: it.naam || '',
+        zaal: it.zaal || '',
+        extra: it.extra || '',
+        prodDate: prod,
+        thtDate: tht,
+        datumKort: prod, // datumveld en productiedatum zijn hetzelfde bij Snelle Etiketten
+        dagLang: DAGEN_LANG[parseDateStr(it.datum).getDay()],
       };
-      for (let k = 0; k < it.copies; k++) dymoLabels.push(dymoLabel);
+      for (let k = 0; k < it.copies; k++) freeLabels.push(freeLabel);
     });
-    window.hvwDymoPrint(dymoLabels);
+    window.hvwDymoPrintFreeLabel(freeLabels);
   };
 
   function drawLabel(doc, x, y, label) {

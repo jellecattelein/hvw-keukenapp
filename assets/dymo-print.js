@@ -677,4 +677,207 @@ ${body}
     printViaDialog(labels, buildKitchenDocument);
   };
 
+  /* ══════════════════════════════════════════
+     4) SNEL ETIKET (Snelle Etiketten) — zelfde ontwerptaal
+     als het Keukenetiket 1B (Archivo Narrow, zijkolom), maar
+     zonder stuks/personen: Snelle Etiketten is vrije tekst,
+     dus toont de zijkolom in de plaats groot de datum + dag.
+
+     Datamodel per etiket (FreeLabel):
+       naam, zaal, extra, prodDate, thtDate, datumKort ("19/09"),
+       dagLang ("zaterdag")
+     ══════════════════════════════════════════ */
+
+  function flMetaText(label) {
+    return [label.zaal, label.extra].filter(Boolean).join(' · ');
+  }
+
+  /* ── DYMO Label XML (direct printen) — zelfde canvas/kolomindeling als buildKitchenLabelXml ── */
+  function buildFreeLabelXml(label) {
+    const CANVAS_W = 5040, CANVAS_H = 1620;
+    const RIGHT_W = 1360, RIGHT_X = CANVAS_W - RIGHT_W;
+    const LEFT_X = 159, LEFT_W = RIGHT_X - 136 - LEFT_X;
+
+    function textObject(name, text, x, y, w, h, opts) {
+      opts = opts || {};
+      const size = opts.size || 10;
+      const bold = opts.bold ? 'True' : 'False';
+      const align = opts.align || 'Left';
+      const c = opts.color || KL_INK;
+      return `<ObjectInfo>
+    <TextObject>
+      <Name>${name}</Name>
+      <ForeColor Alpha="255" Red="${c[0]}" Green="${c[1]}" Blue="${c[2]}" />
+      <BackColor Alpha="0" Red="255" Green="255" Blue="255" />
+      <LinkedObjectName></LinkedObjectName>
+      <Rotation>Rotation0</Rotation>
+      <IsMirrored>False</IsMirrored>
+      <IsVariable>False</IsVariable>
+      <HorizontalAlignment>${align}</HorizontalAlignment>
+      <VerticalAlignment>Middle</VerticalAlignment>
+      <TextFitMode>ShrinkToFit</TextFitMode>
+      <UseFullFontHeight>False</UseFullFontHeight>
+      <Verticalized>False</Verticalized>
+      <StyledText>
+        <Element>
+          <String>${escXml(text)}</String>
+          <Attributes>
+            <Font Family="Arial" Size="${size}" Bold="${bold}" Italic="False" Underline="False" Strikeout="False" />
+            <ForeColor Alpha="255" Red="${c[0]}" Green="${c[1]}" Blue="${c[2]}" />
+          </Attributes>
+        </Element>
+      </StyledText>
+    </TextObject>
+    <Bounds X="${x}" Y="${y}" Width="${w}" Height="${h}" />
+  </ObjectInfo>`;
+    }
+
+    const objs = [];
+
+    // ── Linkerkolom: naam, metaregel (zaal · extra), productie/THT — zelfde als Keukenetiket 1B ──
+    objs.push(textObject('NAAM', label.naam || '', LEFT_X, 127, LEFT_W, 538, { size: 12.2, bold: true }));
+    const meta = flMetaText(label);
+    if (meta) {
+      objs.push(textObject('META', meta, LEFT_X, 711, LEFT_W, 202, { size: 8.2, color: KL_INK_SECONDARY }));
+    }
+    if (label.prodDate) {
+      objs.push(textObject('PROD', `Geprod ${label.prodDate}`, LEFT_X, 1313, 1700, 194, { size: 7.9, color: KL_INK_SECONDARY }));
+    }
+    if (label.thtDate) {
+      objs.push(textObject('THT', `THT ${label.thtDate}`, LEFT_X + 1870, 1313, 1500, 194, { size: 7.9, bold: true }));
+    }
+
+    // ── Rechterkolom: datum groot, dag eronder — vaste, gecentreerde 2-regelige opbouw ──
+    const rowX = RIGHT_X + 57, rowW = RIGHT_W - 114;
+    objs.push(textObject('DATUM', label.datumKort || '', rowX, 520, rowW, 410, { size: 21, bold: true, align: 'Center' }));
+    if (label.dagLang) {
+      objs.push(textObject('DAG', label.dagLang, rowX, 965, rowW, 190, { size: 7.4, bold: true, align: 'Center' }));
+    }
+
+    return `<?xml version="1.0" encoding="utf-8"?>
+<DieCutLabel Version="8.0" Units="twips">
+  <PaperOrientation>Landscape</PaperOrientation>
+  <Id>Address</Id>
+  <PaperName>30252 Address</PaperName>
+  <DrawCommands/>
+  ${objs.join('\n  ')}
+</DieCutLabel>`;
+  }
+
+  /* ── Browser-printdialoog fallback ── */
+  function buildFreeLabelHTML(label) {
+    const meta = flMetaText(label);
+    return `
+      <div class="sl-label">
+        <div class="sl-left">
+          <div class="sl-top">
+            <div class="sl-naam">${esc(label.naam || '')}</div>
+            ${meta ? `<div class="sl-meta">${esc(meta)}</div>` : ''}
+          </div>
+          <div class="sl-datesrow">
+            ${label.prodDate ? `<span>Geprod ${esc(label.prodDate)}</span>` : ''}
+            ${label.thtDate ? `<span class="sl-tht">THT ${esc(label.thtDate)}</span>` : ''}
+          </div>
+        </div>
+        <div class="sl-right">
+          <div class="sl-datum">${esc(label.datumKort || '')}</div>
+          ${label.dagLang ? `<div class="sl-dag">${esc(label.dagLang)}</div>` : ''}
+        </div>
+      </div>`;
+  }
+
+  function buildFreeDocument(labels) {
+    const body = labels.map(buildFreeLabelHTML).join('\n');
+    return `<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<title>HVW — Snelle Etiketten</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  @page { size: ${LABEL_W_MM}mm ${LABEL_H_MM}mm; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: 'Archivo Narrow', 'Roboto Condensed', sans-serif; }
+
+  .sl-label {
+    position: relative;
+    width: ${LABEL_W_MM}mm; height: ${LABEL_H_MM}mm;
+    overflow: hidden; display: flex; color: #000;
+    page-break-after: always; break-after: page;
+  }
+  .sl-label:last-child { page-break-after: auto; break-after: auto; }
+
+  .sl-left {
+    flex: 1; min-width: 0; padding: 2.2mm 2.4mm 2mm 2.8mm;
+    display: flex; flex-direction: column; justify-content: space-between;
+  }
+  .sl-top { display: flex; flex-direction: column; gap: 0.8mm; }
+  .sl-naam {
+    font-size: 4.3mm; font-weight: 700; line-height: 1.08; letter-spacing: -0.01em;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .sl-naam.sl-shrink { font-size: 3.9mm; }
+  .sl-meta {
+    font-size: 2.9mm; font-weight: 500; color: #333;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .sl-datesrow { display: flex; gap: 3mm; font-size: 2.8mm; color: #333; }
+  .sl-tht { font-weight: 700; color: #000; }
+
+  .sl-right {
+    width: 24mm; flex: none; border-left: 0.3mm dashed #000;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.8mm;
+    padding: 1.4mm 1mm;
+  }
+  .sl-datum { font-size: 7.4mm; font-weight: 700; line-height: 0.95; text-align: center; }
+  .sl-dag { font-size: 2.6mm; font-weight: 600; letter-spacing: 0.04em; text-align: center; }
+</style>
+</head>
+<body>
+${body}
+<script>
+  function fitNames() {
+    document.querySelectorAll('.sl-naam').forEach(function (el) {
+      var clone = el.cloneNode(true);
+      clone.style.webkitLineClamp = 'unset';
+      clone.style.display = 'block';
+      clone.style.visibility = 'hidden';
+      clone.style.position = 'absolute';
+      clone.style.width = el.clientWidth + 'px';
+      el.parentNode.appendChild(clone);
+      var lh = parseFloat(getComputedStyle(el).lineHeight) || (el.clientHeight / 2);
+      if (clone.scrollHeight > lh * 2 + 1) el.classList.add('sl-shrink');
+      clone.remove();
+    });
+  }
+  function go() {
+    fitNames();
+    setTimeout(function () { window.focus(); window.print(); }, 150);
+  }
+  if (document.fonts && document.fonts.ready) { document.fonts.ready.then(go).catch(go); }
+  else { window.onload = go; }
+  window.onafterprint = function () { window.close(); };
+</script>
+</body>
+</html>`;
+  }
+
+  /**
+   * Print de opgegeven Snelle Etiketten (vrije tekst, datum/dag groot rechts).
+   * Zelfde direct/fallback-strategie als hvwDymoPrint.
+   * @param {Array<Object>} labels - zie FreeLabel hierboven.
+   */
+  window.hvwDymoPrintFreeLabel = async function (labels) {
+    if (!labels || !labels.length) {
+      alert('Geen etiketten om te printen.');
+      return;
+    }
+    const directOk = await tryDirectPrint(labels, buildFreeLabelXml);
+    if (directOk) return;
+    printViaDialog(labels, buildFreeDocument);
+  };
+
 })();
