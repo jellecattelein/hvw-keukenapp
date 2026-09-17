@@ -624,8 +624,12 @@
     checkedCbs.forEach(cb => {
       const ev = events.find(e => e.bookingId === cb.value);
       if (!ev) return;
-      const matchRow = allRows.find(r => r.base === productVal && r.bookingId === ev.bookingId);
-      const persons = matchRow ? matchRow.persons : ev.persons;
+      // Som ALLE rijen van dit product binnen dit feest — de Excel-export
+      // splitst eenzelfde product soms over meerdere rijen (bv. een aparte
+      // rij voor kinderen), en die moeten samen 1 aantal geven i.p.v. dat
+      // enkel de eerste rij meetelt.
+      const matchRows = allRows.filter(r => r.base === productVal && r.bookingId === ev.bookingId);
+      const persons = matchRows.length ? matchRows.reduce((s, r) => s + r.persons, 0) : ev.persons;
       const aantalEtiketten = persons > 0 ? Math.ceil(persons / per) : 1;
 
       queue.push({
