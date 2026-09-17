@@ -692,7 +692,7 @@
     }
     list.innerHTML = `<div class="pe-autocomplete-list">
       ${filtered.slice(0, 40).map(p => `
-        <div class="pe-autocomplete-item" onmousedown="window._peSelectProduct('${escAttr(p.base)}')">
+        <div class="pe-autocomplete-item" onmousedown="window._peSelectProduct('${jsStr(p.base)}')">
           <span class="pe-ac-name">${escapeHtml(p.base)}</span>
           <span class="pe-ac-meta">${TAB_LABELS[p.tabId] || p.tabId || ''}</span>
         </div>`).join('')}
