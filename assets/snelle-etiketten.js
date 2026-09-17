@@ -28,8 +28,13 @@
     { key: 'grijs',  label: 'Grijs',  rgb: [90, 88, 84] },
   ];
 
-  let items = []; // { id, lines: [line1, line2, ...], color, copies }
+  let items = []; // { id, naam, zaal, extra, datum ('YYYY-MM-DD'), color, copies, bewaarDagen }
   let idCounter = 1;
+
+  function todayStr() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
 
   /* ── CSS ── */
   function injectCSS() {
@@ -141,8 +146,23 @@
 
           <div class="se-field">
             <label>Tekst op het etiket</label>
-            <textarea id="se-text" placeholder="Bijv.&#10;Kip aan het spit&#10;Bereid: 13/07&#10;THT: 16/07"></textarea>
-            <div class="se-hint">Elke regel op het etiket = een nieuwe regel hier. Eerste regel wordt groot getoond.</div>
+            <input type="text" id="se-naam" placeholder="Bijv. Kip aan het spit">
+          </div>
+
+          <div class="se-row-2">
+            <div class="se-field" style="margin-bottom:0">
+              <label>Zaal (optioneel)</label>
+              <input type="text" id="se-zaal" placeholder="Bijv. Traiteur 1">
+            </div>
+            <div class="se-field" style="margin-bottom:0">
+              <label>Datum</label>
+              <input type="date" id="se-datum">
+            </div>
+          </div>
+
+          <div class="se-field">
+            <label>Extra regel (optioneel)</label>
+            <input type="text" id="se-extra" placeholder="Bijv. zonder look, apart voor allergie-tafel">
           </div>
 
           <div class="se-row-2">
@@ -172,12 +192,14 @@
     const appWrap = document.getElementById('app-wrap') || document.body;
     appWrap.appendChild(wrap);
 
+    document.getElementById('se-datum').value = todayStr();
+
     renderColorPicker();
     renderList();
 
-    // Enter in textarea (met Ctrl/Cmd) voegt snel toe
-    document.getElementById('se-text').addEventListener('keydown', e => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { window._seAdd(); }
+    // Enter in het tekstveld voegt snel toe
+    document.getElementById('se-naam').addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); window._seAdd(); }
     });
   }
 
@@ -199,21 +221,31 @@
   };
 
   window._seAdd = function () {
-    const textEl = document.getElementById('se-text');
+    const naamEl = document.getElementById('se-naam');
+    const zaalEl = document.getElementById('se-zaal');
+    const extraEl = document.getElementById('se-extra');
+    const datumEl = document.getElementById('se-datum');
     const copiesEl = document.getElementById('se-copies');
     const bewaarEl = document.getElementById('se-bewaardagen');
-    const raw = textEl.value.trim();
-    if (!raw) { textEl.focus(); return; }
 
-    const lines = raw.split('\n').map(l => l.trim()).filter(Boolean).slice(0, 5);
+    const naam = naamEl.value.trim();
+    if (!naam) { naamEl.focus(); return; }
+
+    const zaal = zaalEl.value.trim();
+    const extra = extraEl.value.trim();
+    const datum = datumEl.value || todayStr();
     const copies = Math.max(1, parseInt(copiesEl.value, 10) || 1);
     const bewaarDagen = Math.max(1, parseInt(bewaarEl?.value, 10) || 7);
 
-    items.push({ id: idCounter++, lines, color: selectedColor, copies, bewaarDagen });
-    textEl.value = '';
+    items.push({ id: idCounter++, naam, zaal, extra, datum, color: selectedColor, copies, bewaarDagen });
+
+    naamEl.value = '';
+    zaalEl.value = '';
+    extraEl.value = '';
+    datumEl.value = todayStr(); // klaarzetten voor het volgende etiket
     copiesEl.value = '1';
     bewaarEl.value = '7';
-    textEl.focus();
+    naamEl.focus();
 
     renderList();
   };
@@ -235,19 +267,38 @@
     return c ? c.rgb : [100, 100, 100];
   }
 
-  // Productiedatum = dag van afdrukken; THT = productiedatum + bewaarDagen.
+  // Productiedatum = het ingevulde datumveld (standaard vandaag, maar
+  // aanpasbaar — bv. om een etiket al klaar te zetten voor morgen);
+  // THT = productiedatum + bewaarDagen.
   function fmtShortDate(d) {
     const dd = String(d.getDate()).padStart(2, '0');
     const mm = String(d.getMonth() + 1).padStart(2, '0');
     return `${dd}/${mm}`;
   }
 
-  function computeProductieEnTht(bewaarDagen) {
-    const now = new Date();
-    const prod = fmtShortDate(now);
-    const thtDate = new Date(now);
+  function parseDateStr(dateStr) {
+    if (!dateStr) return new Date();
+    const [y, m, d] = dateStr.split('-').map(Number);
+    return new Date(y, m - 1, d);
+  }
+
+  function computeProductieEnTht(datumStr, bewaarDagen) {
+    const base = parseDateStr(datumStr);
+    const prod = fmtShortDate(base);
+    const thtDate = new Date(base);
     thtDate.setDate(thtDate.getDate() + (bewaarDagen || 7));
     return { prod, tht: fmtShortDate(thtDate) };
+  }
+
+  // Bouwt de regels die effectief op het etiket komen: tekst, optioneel
+  // zaal en extra regel, en als laatste altijd de productie-/houdbaarheidsdatum.
+  function buildLines(it) {
+    const lines = [it.naam];
+    if (it.zaal) lines.push(it.zaal);
+    if (it.extra) lines.push(it.extra);
+    const { prod, tht } = computeProductieEnTht(it.datum, it.bewaarDagen);
+    lines.push(`Geprod ${prod} · THT ${tht}`);
+    return lines;
   }
 
   function renderList() {
@@ -276,8 +327,9 @@
             <div class="se-item">
               <div class="se-item-dot" style="background: rgb(${colorRgb(it.color).join(',')})"></div>
               <div class="se-item-text">
-                <div class="se-line1">${escapeHtml(it.lines[0] || '')}</div>
-                ${it.lines.slice(1).map(l => `<div class="se-line-rest">${escapeHtml(l)}</div>`).join('')}
+                <div class="se-line1">${escapeHtml(it.naam)}</div>
+                ${it.zaal ? `<div class="se-line-rest">${escapeHtml(it.zaal)}</div>` : ''}
+                ${it.extra ? `<div class="se-line-rest">${escapeHtml(it.extra)}</div>` : ''}
               </div>
               <div class="se-item-copies">${it.copies}×</div>
               <button class="se-item-del" onclick="window._seRemove(${it.id})" title="Verwijderen">
@@ -337,13 +389,12 @@
       const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
       // Expandeer naar individuele labels o.b.v. copies, met productie-
-      // en houdbaarheidsdatum als extra regel (dag van afdrukken + bewaartermijn).
+      // en houdbaarheidsdatum als extra regel (ingevulde datum + bewaartermijn).
       const labels = [];
       items.forEach(it => {
-        const { prod, tht } = computeProductieEnTht(it.bewaarDagen);
-        const lines = [...it.lines, `Geprod ${prod} · THT ${tht}`];
-        const labelWithDate = { ...it, lines };
-        for (let k = 0; k < it.copies; k++) labels.push(labelWithDate);
+        const lines = buildLines(it);
+        const labelWithLines = { ...it, lines };
+        for (let k = 0; k < it.copies; k++) labels.push(labelWithLines);
       });
 
       const perPage = COLS * ROWS;
@@ -374,14 +425,13 @@
     if (!items.length) return;
     const dymoLabels = [];
     items.forEach(it => {
-      const lines = it.lines.length ? it.lines : [''];
-      const { prod, tht } = computeProductieEnTht(it.bewaarDagen);
+      const { prod, tht } = computeProductieEnTht(it.datum, it.bewaarDagen);
       const dateLine = `Geprod ${prod} · THT ${tht}`;
-      const restLines = lines.slice(2).join(' · ');
+      const noteParts = [it.extra, dateLine].filter(Boolean);
       const dymoLabel = {
-        heading: lines[0] || '',
-        sub: lines[1] || '',
-        note: restLines ? `${dateLine} — ${restLines}` : dateLine,
+        heading: it.naam || '',
+        sub: it.zaal || '',
+        note: noteParts.join(' — '),
         color: colorRgb(it.color),
       };
       for (let k = 0; k < it.copies; k++) dymoLabels.push(dymoLabel);
