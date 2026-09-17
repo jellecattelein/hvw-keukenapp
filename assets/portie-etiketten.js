@@ -1906,6 +1906,21 @@
   // Bouwt de gesorteerde/geëxpandeerde lijst van individuele labels op uit
   // de queue — exact dezelfde volgorde en per-etiket-verdeling als de PDF-
   // export (_pePdfGenerate), zodat Dymo en PDF altijd hetzelfde tonen.
+  // Vat de verdeling van personen over meerdere etiketten samen in een
+  // leesbare tekst, bv. [45,45,10] -> "2 × 45 + 10 st". Gelijke, opeenvolgende
+  // waarden worden gegroepeerd; een unieke waarde krijgt geen "1 ×"-prefix.
+  function buildSplitNote(perEmmerAantallen, unit) {
+    if (!perEmmerAantallen || perEmmerAantallen.length <= 1) return '';
+    const groups = [];
+    perEmmerAantallen.forEach(v => {
+      const last = groups[groups.length - 1];
+      if (last && last.val === v) last.count++;
+      else groups.push({ val: v, count: 1 });
+    });
+    const parts = groups.map(g => g.count > 1 ? `${g.count} × ${g.val}` : `${g.val}`);
+    return `${parts.join(' + ')} ${unit}`;
+  }
+
   function buildExpandedLabels() {
     const sortedQueue = [...queue].sort((a, b) => {
       const prodCompare = (a.product || '').localeCompare(b.product || '');
@@ -1917,68 +1932,69 @@
     const labels = [];
     sortedQueue.forEach(it => {
       const perEmmerAantallen = verdeelPersonenOverEtiketten(it.persons, it.aantalEtiketten, it.per);
+      // Bij gram-producten (bv. puree) is er altijd maar 1 etiket met het
+      // totaalgewicht — een verdeling over meerdere etiketten is dan niet van toepassing.
+      const isGram = it.perEenheid === 'gram' && it.totaalGewicht != null;
+      const splitNote = isGram ? '' : buildSplitNote(perEmmerAantallen, 'st');
       for (let k = 1; k <= it.aantalEtiketten; k++) {
-        labels.push({ ...it, karNr: k, emmerPersonen: perEmmerAantallen[k - 1] });
+        labels.push({ ...it, karNr: k, emmerPersonen: perEmmerAantallen[k - 1], splitNote });
       }
     });
     return labels;
   }
 
-  // Zet één geëxpandeerd label om naar het generieke formaat dat
-  // dymo-print.js verwacht (zie window.hvwDymoPrint).
-  function toDymoLabel(label) {
-    const rgbColor = label.locCode ? (LOC_COLORS_RGB[label.locCode] || DEFAULT_COLOR) : DEFAULT_COLOR;
+  // Zet één geëxpandeerd label om naar het "Keukenetiket 1B"-formaat
+  // (design handoff Dymo 99010, zijkolom-variant) dat dymo-print.js
+  // verwacht via window.hvwDymoPrintKitchenLabel — zie het KitchenLabel
+  // type in dat bestand.
+  function toKitchenLabel(label) {
+    const isGram = label.perEenheid === 'gram' && label.totaalGewicht != null;
+    let pieces, unit, splitNote;
 
-    // Onderaan rechts: bij groenten/producten-per-plateau het totaal aantal
-    // personen van het feest, anders het aantal in dit specifieke etiket —
-    // exact dezelfde regel als in drawLabel() voor de PDF.
-    const toonAantal = label.perEenheid
-      ? label.persons
-      : ((label.emmerPersonen !== undefined && label.emmerPersonen !== null) ? label.emmerPersonen : label.persons);
-
-    // Toont dit etiket maar een deel van een groter order (verdeeld over
-    // meerdere emmers)? Toon dan ook het volledige aantal personen als
-    // context, naast het aantal in dít specifieke etiket.
-    const isDeelvanTotaal = !label.perEenheid && toonAantal !== label.persons;
-    const footerSub = isDeelvanTotaal ? `van ${label.persons} totaal` : '';
-
-    let sub = '';
-    if (label.perEenheid === 'gram' && label.totaalGewicht != null) {
-      const totaalTxt = label.totaalGewicht >= 1000
-        ? `${(label.totaalGewicht/1000).toFixed(label.totaalGewicht % 1000 === 0 ? 0 : 1)}kg`
-        : `${label.totaalGewicht}g`;
-      sub = `${label.persons}p × ${label.per}g = ${totaalTxt}`;
-    } else if (label.perEenheid) {
-      const aantalInDitEtiket = (label.emmerPersonen !== undefined && label.emmerPersonen !== null)
-        ? label.emmerPersonen : label.per;
-      sub = `${aantalInDitEtiket} st / plateau`;
-    } else if (label.pakformaat) {
-      sub = compactPakformaat(label.pakformaat);
+    if (isGram) {
+      const totaalGram = label.totaalGewicht;
+      if (totaalGram >= 1000) {
+        pieces = +(totaalGram / 1000).toFixed(totaalGram % 1000 === 0 ? 0 : 1);
+        unit = 'kg';
+      } else {
+        pieces = totaalGram;
+        unit = 'g';
+      }
+      splitNote = '';
+    } else {
+      pieces = (label.emmerPersonen !== undefined && label.emmerPersonen !== null)
+        ? label.emmerPersonen : label.persons;
+      unit = 'st';
+      splitNote = label.aantalEtiketten > 1 ? (label.splitNote || '') : '';
     }
-    if (label.zaal) sub = sub ? `${sub} · ${label.zaal}` : label.zaal;
 
-    let note = label.opmerking || '';
-    if (label.bewaarDagen) {
-      const { prod, tht } = computeProductieEnTht(label.bewaarDagen);
-      const dateNote = `Geprod ${prod} · THT ${tht}`;
-      note = note ? `${dateNote} — ${note}` : dateNote;
-    }
+    const bewaar = label.bewaarDagen ? computeProductieEnTht(label.bewaarDagen) : null;
 
     return {
-      heading: label.product || '',
-      sub,
-      badge: fmtLabelDate(label.dateStr) + (label.aantalEtiketten > 1 ? `  ${label.karNr}/${label.aantalEtiketten}` : ''),
-      footerRight: toonAantal ? `${toonAantal} pers.` : '',
-      footerSub,
-      note,
-      color: rgbColor,
+      dishName: label.product || '',
+      // Portie-breuk (bv. "1/1", "2/3") — enkel zinvol bij een verpakkingsformaat;
+      // groenten/samengestelde onderdelen (perEenheid) hebben dit niet.
+      portions: (!label.perEenheid && label.pakformaat) ? compactPakformaat(label.pakformaat) : '',
+      location: label.zaal || '',
+      // Vrije opmerking (bv. allergie-notitie) krijgt voorrang op de metaregel-
+      // plek die in het ontwerp voor het servicemoment bedoeld is — zichtbaarheid
+      // van uitzonderingen weegt zwaarder dan het ontwerp letterlijk volgen.
+      moment: label.opmerking || '',
+      prodDate: bewaar ? bewaar.prod : '',
+      thtDate: bewaar ? bewaar.tht : '',
+      dayDate: fmtLabelDate(label.dateStr),
+      seq: label.aantalEtiketten > 1 ? `${label.karNr}/${label.aantalEtiketten}` : '',
+      pieces,
+      unit,
+      totalGuests: label.persons,
+      splitNote,
     };
   }
 
   window._pePrintDymo = function () {
     if (!queue.length) return;
-    const labels = buildExpandedLabels().map(toDymoLabel);
-    window.hvwDymoPrint(labels);
+    const labels = buildExpandedLabels().map(toKitchenLabel);
+    window.hvwDymoPrintKitchenLabel(labels);
   };
 
   function drawLabel(doc, x, y, label) {
