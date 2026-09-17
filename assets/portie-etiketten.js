@@ -1573,29 +1573,42 @@
       });
     });
 
+    // ── Overige producten: normale checkbox-flow, samengevoegd per
+    //    (product + zaal + gelegenheid + datum + locatie). Eén product kan
+    //    in de Excel-export als meerdere losse rijen voor dezelfde zaal
+    //    binnenkomen (bv. een aparte rij voor de kindermenu's) — dat moet
+    //    in de keuken gewoon ÉÉN etiket-berekening worden, niet een apart
+    //    etiketje per rij. Andere zalen blijven wel volledig apart. ──
+    const normaalMerge = {}; // mergeKey -> { gName, persons, room, opmerking, locCode, dateStr, pakformaat }
     allRows.forEach((r, idx) => {
       const key = rowKey(r, idx);
-
-      // ── Overige producten: normale checkbox-flow ──
       if (!selectedKeys.includes(key)) return;
       const gName = groupNameOf(r);
-      const per = catPerOverride[gName] || portieRegels[gName] || 100;
-      const aantalEtiketten = Math.ceil(r.persons / per);
-      const pakformaat = rowPakOverride[key] || '1/1 emmer';
       const locCode = resolveLocCode(r);
-
+      const opmerking = r.event && r.event !== r.room ? r.event : '';
+      const pakformaat = rowPakOverride[key] || '1/1 emmer';
+      const mergeKey = [gName, r.room, opmerking, r.dateStr || '', locCode || ''].join('::');
+      if (!normaalMerge[mergeKey]) {
+        normaalMerge[mergeKey] = { gName, persons: 0, room: r.room, opmerking, locCode, dateStr: r.dateStr || '', pakformaat };
+      }
+      normaalMerge[mergeKey].persons += r.persons;
+      // Bij verschillende pakformaten binnen dezelfde groep wint de laatst geselecteerde rij
+      normaalMerge[mergeKey].pakformaat = pakformaat;
+    });
+    Object.values(normaalMerge).forEach(m => {
+      const per = catPerOverride[m.gName] || portieRegels[m.gName] || 100;
       queue.push({
         id: idCounter++,
-        product: gName,
-        persons: r.persons,
+        product: m.gName,
+        persons: m.persons,
         per,
-        aantalEtiketten,
-        pakformaat,
-        zaal: r.room,
-        opmerking: r.event && r.event !== r.room ? r.event : '',
+        aantalEtiketten: Math.ceil(m.persons / per),
+        pakformaat: m.pakformaat,
+        zaal: m.room,
+        opmerking: m.opmerking,
         bewaarDagen: 7,
-        locCode,
-        dateStr: r.dateStr || '',
+        locCode: m.locCode,
+        dateStr: m.dateStr,
         editing: false
       });
     });
