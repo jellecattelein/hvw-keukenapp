@@ -947,7 +947,32 @@
   // aparte bereidingen die je apart in emmers verdeelt.
   function groupNameOf(r) { return r.name || r.base; }
 
-  function rowKey(r, idx) { return r.tabId + '::' + groupNameOf(r) + '::' + idx; }
+  // Bouwt de samengevoegde rij-lijst voor "Per categorie": per (product +
+  // zaal + datum + locatie) worden alle Excel-rijen opgeteld tot 1 rij —
+  // net als bij "Per zaal". Zonder deze samenvoeging kan hetzelfde product
+  // in dezelfde zaal als meerdere losse rijtjes binnenkomen (bv. een aparte
+  // Excel-rij voor de kindermenu's), en riskeer je dat een kok er maar één
+  // van aanvinkt en zo te weinig bestelt — de kern van deze wijziging.
+  function buildCategoryEntries(catId) {
+    const merged = new Map();
+    allRows.forEach(r => {
+      if (r.tabId !== catId || r.persons <= 0) return;
+      const base = groupNameOf(r);
+      const locCode = resolveLocCode(r);
+      const room = r.room || '';
+      const dateStr = r.dateStr || '';
+      const key = [catId, base, room, dateStr, locCode || ''].join('::');
+      if (!merged.has(key)) {
+        merged.set(key, {
+          key, tabId: catId, base, room, dateStr, locCode,
+          persons: 0,
+          event: (r.event && r.event !== r.room) ? r.event : '',
+        });
+      }
+      merged.get(key).persons += r.persons;
+    });
+    return [...merged.values()];
+  }
 
   /* ══════════════════════════════
      MODUS "PER ZAAL"
@@ -1135,33 +1160,45 @@
     const wrap = document.getElementById('pe-cat-groups-wrap');
     if (!wrap) return;
 
-    const rows = allRows
-      .map((r, idx) => ({ r, key: rowKey(r, idx) }))
-      .filter(({r}) => r.tabId === catId && r.persons > 0);
+    const entries = buildCategoryEntries(catId);
 
-    if (!rows.length) {
+    if (!entries.length) {
       wrap.innerHTML = `<div class="pe-card pe-empty"><div class="pe-empty-title">Geen producten in deze categorie</div></div>`;
       return;
     }
 
     // Groepeer per volledige productnaam (niet r.base — zie groupNameOf hierboven)
     const groups = new Map();
-    rows.forEach(({r, key}) => {
-      const gName = groupNameOf(r);
-      if (!groups.has(gName)) groups.set(gName, []);
-      groups.get(gName).push({ r, key });
+    entries.forEach(e => {
+      if (!groups.has(e.base)) groups.set(e.base, []);
+      groups.get(e.base).push(e);
     });
     // Sorteer binnen elke groep chronologisch op datum (dan op zaal, voor stabiele volgorde)
-    groups.forEach(entries => {
-      entries.sort((a, b) => {
-        const dA = a.r.dateStr || '', dB = b.r.dateStr || '';
+    groups.forEach(list => {
+      list.sort((a, b) => {
+        const dA = a.dateStr || '', dB = b.dateStr || '';
         if (dA !== dB) return dA.localeCompare(dB);
-        return (a.r.room || '').localeCompare(b.r.room || '');
+        return (a.room || '').localeCompare(b.room || '');
       });
     });
     const sortedBases = [...groups.keys()].sort((a,b) => a.localeCompare(b));
-    const totalRows = rows.length;
-    const allCategoryChecked = rows.every(({key}) => catChecked[key]);
+    const totalRows = entries.length;
+    // Zelfde per-type logica als _peToggleCategoryAll: een seizoensgroente/
+    // samengesteld gerecht telt hier als "aangevinkt" via zijn eigen
+    // selectiemechanisme, niet via catChecked.
+    const allCategoryChecked = entries.every(e => {
+      if (isSeizoensgroentenHoofdproduct(e.base)) {
+        const assortiment = getGroentenAssortiment(seizoenVariantOf(e.base));
+        const sel = rowGroenteSelectie[e.key] || {};
+        return assortiment.length > 0 && assortiment.every(g => sel[g.id]);
+      }
+      if (isSamengesteldHoofdproduct(e.base)) {
+        const onderdelen = getSamengesteldOnderdelen(e.base) || [];
+        const sel = rowSamengesteldSelectie[e.key] || {};
+        return onderdelen.length > 0 && onderdelen.every(o => sel[o.id]);
+      }
+      return !!catChecked[e.key];
+    });
 
     wrap.innerHTML = `
       <div class="pe-card">
@@ -1203,8 +1240,8 @@
     const per = catPerOverride[base] || portieRegels[base] || 100;
 
     if (isSamengesteld) {
-      const allChecked = entries.every(({key}) => {
-        const sel = rowSamengesteldSelectie[key] || {};
+      const allChecked = entries.every(e => {
+        const sel = rowSamengesteldSelectie[e.key] || {};
         return samengesteldOnderdelen.every(o => sel[o.id]);
       });
       return `
@@ -1214,13 +1251,13 @@
             <span class="pe-group-soorten" title="Beheer de onderdelen in Instellingen">${samengesteldOnderdelen.length} onderdelen</span>
             <span class="pe-group-select-all" onclick="window._peToggleSamengesteldGroupAll('${jsStr(base)}', ${allChecked ? 'false' : 'true'})">${allChecked ? 'Alles uitvinken' : 'Alles selecteren'}</span>
           </div>
-          ${entries.map(({r, key}) => renderSamengesteldRow(r, key, samengesteldOnderdelen)).join('')}
+          ${entries.map(e => renderSamengesteldRow(e, samengesteldOnderdelen)).join('')}
         </div>`;
     }
 
     const allChecked = isSeizoen
-      ? entries.every(({key}) => Object.values(rowGroenteSelectie[key]||{}).some(Boolean))
-      : entries.every(({key}) => catChecked[key]);
+      ? entries.every(e => Object.values(rowGroenteSelectie[e.key]||{}).some(Boolean))
+      : entries.every(e => catChecked[e.key]);
 
     if (isSeizoen) {
       const variant = seizoenVariantOf(base);
@@ -1236,7 +1273,7 @@
             <div class="pe-groente-leeg">
               Nog geen groenten ingesteld voor ${variant === 'rouwmaaltijd' ? 'Rouwmaaltijd' : 'deze week'}.
               <a href="#" onclick="switchMode('settings'); return false;">Ga naar Instellingen</a> om dit assortiment in te vullen.
-            </div>` : entries.map(({r, key}) => renderSeizoensgroentenRow(r, key, assortiment)).join('')}
+            </div>` : entries.map(e => renderSeizoensgroentenRow(e, assortiment)).join('')}
         </div>`;
     }
 
@@ -1251,7 +1288,7 @@
             <span>p</span>
           </div>
         </div>
-        ${entries.map(({r, key}) => renderCheckRow(r, key, per)).join('')}
+        ${entries.map(e => renderCheckRow(e, per)).join('')}
       </div>`;
   }
 
@@ -1283,35 +1320,34 @@
   }
   const fmtLabelDate = fmtRowDate;
 
-  function renderSeizoensgroentenRow(r, key, assortiment) {
-    const locCode = resolveLocCode(r);
-    const locLabel = locCode ? (LOC_LABELS[locCode] || locCode) : '';
-    const dateLabel = fmtRowDate(r.dateStr);
-    const selectie = rowGroenteSelectie[key] || {};
+  function renderSeizoensgroentenRow(entry, assortiment) {
+    const locLabel = entry.locCode ? (LOC_LABELS[entry.locCode] || entry.locCode) : '';
+    const dateLabel = fmtRowDate(entry.dateStr);
+    const selectie = rowGroenteSelectie[entry.key] || {};
 
     return `
       <div class="pe-seizoen-row">
         <div class="pe-row-check-main" style="margin-bottom:8px">
-          <div class="pe-row-check-event">${escapeHtml(r.event || r.room)}</div>
-          <div class="pe-row-check-meta">${dateLabel ? `<span class="pe-row-check-date">${escapeHtml(dateLabel)}</span> · ` : ''}${escapeHtml(r.room)}${locLabel ? ` · ${escapeHtml(locLabel)}` : ''} · ${r.persons}p</div>
+          <div class="pe-row-check-event">${escapeHtml(entry.event || entry.room)}</div>
+          <div class="pe-row-check-meta">${dateLabel ? `<span class="pe-row-check-date">${escapeHtml(dateLabel)}</span> · ` : ''}${escapeHtml(entry.room)}${locLabel ? ` · ${escapeHtml(locLabel)}` : ''} · ${entry.persons}p</div>
         </div>
         <div class="pe-groente-chips">
           ${assortiment.map(g => {
             const checked = !!selectie[g.id];
             if (g.eenheid === 'gram') {
-              const totaalGram = r.persons * g.perPlateau;
+              const totaalGram = entry.persons * g.perPlateau;
               const totaalTxt = totaalGram >= 1000 ? `${(totaalGram/1000).toFixed(totaalGram % 1000 === 0 ? 0 : 1)}kg` : `${totaalGram}g`;
               return `
                 <label class="pe-groente-chip ${checked?'checked':''}">
-                  <input type="checkbox" ${checked?'checked':''} onchange="window._peToggleGroenteRow('${jsStr(key)}','${g.id}', this.checked, this)">
+                  <input type="checkbox" ${checked?'checked':''} onchange="window._peToggleGroenteRow('${jsStr(entry.key)}','${g.id}', this.checked, this)">
                   <span class="pe-groente-chip-naam">${escapeHtml(g.naam)}</span>
-                  <span class="pe-groente-chip-meta">${r.persons}p × ${g.perPlateau}g = ${totaalTxt}</span>
+                  <span class="pe-groente-chip-meta">${entry.persons}p × ${g.perPlateau}g = ${totaalTxt}</span>
                 </label>`;
             }
-            const aantalEtiketten = Math.ceil(r.persons / g.perPlateau);
+            const aantalEtiketten = Math.ceil(entry.persons / g.perPlateau);
             return `
               <label class="pe-groente-chip ${checked?'checked':''}">
-                <input type="checkbox" ${checked?'checked':''} onchange="window._peToggleGroenteRow('${jsStr(key)}','${g.id}', this.checked, this)">
+                <input type="checkbox" ${checked?'checked':''} onchange="window._peToggleGroenteRow('${jsStr(entry.key)}','${g.id}', this.checked, this)">
                 <span class="pe-groente-chip-naam">${escapeHtml(g.naam)}</span>
                 <span class="pe-groente-chip-meta">${g.perPlateau}st/plateau · ${aantalEtiketten}×</span>
               </label>`;
@@ -1320,35 +1356,34 @@
       </div>`;
   }
 
-  function renderSamengesteldRow(r, key, onderdelen) {
-    const locCode = resolveLocCode(r);
-    const locLabel = locCode ? (LOC_LABELS[locCode] || locCode) : '';
-    const dateLabel = fmtRowDate(r.dateStr);
-    const selectie = rowSamengesteldSelectie[key] || {};
+  function renderSamengesteldRow(entry, onderdelen) {
+    const locLabel = entry.locCode ? (LOC_LABELS[entry.locCode] || entry.locCode) : '';
+    const dateLabel = fmtRowDate(entry.dateStr);
+    const selectie = rowSamengesteldSelectie[entry.key] || {};
 
     return `
       <div class="pe-seizoen-row">
         <div class="pe-row-check-main" style="margin-bottom:8px">
-          <div class="pe-row-check-event">${escapeHtml(r.event || r.room)}</div>
-          <div class="pe-row-check-meta">${dateLabel ? `<span class="pe-row-check-date">${escapeHtml(dateLabel)}</span> · ` : ''}${escapeHtml(r.room)}${locLabel ? ` · ${escapeHtml(locLabel)}` : ''} · ${r.persons}p</div>
+          <div class="pe-row-check-event">${escapeHtml(entry.event || entry.room)}</div>
+          <div class="pe-row-check-meta">${dateLabel ? `<span class="pe-row-check-date">${escapeHtml(dateLabel)}</span> · ` : ''}${escapeHtml(entry.room)}${locLabel ? ` · ${escapeHtml(locLabel)}` : ''} · ${entry.persons}p</div>
         </div>
         <div class="pe-groente-chips">
           ${onderdelen.map(o => {
             const checked = !!selectie[o.id];
             if (o.eenheid === 'gram') {
-              const totaalGram = r.persons * o.perPlateau;
+              const totaalGram = entry.persons * o.perPlateau;
               const totaalTxt = totaalGram >= 1000 ? `${(totaalGram/1000).toFixed(totaalGram % 1000 === 0 ? 0 : 1)}kg` : `${totaalGram}g`;
               return `
                 <label class="pe-groente-chip ${checked?'checked':''}">
-                  <input type="checkbox" ${checked?'checked':''} onchange="window._peToggleSamengesteldRow('${jsStr(key)}','${o.id}', this.checked, this)">
+                  <input type="checkbox" ${checked?'checked':''} onchange="window._peToggleSamengesteldRow('${jsStr(entry.key)}','${o.id}', this.checked, this)">
                   <span class="pe-groente-chip-naam">${escapeHtml(o.naam)}</span>
-                  <span class="pe-groente-chip-meta">${r.persons}p × ${o.perPlateau}g = ${totaalTxt}</span>
+                  <span class="pe-groente-chip-meta">${entry.persons}p × ${o.perPlateau}g = ${totaalTxt}</span>
                 </label>`;
             }
-            const aantalEtiketten = Math.ceil(r.persons / o.perPlateau);
+            const aantalEtiketten = Math.ceil(entry.persons / o.perPlateau);
             return `
               <label class="pe-groente-chip ${checked?'checked':''}">
-                <input type="checkbox" ${checked?'checked':''} onchange="window._peToggleSamengesteldRow('${jsStr(key)}','${o.id}', this.checked, this)">
+                <input type="checkbox" ${checked?'checked':''} onchange="window._peToggleSamengesteldRow('${jsStr(entry.key)}','${o.id}', this.checked, this)">
                 <span class="pe-groente-chip-naam">${escapeHtml(o.naam)}</span>
                 <span class="pe-groente-chip-meta">${o.perPlateau}p/plateau · ${aantalEtiketten}×</span>
               </label>`;
@@ -1357,21 +1392,20 @@
       </div>`;
   }
 
-  function renderCheckRow(r, key, per) {
-    const checked = !!catChecked[key];
-    const aantalEtiketten = Math.ceil(r.persons / per);
-    const locCode = resolveLocCode(r);
-    const locLabel = locCode ? (LOC_LABELS[locCode] || locCode) : '';
-    const dateLabel = fmtRowDate(r.dateStr);
+  function renderCheckRow(entry, per) {
+    const checked = !!catChecked[entry.key];
+    const aantalEtiketten = Math.ceil(entry.persons / per);
+    const locLabel = entry.locCode ? (LOC_LABELS[entry.locCode] || entry.locCode) : '';
+    const dateLabel = fmtRowDate(entry.dateStr);
     return `
       <label class="pe-row-check">
-        <input type="checkbox" ${checked?'checked':''} onchange="window._peToggleRow('${jsStr(key)}', this.checked)">
+        <input type="checkbox" ${checked?'checked':''} onchange="window._peToggleRow('${jsStr(entry.key)}', this.checked)">
         <div class="pe-row-check-main">
-          <div class="pe-row-check-event">${escapeHtml(r.event || r.room)}</div>
-          <div class="pe-row-check-meta">${dateLabel ? `<span class="pe-row-check-date">${escapeHtml(dateLabel)}</span> · ` : ''}${escapeHtml(r.room)}${locLabel ? ` · ${escapeHtml(locLabel)}` : ''} · ${r.persons}p</div>
+          <div class="pe-row-check-event">${escapeHtml(entry.event || entry.room)}</div>
+          <div class="pe-row-check-meta">${dateLabel ? `<span class="pe-row-check-date">${escapeHtml(dateLabel)}</span> · ` : ''}${escapeHtml(entry.room)}${locLabel ? ` · ${escapeHtml(locLabel)}` : ''} · ${entry.persons}p</div>
         </div>
         <div class="pe-row-check-pak">
-          <select onchange="window._peSetRowPak('${jsStr(key)}', this.value)" id="pe-pak-${key.replace(/[^a-zA-Z0-9]/g,'_')}">
+          <select onchange="window._peSetRowPak('${jsStr(entry.key)}', this.value)" id="pe-pak-${entry.key.replace(/[^a-zA-Z0-9]/g,'_')}">
             ${PAK_FORMATEN.map(p => `<option value="${p}" ${p==='1/1 emmer'?'selected':''}>${p}</option>`).join('')}
           </select>
         </div>
@@ -1423,39 +1457,53 @@
   };
 
   window._peToggleGroupAll = function (base, setTo) {
-    allRows.forEach((r, idx) => {
-      if (groupNameOf(r) !== base || r.tabId !== activeCatId || r.persons <= 0) return;
-      catChecked[rowKey(r, idx)] = setTo;
+    buildCategoryEntries(activeCatId).forEach(e => {
+      if (e.base !== base) return;
+      catChecked[e.key] = setTo;
     });
     renderCategoryGroups(activeCatId);
   };
 
   window._peToggleSeizoenGroupAll = function (base, setTo) {
     const assortiment = getGroentenAssortiment(seizoenVariantOf(base));
-    allRows.forEach((r, idx) => {
-      if (groupNameOf(r) !== base || r.tabId !== activeCatId || r.persons <= 0) return;
-      const key = rowKey(r, idx);
-      if (!rowGroenteSelectie[key]) rowGroenteSelectie[key] = {};
-      assortiment.forEach(g => { rowGroenteSelectie[key][g.id] = setTo; });
+    buildCategoryEntries(activeCatId).forEach(e => {
+      if (e.base !== base) return;
+      if (!rowGroenteSelectie[e.key]) rowGroenteSelectie[e.key] = {};
+      assortiment.forEach(g => { rowGroenteSelectie[e.key][g.id] = setTo; });
     });
     renderCategoryGroups(activeCatId);
   };
 
   window._peToggleSamengesteldGroupAll = function (base, setTo) {
     const onderdelen = getSamengesteldOnderdelen(base) || [];
-    allRows.forEach((r, idx) => {
-      if (groupNameOf(r) !== base || r.tabId !== activeCatId || r.persons <= 0) return;
-      const key = rowKey(r, idx);
-      if (!rowSamengesteldSelectie[key]) rowSamengesteldSelectie[key] = {};
-      onderdelen.forEach(o => { rowSamengesteldSelectie[key][o.id] = setTo; });
+    buildCategoryEntries(activeCatId).forEach(e => {
+      if (e.base !== base) return;
+      if (!rowSamengesteldSelectie[e.key]) rowSamengesteldSelectie[e.key] = {};
+      onderdelen.forEach(o => { rowSamengesteldSelectie[e.key][o.id] = setTo; });
     });
     renderCategoryGroups(activeCatId);
   };
 
+  // "Alles aanvinken (hele categorie)" moet elk type product via zijn EIGEN
+  // selectiemechanisme aanvinken — anders komt een seizoensgroente/
+  // samengesteld gerecht ook in catChecked terecht en wordt hij bij het
+  // toevoegen dubbel geteld: 1× als los product (verkeerde naam/aantal per
+  // plateau) én 1× correct als groente/onderdeel.
   window._peToggleCategoryAll = function (setTo) {
-    allRows.forEach((r, idx) => {
-      if (r.tabId !== activeCatId || r.persons <= 0) return;
-      catChecked[rowKey(r, idx)] = setTo;
+    const assortimentCache = {};
+    buildCategoryEntries(activeCatId).forEach(e => {
+      if (isSeizoensgroentenHoofdproduct(e.base)) {
+        const variant = seizoenVariantOf(e.base);
+        if (!assortimentCache[variant]) assortimentCache[variant] = getGroentenAssortiment(variant);
+        if (!rowGroenteSelectie[e.key]) rowGroenteSelectie[e.key] = {};
+        assortimentCache[variant].forEach(g => { rowGroenteSelectie[e.key][g.id] = setTo; });
+      } else if (isSamengesteldHoofdproduct(e.base)) {
+        const onderdelen = getSamengesteldOnderdelen(e.base) || [];
+        if (!rowSamengesteldSelectie[e.key]) rowSamengesteldSelectie[e.key] = {};
+        onderdelen.forEach(o => { rowSamengesteldSelectie[e.key][o.id] = setTo; });
+      } else {
+        catChecked[e.key] = setTo;
+      }
     });
     renderCategoryGroups(activeCatId);
   };
@@ -1475,7 +1523,13 @@
 
   window._peBulkAdd = function () {
     if (!countChecked()) return;
-    const selectedKeys = Object.keys(catChecked).filter(k => catChecked[k]);
+    // De rijen zijn al samengevoegd per (product + zaal + gelegenheid + datum
+    // + locatie) door buildCategoryEntries() — elk aangevinkt entry-item hier
+    // vertegenwoordigt dus al het volledige, juiste aantal personen, ook als
+    // dat in de Excel-export over meerdere losse rijen verdeeld stond.
+    const entryByKey = {};
+    buildCategoryEntries(activeCatId).forEach(e => { entryByKey[e.key] = e; });
+
     // Combineer beide assortimenten (standaard + rouwmaaltijd) in één lookup-tabel:
     // rowGroenteSelectie kan groente-id's uit elk van de twee varianten bevatten,
     // afhankelijk van welk seizoensgroenten-product de rij hoort.
@@ -1484,135 +1538,94 @@
       getGroentenAssortiment(variant).forEach(g => { assortimentById[g.id] = g; });
     });
 
-    // ── Seizoensgroenten: verzamel per (groente + zaal + gelegenheid + datum +
-    // locatie) en tel de personen samen. Eén gelegenheid komt in de CCM-Excel
-    // soms als meerdere losse rijen binnen (bv. hoofdtafel + een paar extra
-    // couverts apart geboekt) — dat moet in de keuken gewoon ÉÉN etiket
-    // wortelpuree/groente worden, niet drie aparte met een handvol personen. ──
-    const seizoenMerge = {}; // mergeKey -> { g, persons, room, opmerking, locCode, dateStr }
-    allRows.forEach((r, idx) => {
-      const key = rowKey(r, idx);
-      const groenteSel = rowGroenteSelectie[key];
-      if (!groenteSel) return;
+    // ── Seizoensgroenten ──
+    Object.keys(rowGroenteSelectie).forEach(entryKey => {
+      const entry = entryByKey[entryKey];
+      if (!entry) return;
+      const groenteSel = rowGroenteSelectie[entryKey];
       Object.keys(groenteSel).forEach(groenteId => {
         if (!groenteSel[groenteId]) return;
         const g = assortimentById[groenteId];
         if (!g) return;
-        const locCode = resolveLocCode(r);
-        const opmerking = r.event && r.event !== r.room ? r.event : '';
-        const mergeKey = [groenteId, r.room, opmerking, r.dateStr || '', locCode || ''].join('::');
-        if (!seizoenMerge[mergeKey]) {
-          seizoenMerge[mergeKey] = { g, persons: 0, room: r.room, opmerking, locCode, dateStr: r.dateStr || '' };
-        }
-        seizoenMerge[mergeKey].persons += r.persons;
-      });
-    });
-    Object.values(seizoenMerge).forEach(m => {
-      const g = m.g;
-      const isGram = g.eenheid === 'gram';
-      queue.push({
-        id: idCounter++,
-        product: g.naam,
-        persons: m.persons,
-        per: g.perPlateau,
-        perEenheid: g.eenheid,
-        // Gram-producten (bv. puree): altijd 1 etiket met het totaalgewicht
-        // (personen × gram/persoon), geen plateau-opsplitsing.
-        aantalEtiketten: isGram ? 1 : Math.ceil(m.persons / g.perPlateau),
-        totaalGewicht: isGram ? m.persons * g.perPlateau : null,
-        pakformaat: '',
-        zaal: m.room,
-        opmerking: m.opmerking,
-        bewaarDagen: 7,
-        locCode: m.locCode,
-        dateStr: m.dateStr,
-        editing: false
+        const isGram = g.eenheid === 'gram';
+        queue.push({
+          id: idCounter++,
+          product: g.naam,
+          persons: entry.persons,
+          per: g.perPlateau,
+          perEenheid: g.eenheid,
+          // Gram-producten (bv. puree): altijd 1 etiket met het totaalgewicht
+          // (personen × gram/persoon), geen plateau-opsplitsing.
+          aantalEtiketten: isGram ? 1 : Math.ceil(entry.persons / g.perPlateau),
+          totaalGewicht: isGram ? entry.persons * g.perPlateau : null,
+          pakformaat: '',
+          zaal: entry.room,
+          opmerking: entry.event,
+          bewaarDagen: 7,
+          locCode: entry.locCode,
+          dateStr: entry.dateStr,
+          editing: false
+        });
       });
     });
 
-    // ── Samengestelde gerechten: verzamel per (onderdeel + zaal + gelegenheid
-    // + datum + locatie) en tel de personen samen — zelfde merge-logica en
-    // stuk/gram-verdeling als Seizoensgroenten. ──
+    // ── Samengestelde gerechten ──
     const samengesteldOnderdeelById = {};
     getSamengesteldeGerechten().forEach(g => {
       (g.onderdelen || []).forEach(o => { samengesteldOnderdeelById[o.id] = o; });
     });
-
-    const samengesteldMerge = {}; // mergeKey -> { o, persons, room, opmerking, locCode, dateStr }
-    allRows.forEach((r, idx) => {
-      const key = rowKey(r, idx);
-      const sel = rowSamengesteldSelectie[key];
-      if (!sel) return;
+    Object.keys(rowSamengesteldSelectie).forEach(entryKey => {
+      const entry = entryByKey[entryKey];
+      if (!entry) return;
+      const sel = rowSamengesteldSelectie[entryKey];
       Object.keys(sel).forEach(onderdeelId => {
         if (!sel[onderdeelId]) return;
         const o = samengesteldOnderdeelById[onderdeelId];
         if (!o) return;
-        const locCode = resolveLocCode(r);
-        const opmerking = r.event && r.event !== r.room ? r.event : '';
-        const mergeKey = [onderdeelId, r.room, opmerking, r.dateStr || '', locCode || ''].join('::');
-        if (!samengesteldMerge[mergeKey]) {
-          samengesteldMerge[mergeKey] = { o, persons: 0, room: r.room, opmerking, locCode, dateStr: r.dateStr || '' };
-        }
-        samengesteldMerge[mergeKey].persons += r.persons;
-      });
-    });
-    Object.values(samengesteldMerge).forEach(m => {
-      const o = m.o;
-      const isGram = o.eenheid === 'gram';
-      queue.push({
-        id: idCounter++,
-        product: o.naam,
-        persons: m.persons,
-        per: o.perPlateau,
-        perEenheid: o.eenheid,
-        aantalEtiketten: isGram ? 1 : Math.ceil(m.persons / o.perPlateau),
-        totaalGewicht: isGram ? m.persons * o.perPlateau : null,
-        pakformaat: '',
-        zaal: m.room,
-        opmerking: m.opmerking,
-        bewaarDagen: 7,
-        locCode: m.locCode,
-        dateStr: m.dateStr,
-        editing: false
+        const isGram = o.eenheid === 'gram';
+        queue.push({
+          id: idCounter++,
+          product: o.naam,
+          persons: entry.persons,
+          per: o.perPlateau,
+          perEenheid: o.eenheid,
+          aantalEtiketten: isGram ? 1 : Math.ceil(entry.persons / o.perPlateau),
+          totaalGewicht: isGram ? entry.persons * o.perPlateau : null,
+          pakformaat: '',
+          zaal: entry.room,
+          opmerking: entry.event,
+          bewaarDagen: 7,
+          locCode: entry.locCode,
+          dateStr: entry.dateStr,
+          editing: false
+        });
       });
     });
 
-    // ── Overige producten: normale checkbox-flow, samengevoegd per
-    //    (product + zaal + gelegenheid + datum + locatie). Eén product kan
-    //    in de Excel-export als meerdere losse rijen voor dezelfde zaal
-    //    binnenkomen (bv. een aparte rij voor de kindermenu's) — dat moet
-    //    in de keuken gewoon ÉÉN etiket-berekening worden, niet een apart
-    //    etiketje per rij. Andere zalen blijven wel volledig apart. ──
-    const normaalMerge = {}; // mergeKey -> { gName, persons, room, opmerking, locCode, dateStr, pakformaat }
-    allRows.forEach((r, idx) => {
-      const key = rowKey(r, idx);
-      if (!selectedKeys.includes(key)) return;
-      const gName = groupNameOf(r);
-      const locCode = resolveLocCode(r);
-      const opmerking = r.event && r.event !== r.room ? r.event : '';
-      const pakformaat = rowPakOverride[key] || '1/1 emmer';
-      const mergeKey = [gName, r.room, opmerking, r.dateStr || '', locCode || ''].join('::');
-      if (!normaalMerge[mergeKey]) {
-        normaalMerge[mergeKey] = { gName, persons: 0, room: r.room, opmerking, locCode, dateStr: r.dateStr || '', pakformaat };
-      }
-      normaalMerge[mergeKey].persons += r.persons;
-      // Bij verschillende pakformaten binnen dezelfde groep wint de laatst geselecteerde rij
-      normaalMerge[mergeKey].pakformaat = pakformaat;
-    });
-    Object.values(normaalMerge).forEach(m => {
-      const per = catPerOverride[m.gName] || portieRegels[m.gName] || 100;
+    // ── Overige producten: normale checkbox-flow ──
+    Object.keys(catChecked).forEach(entryKey => {
+      if (!catChecked[entryKey]) return;
+      const entry = entryByKey[entryKey];
+      if (!entry) return;
+      // Veiligheidsnet: een seizoensgroente/samengesteld gerecht hoort nooit
+      // via dit pad te gaan (zie _peToggleCategoryAll) — voorkomt een dubbel
+      // etiket (1× fout als los product, 1× correct als groente/onderdeel)
+      // mocht catChecked hier toch voor gezet staan.
+      if (isSeizoensgroentenHoofdproduct(entry.base) || isSamengesteldHoofdproduct(entry.base)) return;
+      const per = catPerOverride[entry.base] || portieRegels[entry.base] || 100;
+      const pakformaat = rowPakOverride[entryKey] || '1/1 emmer';
       queue.push({
         id: idCounter++,
-        product: m.gName,
-        persons: m.persons,
+        product: entry.base,
+        persons: entry.persons,
         per,
-        aantalEtiketten: Math.ceil(m.persons / per),
-        pakformaat: m.pakformaat,
-        zaal: m.room,
-        opmerking: m.opmerking,
+        aantalEtiketten: Math.ceil(entry.persons / per),
+        pakformaat,
+        zaal: entry.room,
+        opmerking: entry.event,
         bewaarDagen: 7,
-        locCode: m.locCode,
-        dateStr: m.dateStr,
+        locCode: entry.locCode,
+        dateStr: entry.dateStr,
         editing: false
       });
     });
