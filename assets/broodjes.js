@@ -120,30 +120,51 @@
     document.head.appendChild(s);
   }
 
-  /* ── Bereken broodjes per feest via rawData + Booking ID ── */
+  // Categorieën die een hoofdgerecht voorstellen — gebruikt om (a) te bepalen
+  // of een feest überhaupt een hoofdgerecht heeft, en (b) om het gastenaantal
+  // voor de tafelbroodjes-formule af te leiden. Bewust een MAX over enkel
+  // deze categorieën i.p.v. event.persons (dat is het hoogste "Number of
+  // items" over ALLE rijen van het feest, dus ook receptie-items zoals een
+  // "Broodjes"-categorie mini sandwich die aan 2 stuks/gast besteld wordt —
+  // zo'n rij zou het gastenaantal anders laten lijken dan het werkelijk is,
+  // en de tafelbroodjes-schatting mee opblazen).
+  const HOOFDGERECHT_CATEGORIES = new Set([
+    'HG Vlees', 'HG Vis', 'VG Warm', 'HG Veggie', 'VG Veggie', 'HG kids', 'VG Kids', 'Kids'
+  ]);
+
+  /* ── Bereken broodjes per feest via rawData + Booking ID ──
+     Dit zijn de TAFELbroodjes: die staan nooit als aparte bestelling in de
+     CCM-export (in tegenstelling tot bv. een "Broodjes"-categorie voor
+     receptie-hapjes zoals mini sandwiches) — ze worden altijd berekend op
+     basis van het hoofdgerecht. ── */
   function berekenBroodjes(event) {
     if (!event) return { hg: false, soep: false, aantal: 0, persons: 0 };
-    const persons   = event.persons || 0;
     const bookingId = event.bookingId || '';
 
     // Gebruik rawData — die heeft Booking ID + Category name
     const bron = (typeof rawData !== 'undefined' && rawData.length) ? rawData : null;
-    if (!bron || !bookingId) return { hg: false, soep: false, aantal: 0, persons };
+    if (!bron || !bookingId) return { hg: false, soep: false, aantal: 0, persons: event.persons || 0 };
 
     // Filter alle rijen van dit feest
     const feestRijen = bron.filter(r =>
       (r['Booking ID'] || '').toString().trim() === bookingId
     );
 
-    if (!feestRijen.length) return { hg: false, soep: false, aantal: 0, persons };
+    if (!feestRijen.length) return { hg: false, soep: false, aantal: 0, persons: event.persons || 0 };
 
-    // Controleer categorieën
+    // Gastenaantal voor déze berekening: het hoogste aantal onder de
+    // hoofdgerecht-rijen zelf (nooit een receptie-/bijgerecht-rij).
+    // Val terug op event.persons als er (zelden) geen hoofdgerecht-rij is.
+    const hoofdgerechtRijen = feestRijen.filter(r =>
+      HOOFDGERECHT_CATEGORIES.has((r['Category name'] || '').toString().trim())
+    );
+    const heeftHG   = hoofdgerechtRijen.length > 0;
+    const persons   = heeftHG
+      ? Math.max(...hoofdgerechtRijen.map(r => parseInt(r['Number of items']) || 0))
+      : (event.persons || 0);
+
     const cats = feestRijen.map(r => (r['Category name'] || '').toString().trim().toLowerCase());
-
-    const heeftVlees = cats.some(c => c === 'hg vlees');
-    const heeftVis   = cats.some(c => c === 'hg vis');
-    const heeftHG    = heeftVlees || heeftVis;
-    const heeftSoep  = cats.some(c => c === 'soepen');
+    const heeftSoep = cats.some(c => c === 'soepen');
 
     if (!heeftHG) return { hg: false, soep: false, aantal: 0, persons };
 
