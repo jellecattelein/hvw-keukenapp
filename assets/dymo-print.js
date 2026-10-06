@@ -880,4 +880,197 @@ ${body}
     printViaDialog(labels, buildFreeDocument);
   };
 
+  /* ══════════════════════════════════════════
+     5) KAR-ETIKET (Karren-Etiketten) — zelfde inhoud als de PDF
+     (zaal, personen, locatie, dag/datum, kar-nummer), in de
+     ontwerptaal van het Keukenetiket 1B. De starttijd is bewust
+     weggelaten: dag en locatie zijn hier de belangrijkste info.
+
+     Datamodel per etiket (KarLabel):
+       room, locLabel, locCode, persons, dagKort ("ZO"), datumKort ("20/9"),
+       karTekst ("kar 1/2" of "")
+     ══════════════════════════════════════════ */
+
+  function klTextObject(name, text, x, y, w, h, opts) {
+    opts = opts || {};
+    const size = opts.size || 10;
+    const bold = opts.bold ? 'True' : 'False';
+    const align = opts.align || 'Left';
+    const c = opts.color || KL_INK;
+    return `<ObjectInfo>
+    <TextObject>
+      <Name>${name}</Name>
+      <ForeColor Alpha="255" Red="${c[0]}" Green="${c[1]}" Blue="${c[2]}" />
+      <BackColor Alpha="0" Red="255" Green="255" Blue="255" />
+      <LinkedObjectName></LinkedObjectName>
+      <Rotation>Rotation0</Rotation>
+      <IsMirrored>False</IsMirrored>
+      <IsVariable>False</IsVariable>
+      <HorizontalAlignment>${align}</HorizontalAlignment>
+      <VerticalAlignment>Middle</VerticalAlignment>
+      <TextFitMode>ShrinkToFit</TextFitMode>
+      <UseFullFontHeight>False</UseFullFontHeight>
+      <Verticalized>False</Verticalized>
+      <StyledText>
+        <Element>
+          <String>${escXml(text)}</String>
+          <Attributes>
+            <Font Family="Arial" Size="${size}" Bold="${bold}" Italic="False" Underline="False" Strikeout="False" />
+            <ForeColor Alpha="255" Red="${c[0]}" Green="${c[1]}" Blue="${c[2]}" />
+          </Attributes>
+        </Element>
+      </StyledText>
+    </TextObject>
+    <Bounds X="${x}" Y="${y}" Width="${w}" Height="${h}" />
+  </ObjectInfo>`;
+  }
+
+  function karPersLine(label) {
+    return [label.persons ? `${label.persons} pers.` : '', label.karTekst].filter(Boolean).join('  ·  ');
+  }
+
+  function buildKarLabelXml(label) {
+    const CANVAS_W = 5040, CANVAS_H = 1620;
+    const RIGHT_W = 1360, RIGHT_X = CANVAS_W - RIGHT_W;
+    const LEFT_X = 159, LEFT_W = RIGHT_X - 136 - LEFT_X;
+    const objs = [];
+
+    // Links: zaal, personen (+ kar), locatie volledig onderaan
+    objs.push(klTextObject('ZAAL', label.room || '', LEFT_X, 127, LEFT_W, 538, { size: 12.2, bold: true }));
+    const pers = karPersLine(label);
+    if (pers) objs.push(klTextObject('PERS', pers, LEFT_X, 711, LEFT_W, 230, { size: 9.6, bold: true, color: KL_INK_SECONDARY }));
+    if (label.locLabel) {
+      objs.push(klTextObject('LOCATIE', label.locLabel.toUpperCase(), LEFT_X, 1250, LEFT_W, 257, { size: 10, bold: true }));
+    }
+
+    // Rechts: dag groot, datum, locatiecode — dag en locatie zijn het belangrijkst
+    const rowX = RIGHT_X + 57, rowW = RIGHT_W - 114;
+    objs.push(klTextObject('DAG', label.dagKort || '', rowX, 355, rowW, 410, { size: 21, bold: true, align: 'Center' }));
+    objs.push(klTextObject('DATUM', label.datumKort || '', rowX, 800, rowW, 230, { size: 11.5, bold: true, align: 'Center' }));
+    if (label.locCode) {
+      objs.push(klTextObject('CODE', label.locCode, rowX, 1065, rowW, 200, { size: 9.5, bold: true, align: 'Center', color: KL_INK_SECONDARY }));
+    }
+
+    return `<?xml version="1.0" encoding="utf-8"?>
+<DieCutLabel Version="8.0" Units="twips">
+  <PaperOrientation>Landscape</PaperOrientation>
+  <Id>Address</Id>
+  <PaperName>30252 Address</PaperName>
+  <DrawCommands/>
+  ${objs.join('\n  ')}
+</DieCutLabel>`;
+  }
+
+  function buildKarLabelHTML(label) {
+    const pers = karPersLine(label);
+    return `
+      <div class="kr-label">
+        <div class="kr-left">
+          <div class="kr-top">
+            <div class="kr-zaal">${esc(label.room || '')}</div>
+            ${pers ? `<div class="kr-pers">${esc(pers)}</div>` : ''}
+          </div>
+          <div class="kr-loc">${esc((label.locLabel || '').toUpperCase())}</div>
+        </div>
+        <div class="kr-right">
+          <div class="kr-dag">${esc(label.dagKort || '')}</div>
+          <div class="kr-datum">${esc(label.datumKort || '')}</div>
+          ${label.locCode ? `<div class="kr-code">${esc(label.locCode)}</div>` : ''}
+        </div>
+      </div>`;
+  }
+
+  function buildKarDocument(labels) {
+    const body = labels.map(buildKarLabelHTML).join('\n');
+    return `<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<title>HVW — Karren-Etiketten</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  @page { size: ${LABEL_W_MM}mm ${LABEL_H_MM}mm; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: 'Archivo Narrow', 'Roboto Condensed', sans-serif; }
+
+  .kr-label {
+    position: relative;
+    width: ${LABEL_W_MM}mm; height: ${LABEL_H_MM}mm;
+    overflow: hidden; display: flex; color: #000;
+    page-break-after: always; break-after: page;
+  }
+  .kr-label:last-child { page-break-after: auto; break-after: auto; }
+
+  .kr-left {
+    flex: 1; min-width: 0; padding: 2.2mm 2.4mm 2mm 2.8mm;
+    display: flex; flex-direction: column; justify-content: space-between;
+  }
+  .kr-top { display: flex; flex-direction: column; gap: 0.8mm; }
+  .kr-zaal {
+    font-size: 4.3mm; font-weight: 700; line-height: 1.08; letter-spacing: -0.01em;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .kr-zaal.kr-shrink { font-size: 3.9mm; }
+  .kr-pers { font-size: 3.4mm; font-weight: 700; color: #333; white-space: pre; }
+  .kr-loc {
+    font-size: 3.6mm; font-weight: 700; letter-spacing: 0.04em;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+
+  .kr-right {
+    width: 24mm; flex: none; border-left: 0.3mm dashed #000;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.8mm;
+    padding: 1.4mm 1mm;
+  }
+  .kr-dag { font-size: 7.4mm; font-weight: 700; line-height: 0.95; text-align: center; }
+  .kr-datum { font-size: 4mm; font-weight: 700; line-height: 1; text-align: center; }
+  .kr-code { font-size: 3.2mm; font-weight: 700; letter-spacing: 0.08em; color: #333; text-align: center; }
+</style>
+</head>
+<body>
+${body}
+<script>
+  function fitNames() {
+    document.querySelectorAll('.kr-zaal').forEach(function (el) {
+      var clone = el.cloneNode(true);
+      clone.style.webkitLineClamp = 'unset';
+      clone.style.display = 'block';
+      clone.style.visibility = 'hidden';
+      clone.style.position = 'absolute';
+      clone.style.width = el.clientWidth + 'px';
+      el.parentNode.appendChild(clone);
+      var lh = parseFloat(getComputedStyle(el).lineHeight) || (el.clientHeight / 2);
+      if (clone.scrollHeight > lh * 2 + 1) el.classList.add('kr-shrink');
+      clone.remove();
+    });
+  }
+  function go() {
+    fitNames();
+    setTimeout(function () { window.focus(); window.print(); }, 150);
+  }
+  if (document.fonts && document.fonts.ready) { document.fonts.ready.then(go).catch(go); }
+  else { window.onload = go; }
+  window.onafterprint = function () { window.close(); };
+</script>
+</body>
+</html>`;
+  }
+
+  /**
+   * Print de opgegeven Karren-Etiketten (zelfde inhoud als de PDF, dag en
+   * locatie groot, geen uur). @param {Array<Object>} labels - zie KarLabel.
+   */
+  window.hvwDymoPrintKarLabel = async function (labels) {
+    if (!labels || !labels.length) {
+      alert('Geen etiketten om te printen.');
+      return;
+    }
+    const directOk = await tryDirectPrint(labels, buildKarLabelXml);
+    if (directOk) return;
+    printViaDialog(labels, buildKarDocument);
+  };
+
 })();

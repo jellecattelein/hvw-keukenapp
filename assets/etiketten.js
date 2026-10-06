@@ -361,11 +361,6 @@
      Gebruikt exact dezelfde sortering en kar-expansie
      als de PDF-export, zodat beide altijd overeenkomen.
      ══════════════════════════════ */
-  const DYMO_LOC_COLORS = {
-    TRA: [26, 63, 111], MAE: [45, 106, 79], HVW: [139, 37, 0],
-    BIE: [107, 58, 125], AFH: [139, 106, 0],
-  };
-
   function buildExpandedEtikLabels() {
     const selected = etiketData.filter(e => e.selected);
     const sorted = [...selected].sort((a, b) => {
@@ -380,29 +375,30 @@
     return labels;
   }
 
-  function toDymoLabel(label) {
-    const rgb = DYMO_LOC_COLORS[label.locCode] || [100, 100, 100];
-    let badge = '';
+  // Zelfde inhoud als drawLabel() (PDF): zaal, personen, locatie, dag/datum,
+  // kar-nummer — maar zonder starttijd; dag en locatie staan groot op het etiket.
+  function toKarLabel(label) {
+    let datumKort = '';
     if (label.date) {
-      const [yr, mo, da] = label.date.split('-');
-      badge = `${shortDay(label.date)} ${+da}/${+mo}`;
+      const [, mo, da] = label.date.split('-');
+      datumKort = `${+da}/${+mo}`;
     }
-    if (label.karren > 1) badge += `  ${label.karNr}/${label.karren}`;
     return {
-      heading: label.room || '',
-      sub: label.locLabel || label.locCode || '',
-      badge,
-      footerRight: `${label.persons} pers.`,
-      note: label.time ? `start ${label.time}` : '',
-      color: rgb,
+      room: label.room || '',
+      locLabel: label.locLabel || label.locCode || '',
+      locCode: label.locCode || '',
+      persons: label.persons,
+      dagKort: label.date ? shortDay(label.date) : '',
+      datumKort,
+      karTekst: label.karren > 1 ? `kar ${label.karNr}/${label.karren}` : '',
     };
   }
 
   window._etikPrintDymo = function () {
     const selected = etiketData.filter(e => e.selected);
     if (!selected.length) { alert('Selecteer minstens één feest.'); return; }
-    const dymoLabels = buildExpandedEtikLabels().map(toDymoLabel);
-    window.hvwDymoPrint(dymoLabels);
+    const dymoLabels = buildExpandedEtikLabels().map(toKarLabel);
+    window.hvwDymoPrintKarLabel(dymoLabels);
   };
 
   function drawLabel(doc, x, y, label) {
