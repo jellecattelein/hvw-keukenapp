@@ -914,6 +914,7 @@
     { id:'small_plates', label:'Small Plates',     icon:'🍽️' },
     { id:'hg_veggie',    label:'HG Veggie',        icon:'🌿' },
     { id:'groenten',     label:'Groenten',         icon:'🥦' },
+    { id:'aardappelen',  label:'Aardappelen',      icon:'🥔' },
     { id:'hapjes',       label:'Hapjes',           icon:'🍢' },
     { id:'streetfood',   label:'Streetfood',       icon:'🌮' },
     { id:'dessert',      label:'Dessert',          icon:'🍮' },
@@ -931,10 +932,19 @@
   let rowGroenteSelectie = {}; // { rowKey: { groenteId: true } } — enkel bij Seizoensgroenten
   let rowSamengesteldSelectie = {}; // { rowKey: { onderdeelIndex: true } } — enkel bij samengestelde gerechten
 
+  // "Aardappelen" bestaat niet als eigen tab in de Excel: het zijn de
+  // aardappelgerechten uit de tab Groenten, hier apart gezet zodat ze niet
+  // tussen de groenten zitten.
+  const AARDAPPEL_RE = /aardappel|friet|kroket|r[öo]sti|pommes/i;
+  function categoryOf(r) {
+    if (r.tabId === 'groenten' && AARDAPPEL_RE.test(r.name || r.base || '')) return 'aardappelen';
+    return r.tabId;
+  }
+
   function categoryRowCounts() {
     const counts = {};
     if (!hasData()) return counts;
-    allRows.forEach(r => { counts[r.tabId] = (counts[r.tabId]||0) + 1; });
+    allRows.forEach(r => { const c = categoryOf(r); counts[c] = (counts[c]||0) + 1; });
     return counts;
   }
 
@@ -1004,7 +1014,7 @@
   function buildCategoryEntries(catId) {
     const merged = new Map();
     allRows.forEach(r => {
-      if (r.tabId !== catId || r.persons <= 0) return;
+      if (categoryOf(r) !== catId || r.persons <= 0) return;
       const base = groupNameOf(r);
       const locCode = resolveLocCode(r);
       const room = r.room || '';
