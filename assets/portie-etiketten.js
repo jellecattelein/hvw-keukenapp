@@ -393,7 +393,7 @@
       .pe2-top-count { font-size:12px; color:#9A9590; font-weight:600; text-transform:uppercase; letter-spacing:.4px; }
       .pe2-link { font-size:12.5px; font-weight:600; color:#B8965A; cursor:pointer; white-space:nowrap; }
       .pe2-search { width:100%; box-sizing:border-box; padding:9px 12px; border:1px solid #DEDAD4; border-radius:8px; font-size:14px; margin-bottom:10px; font-family:'Outfit',sans-serif; }
-      .pe2-pills { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; max-height:240px; overflow-y:auto; }
+      .pe2-pills { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
       .pe2-section { flex-basis:100%; font-size:11px; font-weight:700; color:#9A9590; text-transform:uppercase; letter-spacing:.4px; margin-top:4px; }
       .pe2-pill { display:inline-flex; align-items:center; gap:8px; padding:10px 14px; min-height:44px; border:1.5px solid #E8E5E0; border-radius:22px; background:#fff; font-size:14px; font-weight:600; color:#1A1917; cursor:pointer; font-family:'Outfit',sans-serif; }
       .pe2-pill.has { border-color:#2D6A4F; }
@@ -1248,8 +1248,8 @@
       }
       pills.push({ id: 'p::' + base, kind: 'normaal', base, label: base, item: null, entries: list, section: null });
     });
-    // Gewone producten eerst, daarna de groepen met groenten/onderdelen onder hun kopje
-    pills.sort((a, b) => (a.section ? 1 : 0) - (b.section ? 1 : 0));
+    // Groenten/onderdelen eerst, elk onder hun kopje; de gewone producten daarna
+    pills.sort((a, b) => (a.section ? 0 : 1) - (b.section ? 0 : 1));
     return { pills, notices };
   }
 
@@ -1289,12 +1289,14 @@
 
   function pillsHtml() {
     const q = pillFilter.trim().toLowerCase();
-    let laatsteSectie = null;
+    const heeftSecties = currentPills.some(p => p.section);
+    let laatsteSectie;
     let html = '';
     currentPills.forEach((p, i) => {
       if (q && !p.label.toLowerCase().includes(q) && p.id !== activePillId) return;
-      if (p.section && p.section !== laatsteSectie) html += `<div class="pe2-section">${escapeHtml(p.section)}</div>`;
-      laatsteSectie = p.section;
+      const sectie = p.section || (heeftSecties ? 'Overige producten' : null);
+      if (sectie && sectie !== laatsteSectie) html += `<div class="pe2-section">${escapeHtml(sectie)}</div>`;
+      laatsteSectie = sectie;
       const n = pillCount(p);
       html += `<button type="button" class="pe2-pill ${p.id === activePillId ? 'act' : ''} ${n ? 'has' : ''}" onclick="window._peKiesPill(${i})">
         <span class="pe2-pill-name">${escapeHtml(p.label)}</span><span class="pe2-pill-badge">${n}</span></button>`;
