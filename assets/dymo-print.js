@@ -79,41 +79,58 @@
     return sdkLoadPromise;
   }
 
+  // De DYMO Connect-service antwoordt soms traag (bv. de eerste keer na een
+  // tijdje stilte). Te snel opgeven laat de print onnodig terugvallen op het
+  // printvenster, dus: ruime time-outs en bij checkEnvironment één herpoging.
   function dymoInit() {
     return new Promise((resolve) => {
       try {
         window.dymo.label.framework.init(() => resolve(true));
         // Vangnet indien de callback nooit vuurt
-        setTimeout(() => resolve(true), 2500);
+        setTimeout(() => resolve(true), 5000);
       } catch (e) {
         resolve(false);
       }
     });
   }
 
-  function dymoCheckEnvironment() {
+  function dymoCheckEnvironmentOnce(timeoutMs) {
     return new Promise((resolve) => {
       try {
         window.dymo.label.framework.checkEnvironment(
           (result) => resolve(result),
           () => resolve({ isWebServicePresent: false })
         );
-        setTimeout(() => resolve({ isWebServicePresent: false }), 3000);
+        setTimeout(() => resolve({ isWebServicePresent: false }), timeoutMs);
       } catch (e) {
         resolve({ isWebServicePresent: false });
       }
     });
   }
 
-  function findLabelWriterPrinterName() {
+  async function dymoCheckEnvironment() {
+    const first = await dymoCheckEnvironmentOnce(5000);
+    if (first && first.isWebServicePresent) return first;
+    return dymoCheckEnvironmentOnce(5000);
+  }
+
+  async function findLabelWriterPrinterName() {
+    const fw = window.dymo.label.framework;
+    let printers = [];
     try {
-      const printers = window.dymo.label.framework.getPrinters();
-      for (let i = 0; i < printers.length; i++) {
-        if (printers[i].printerType === 'LabelWriterPrinter') {
-          return printers[i].name;
-        }
+      if (typeof fw.getPrintersAsync === 'function') {
+        printers = await Promise.race([
+          fw.getPrintersAsync(),
+          new Promise(res => setTimeout(() => res([]), 5000)),
+        ]) || [];
       }
-    } catch (e) { /* ignore */ }
+    } catch (e) { /* val terug op de synchrone lijst */ }
+    if (!printers.length) {
+      try { printers = fw.getPrinters() || []; } catch (e) { /* ignore */ }
+    }
+    for (let i = 0; i < printers.length; i++) {
+      if (printers[i].printerType === 'LabelWriterPrinter') return printers[i].name;
+    }
     return null;
   }
 
@@ -203,17 +220,20 @@
   // succes, false als er teruggevallen moet worden op de browser-printdialoog.
   // xmlBuilder(label) bouwt de DYMO Label XML voor één label — zo kan deze
   // functie hergebruikt worden voor verschillende etiket-ontwerpen.
+  let lastDirectReason = '';
+
   async function tryDirectPrint(labels, xmlBuilder) {
+    lastDirectReason = '';
     try {
       const loaded = await ensureSdkLoaded();
-      if (!loaded) return false;
+      if (!loaded) { lastDirectReason = 'DYMO-bibliotheek niet geladen'; return false; }
 
       await dymoInit();
       const env = await dymoCheckEnvironment();
-      if (!env || !env.isWebServicePresent) return false;
+      if (!env || !env.isWebServicePresent) { lastDirectReason = 'DYMO Connect draait niet op dit toestel'; return false; }
 
-      const printerName = findLabelWriterPrinterName();
-      if (!printerName) return false;
+      const printerName = await findLabelWriterPrinterName();
+      if (!printerName) { lastDirectReason = 'geen Dymo LabelWriter gevonden'; return false; }
 
       for (const label of labels) {
         const xml = xmlBuilder(label);
@@ -223,6 +243,7 @@
       return true;
     } catch (e) {
       console.error('Dymo direct print mislukt, val terug op printdialoog:', e);
+      lastDirectReason = (e && e.message) ? e.message : 'onbekende fout';
       return false;
     }
   }
@@ -354,15 +375,57 @@ ${body}
 
   // docBuilder(labels) bouwt het volledige HTML-printdocument — zo kan deze
   // functie hergebruikt worden voor verschillende etiket-ontwerpen.
-  function printViaDialog(labels, docBuilder) {
+  function openPrintWindow(labels, docBuilder) {
     const w = window.open('', '_blank', 'width=420,height=220');
-    if (!w) {
-      alert('Kon geen printvenster openen. Controleer of pop-ups zijn toegestaan voor deze pagina.');
-      return;
-    }
+    if (!w) return false;
     w.document.open();
     w.document.write(docBuilder(labels));
     w.document.close();
+    return true;
+  }
+
+  // De rechtstreekse Dymo-poging duurt enkele seconden, waarna de browser een
+  // pop-up niet langer als gevolg van de klik beschouwt en blokkeert — dan
+  // zou er niets meer gebeuren. Daarom tonen we in dat geval een knop: een
+  // nieuwe klik mag wél altijd een printvenster openen.
+  function showPrintBanner(labels, docBuilder) {
+    const old = document.getElementById('hvw-print-banner');
+    if (old) old.remove();
+
+    const bar = document.createElement('div');
+    bar.id = 'hvw-print-banner';
+    bar.className = 'no-print';
+    bar.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:100000;' +
+      'background:#1A1917;color:#fff;padding:14px 16px 14px 20px;border-radius:12px;' +
+      'box-shadow:0 8px 32px rgba(0,0,0,0.3);display:flex;gap:14px;align-items:center;' +
+      'max-width:92vw;font:500 14px/1.4 Outfit,Arial,sans-serif;';
+
+    const msg = document.createElement('span');
+    msg.textContent = 'Rechtstreeks printen naar de Dymo lukte niet' +
+      (lastDirectReason ? ' (' + lastDirectReason + ')' : '') +
+      '. Klik om de etiketten via het printvenster te printen.';
+
+    const go = document.createElement('button');
+    go.textContent = 'Printvenster openen';
+    go.style.cssText = 'background:#B8965A;color:#fff;border:none;border-radius:8px;padding:10px 16px;' +
+      'font:600 14px Outfit,Arial,sans-serif;cursor:pointer;white-space:nowrap;';
+    go.addEventListener('click', () => {
+      if (openPrintWindow(labels, docBuilder)) bar.remove();
+      else msg.textContent = 'Het printvenster werd geblokkeerd. Sta pop-ups toe voor deze pagina (adresbalk) en probeer opnieuw.';
+    });
+
+    const close = document.createElement('button');
+    close.textContent = '✕';
+    close.setAttribute('aria-label', 'Sluiten');
+    close.style.cssText = 'background:transparent;color:#9A9590;border:none;font-size:16px;cursor:pointer;padding:4px 6px;';
+    close.addEventListener('click', () => bar.remove());
+
+    bar.append(msg, go, close);
+    document.body.appendChild(bar);
+  }
+
+  function printViaDialog(labels, docBuilder) {
+    if (!openPrintWindow(labels, docBuilder)) showPrintBanner(labels, docBuilder);
   }
 
   /* ══════════════════════════════
@@ -518,7 +581,7 @@ ${body}
     if (daySeqText) rows.push({ key: 'dayseq', h: 190 });
     const contentH = rows.reduce((s, r) => s + r.h, 0) + ROW_GAP * (rows.length - 1);
     const padT = 81; // 1.4mm
-    let y = padT + Math.max(0, (CANVAS_H - padT * 2 - contentH) / 2);
+    let y = padT + Math.max(0, Math.round((CANVAS_H - padT * 2 - contentH) / 2));
     const rowX = RIGHT_X + 57, rowW = RIGHT_W - 114; // padding 1mm links/rechts
 
     rows.forEach(row => {
