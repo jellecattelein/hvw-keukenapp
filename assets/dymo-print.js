@@ -428,6 +428,42 @@ ${body}
     if (!openPrintWindow(labels, docBuilder)) showPrintBanner(labels, docBuilder);
   }
 
+  /* ── Printmethode, per toestel instelbaar (Instellingen → Etikettenprinter) ──
+     'venster' (standaard): meteen het printvenster openen en de printer in de
+        systeemdialoog kiezen — voor o.a. de 123inkt 650 en elke andere printer
+        zonder DYMO Connect. Er is geen wachttijd, dus de browser blokkeert het
+        venster nooit.
+     'dymo': eerst rechtstreeks via DYMO Connect, met het printvenster als vangnet. */
+  const PRINT_MODUS_KEY = 'hvw-print-modus';
+  function getPrintModus() {
+    try { return localStorage.getItem(PRINT_MODUS_KEY) === 'dymo' ? 'dymo' : 'venster'; }
+    catch (e) { return 'venster'; }
+  }
+  window._printModusGet = getPrintModus;
+  window._printModusSet = function (modus) {
+    try { localStorage.setItem(PRINT_MODUS_KEY, modus === 'dymo' ? 'dymo' : 'venster'); } catch (e) {}
+  };
+  document.addEventListener('DOMContentLoaded', () => {
+    const radio = document.querySelector(`input[name="print-modus"][value="${getPrintModus()}"]`);
+    if (radio) radio.checked = true;
+  });
+
+  // Moet synchroon starten binnen de klik: in 'venster'-modus gebeurt er vóór
+  // de eerste await niets dat de browser-toestemming voor een pop-up kan verbruiken.
+  async function runPrint(labels, xmlBuilder, docBuilder) {
+    if (!labels || !labels.length) {
+      alert('Geen etiketten om te printen.');
+      return;
+    }
+    if (getPrintModus() === 'venster') {
+      printViaDialog(labels, docBuilder);
+      return;
+    }
+    const directOk = await tryDirectPrint(labels, xmlBuilder);
+    if (directOk) return;
+    printViaDialog(labels, docBuilder);
+  }
+
   /* ══════════════════════════════
      Publieke functie
      ══════════════════════════════ */
@@ -439,14 +475,8 @@ ${body}
    * op de browser-printdialoog op exact 89×28mm.
    * @param {Array<Object>} labels - zie kopcommentaar voor het formaat.
    */
-  window.hvwDymoPrint = async function (labels) {
-    if (!labels || !labels.length) {
-      alert('Geen etiketten om te printen.');
-      return;
-    }
-    const directOk = await tryDirectPrint(labels, buildDymoLabelXml);
-    if (directOk) return;
-    printViaDialog(labels, buildDocument);
+  window.hvwDymoPrint = function (labels) {
+    return runPrint(labels, buildDymoLabelXml, buildDocument);
   };
 
   /* ══════════════════════════════════════════
@@ -730,14 +760,8 @@ ${body}
    * Zelfde direct/fallback-strategie als hvwDymoPrint, maar met het nieuwe
    * ontwerp. @param {Array<Object>} labels - zie KitchenLabel hierboven.
    */
-  window.hvwDymoPrintKitchenLabel = async function (labels) {
-    if (!labels || !labels.length) {
-      alert('Geen etiketten om te printen.');
-      return;
-    }
-    const directOk = await tryDirectPrint(labels, buildKitchenLabelXml);
-    if (directOk) return;
-    printViaDialog(labels, buildKitchenDocument);
+  window.hvwDymoPrintKitchenLabel = function (labels) {
+    return runPrint(labels, buildKitchenLabelXml, buildKitchenDocument);
   };
 
   /* ══════════════════════════════════════════
@@ -933,14 +957,8 @@ ${body}
    * Zelfde direct/fallback-strategie als hvwDymoPrint.
    * @param {Array<Object>} labels - zie FreeLabel hierboven.
    */
-  window.hvwDymoPrintFreeLabel = async function (labels) {
-    if (!labels || !labels.length) {
-      alert('Geen etiketten om te printen.');
-      return;
-    }
-    const directOk = await tryDirectPrint(labels, buildFreeLabelXml);
-    if (directOk) return;
-    printViaDialog(labels, buildFreeDocument);
+  window.hvwDymoPrintFreeLabel = function (labels) {
+    return runPrint(labels, buildFreeLabelXml, buildFreeDocument);
   };
 
   /* ══════════════════════════════════════════
@@ -1126,14 +1144,8 @@ ${body}
    * Print de opgegeven Karren-Etiketten (zelfde inhoud als de PDF, dag en
    * locatie groot, geen uur). @param {Array<Object>} labels - zie KarLabel.
    */
-  window.hvwDymoPrintKarLabel = async function (labels) {
-    if (!labels || !labels.length) {
-      alert('Geen etiketten om te printen.');
-      return;
-    }
-    const directOk = await tryDirectPrint(labels, buildKarLabelXml);
-    if (directOk) return;
-    printViaDialog(labels, buildKarDocument);
+  window.hvwDymoPrintKarLabel = function (labels) {
+    return runPrint(labels, buildKarLabelXml, buildKarDocument);
   };
 
 })();

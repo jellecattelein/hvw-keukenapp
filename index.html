@@ -18,7 +18,7 @@
   <meta name="theme-color" content="#111110">
 
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/style.css?v=b93bfc8f56">
+  <link rel="stylesheet" href="assets/style.css?v=c8cfbf7208">
   <style>
     :root {
       --sb-w: 224px;
@@ -702,6 +702,28 @@
         <div class="settings-card-body"><div id="car-settings-list"></div></div>
       </div>
 
+      <!-- Etikettenprinter -->
+      <div class="settings-card" id="settings-card-printer" style="margin-top:18px">
+        <div class="settings-card-header">
+          <span class="settings-card-title">🖨️ Etikettenprinter</span>
+        </div>
+        <div class="settings-card-body">
+          <p style="font-size:13px;color:#6B655E;margin:0 0 14px;line-height:1.5;">
+            Hoe worden etiketten (89×28mm) afgedrukt? Deze instelling geldt enkel voor dit toestel/browser.
+          </p>
+          <label style="display:flex;align-items:flex-start;gap:10px;font-size:14px;cursor:pointer;margin-bottom:12px;">
+            <input type="radio" name="print-modus" value="venster" onchange="window._printModusSet(this.value)" style="margin-top:3px;width:16px;height:16px;cursor:pointer;">
+            <span><strong>Via printvenster</strong> (aanbevolen)<br>
+            <span style="font-size:12px;color:#9A9590;">Opent meteen het printvenster; je kiest zelf de printer (bv. de 123inkt 650).</span></span>
+          </label>
+          <label style="display:flex;align-items:flex-start;gap:10px;font-size:14px;cursor:pointer;">
+            <input type="radio" name="print-modus" value="dymo" onchange="window._printModusSet(this.value)" style="margin-top:3px;width:16px;height:16px;cursor:pointer;">
+            <span><strong>Rechtstreeks via DYMO Connect</strong><br>
+            <span style="font-size:12px;color:#9A9590;">Enkel voor een DYMO LabelWriter met DYMO Connect op dit toestel — print zonder dialoog.</span></span>
+          </label>
+        </div>
+      </div>
+
       <!-- Kioskmodus -->
       <div class="settings-card" id="settings-card-kiosk" style="margin-top:18px">
         <div class="settings-card-header">
@@ -833,22 +855,22 @@
     </div>
   </div>
 
-  <script src="assets/app.js?v=b93bfc8f56"></script>
-  <script src="assets/bestelling_pdf.js?v=b93bfc8f56"></script>
-  <script src="assets/suppliers.js?v=b93bfc8f56"></script>
-  <script src="assets/ijsdesserts.js?v=b93bfc8f56"></script>
-  <script src="assets/cars.js?v=b93bfc8f56"></script>
-  <script src="assets/tijdstool.js?v=b93bfc8f56"></script>
-  <script src="assets/functionsheets.js?v=b93bfc8f56"></script>
-  <script src="assets/dymo-print.js?v=b93bfc8f56"></script>
-  <script src="assets/snelle-etiketten.js?v=b93bfc8f56"></script>
-  <script src="assets/portie-etiketten.js?v=b93bfc8f56"></script>
-  <script src="assets/weekmap.js?v=b93bfc8f56"></script>
-  <script src="assets/kiosk.js?v=b93bfc8f56"></script>
-  <script src="assets/bakker.js?v=b93bfc8f56"></script>
-  <script src="assets/broodjes.js?v=b93bfc8f56"></script>
-  <script src="assets/recepten.js?v=b93bfc8f56"></script>
-  <script src="assets/etiketten.js?v=b93bfc8f56"></script>
+  <script src="assets/app.js?v=c8cfbf7208"></script>
+  <script src="assets/bestelling_pdf.js?v=c8cfbf7208"></script>
+  <script src="assets/suppliers.js?v=c8cfbf7208"></script>
+  <script src="assets/ijsdesserts.js?v=c8cfbf7208"></script>
+  <script src="assets/cars.js?v=c8cfbf7208"></script>
+  <script src="assets/tijdstool.js?v=c8cfbf7208"></script>
+  <script src="assets/functionsheets.js?v=c8cfbf7208"></script>
+  <script src="assets/dymo-print.js?v=c8cfbf7208"></script>
+  <script src="assets/snelle-etiketten.js?v=c8cfbf7208"></script>
+  <script src="assets/portie-etiketten.js?v=c8cfbf7208"></script>
+  <script src="assets/weekmap.js?v=c8cfbf7208"></script>
+  <script src="assets/kiosk.js?v=c8cfbf7208"></script>
+  <script src="assets/bakker.js?v=c8cfbf7208"></script>
+  <script src="assets/broodjes.js?v=c8cfbf7208"></script>
+  <script src="assets/recepten.js?v=c8cfbf7208"></script>
+  <script src="assets/etiketten.js?v=c8cfbf7208"></script>
 
   <script>
   /* ═══ SIDEBAR ROUTING ═══ */
