@@ -394,7 +394,8 @@
       .pe2-link { font-size:12.5px; font-weight:600; color:#B8965A; cursor:pointer; white-space:nowrap; }
       .pe2-search { width:100%; box-sizing:border-box; padding:9px 12px; border:1px solid #DEDAD4; border-radius:8px; font-size:14px; margin-bottom:10px; font-family:'Outfit',sans-serif; }
       .pe2-pills { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
-      .pe2-section { flex-basis:100%; font-size:11px; font-weight:700; color:#9A9590; text-transform:uppercase; letter-spacing:.4px; margin-top:4px; }
+      .pe2-section { flex-basis:100%; display:flex; justify-content:space-between; align-items:center; gap:10px; font-size:11px; font-weight:700; color:#9A9590; text-transform:uppercase; letter-spacing:.4px; margin-top:4px; }
+      .pe2-section .pe2-link { text-transform:none; letter-spacing:0; }
       .pe2-pill { display:inline-flex; align-items:center; gap:8px; padding:10px 14px; min-height:44px; border:1.5px solid #E8E5E0; border-radius:22px; background:#fff; font-size:14px; font-weight:600; color:#1A1917; cursor:pointer; font-family:'Outfit',sans-serif; }
       .pe2-pill.has { border-color:#2D6A4F; }
       .pe2-pill.act { background:#1A1917; border-color:#1A1917; color:#fff; }
@@ -1297,6 +1298,18 @@
     return `${Math.ceil(e.persons / it.perPlateau)}× plateau`;
   }
 
+  function sectionKeys() { return [...new Set(currentPills.map(p => p.section || ''))]; }
+
+  window._peSectieAlles = function (k) {
+    const sleutel = sectionKeys()[k];
+    if (sleutel === undefined) return;
+    const groep = currentPills.filter(p => (p.section || '') === sleutel);
+    const nieuw = !groep.every(p => p.entries.every(e => pillChecked(p, e)));
+    groep.forEach(p => p.entries.forEach(e => pillSet(p, e, nieuw)));
+    lastAddedMsg = '';
+    renderCategoryGroups(activeCatId);
+  };
+
   function pillsHtml() {
     const q = pillFilter.trim().toLowerCase();
     const heeftSecties = currentPills.some(p => p.section);
@@ -1305,7 +1318,13 @@
     currentPills.forEach((p, i) => {
       if (q && !p.label.toLowerCase().includes(q) && p.id !== activePillId) return;
       const sectie = p.section || (heeftSecties ? 'Overige producten' : null);
-      if (sectie && sectie !== laatsteSectie) html += `<div class="pe2-section">${escapeHtml(sectie)}</div>`;
+      if (sectie && sectie !== laatsteSectie) {
+        // Eén tik: alle groenten/onderdelen van deze groep, in alle zalen
+        const k = sectionKeys().indexOf(p.section || '');
+        const groep = currentPills.filter(x => (x.section || '') === (p.section || ''));
+        const alles = groep.every(x => x.entries.every(e => pillChecked(x, e)));
+        html += `<div class="pe2-section"><span>${escapeHtml(sectie)}</span><span class="pe2-link" onclick="window._peSectieAlles(${k})">${alles ? 'Alles uitvinken' : 'Alles selecteren (alle zalen)'}</span></div>`;
+      }
       laatsteSectie = sectie;
       const n = pillCount(p);
       html += `<button type="button" class="pe2-pill ${p.id === activePillId ? 'act' : ''} ${n ? 'has' : ''}" onclick="window._peKiesPill(${i})">
