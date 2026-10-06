@@ -387,6 +387,47 @@
         padding: 7px 14px; border-radius: 7px; cursor: pointer; transition: opacity 0.15s;
       }
       .pe-cat-select-all-global:hover { opacity: 0.85; }
+
+      /* Per categorie: product-eerst */
+      .pe2-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+      .pe2-top-count { font-size:12px; color:#9A9590; font-weight:600; text-transform:uppercase; letter-spacing:.4px; }
+      .pe2-link { font-size:12.5px; font-weight:600; color:#B8965A; cursor:pointer; white-space:nowrap; }
+      .pe2-search { width:100%; box-sizing:border-box; padding:9px 12px; border:1px solid #DEDAD4; border-radius:8px; font-size:14px; margin-bottom:10px; font-family:'Outfit',sans-serif; }
+      .pe2-pills { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; max-height:240px; overflow-y:auto; }
+      .pe2-section { flex-basis:100%; font-size:11px; font-weight:700; color:#9A9590; text-transform:uppercase; letter-spacing:.4px; margin-top:4px; }
+      .pe2-pill { display:inline-flex; align-items:center; gap:8px; padding:10px 14px; min-height:44px; border:1.5px solid #E8E5E0; border-radius:22px; background:#fff; font-size:14px; font-weight:600; color:#1A1917; cursor:pointer; font-family:'Outfit',sans-serif; }
+      .pe2-pill.has { border-color:#2D6A4F; }
+      .pe2-pill.act { background:#1A1917; border-color:#1A1917; color:#fff; }
+      .pe2-pill-badge { min-width:22px; height:22px; padding:0 6px; border-radius:11px; background:#F0EDE8; color:#6B655E; font-size:12px; display:inline-flex; align-items:center; justify-content:center; font-family:'DM Mono',monospace; }
+      .pe2-pill.has .pe2-pill-badge { background:#2D6A4F; color:#fff; }
+      .pe2-head { display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:10px 0; border-top:1.5px solid #E8E5E0; }
+      .pe2-head-title { flex:1; min-width:140px; font-size:17px; font-weight:700; color:#1A1917; }
+      .pe2-row { display:flex; align-items:center; gap:12px; padding:12px 8px; min-height:56px; border-bottom:1px solid #F0EDE8; cursor:pointer; border-radius:8px; }
+      .pe2-row:hover { background:#FAF9F7; }
+      .pe2-row.on { background:#E8F3EC; }
+      .pe2-box { width:30px; height:30px; flex:none; border:2px solid #C8C2B8; border-radius:8px; background:#fff; color:transparent; font-size:18px; font-weight:700; display:flex; align-items:center; justify-content:center; }
+      .pe2-row.on .pe2-box { background:#2D6A4F; border-color:#2D6A4F; color:#fff; }
+      .pe2-main { flex:1; min-width:0; }
+      .pe2-title { font-size:15px; font-weight:700; color:#1A1917; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .pe2-meta { font-size:12px; color:#9A9590; margin-top:1px; }
+      .pe2-right { text-align:right; font-family:'DM Mono',monospace; font-size:12px; color:#1A1917; font-weight:600; display:flex; flex-direction:column; gap:4px; align-items:flex-end; }
+      .pe2-right select { font-size:11px; padding:4px 6px; border:1px solid #DEDAD4; border-radius:6px; font-family:'Outfit',sans-serif; }
+      .pe2-sum { position:sticky; bottom:0; background:#fff; border-top:1.5px solid #E8E5E0; margin:14px -4px -4px; padding:12px 4px 8px; display:flex; flex-direction:column; gap:8px; z-index:5; }
+      .pe2-sum-tel { font-size:12px; color:#6B655E; font-weight:600; }
+      .pe2-chips { display:flex; flex-wrap:wrap; gap:6px; max-height:64px; overflow-y:auto; }
+      .pe2-chip { padding:4px 10px; border-radius:14px; background:#E8F3EC; color:#2D6A4F; font-size:12px; font-weight:600; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .pe2-sum .pe-cat-add-btn { padding:14px 20px; font-size:15px; }
+      .pe2-added { font-size:13px; font-weight:600; color:#2D6A4F; background:#E8F3EC; padding:8px 12px; border-radius:8px; }
+
+      /* Afdruklijst: gegroepeerd per product */
+      .pe-lgroup { border:1px solid #E8E5E0; border-radius:10px; margin-bottom:6px; background:#fff; overflow:hidden; }
+      .pe-lgroup-head { display:flex; align-items:center; gap:10px; padding:10px 12px; cursor:pointer; }
+      .pe-lgroup-head:hover { background:#FAF9F7; }
+      .pe-lgroup-chev { width:14px; color:#9A9590; font-size:13px; }
+      .pe-lgroup-main { flex:1; min-width:0; }
+      .pe-lgroup-name { font-size:13.5px; font-weight:700; color:#1A1917; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .pe-lgroup-meta { font-size:11px; color:#9A9590; margin-top:1px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .pe-lgroup-body { border-top:1px solid #F0EDE8; padding:4px 6px 6px 22px; }
     `;
     document.head.appendChild(s);
   }
@@ -840,6 +881,8 @@
 
   window._peToggleEdit = function (id) {
     queue = queue.map(it => it.id === id ? { ...it, editing: !it.editing } : it);
+    const it = queue.find(x => x.id === id);
+    if (it && it.editing) openListGroups[it.product] = true;
     renderList();
   };
 
@@ -936,6 +979,11 @@
   window._peSelectCategory = function (catId) {
     activeCatId = catId;
     catChecked = {};
+    rowGroenteSelectie = {};
+    rowSamengesteldSelectie = {};
+    activePillId = null;
+    pillFilter = '';
+    lastAddedMsg = '';
     renderCategoriePicker();
   };
 
@@ -1156,36 +1204,122 @@
     if (!toegevoegd) alert('Niets geselecteerd om toe te voegen.');
   };
 
+  /* ══════════════════════════════
+     PER CATEGORIE — product-eerst
+     Kies bovenaan een product (of groente/onderdeel), vink daaronder de
+     zalen aan. Elke keuzeknop toont hoeveel zalen al aangevinkt zijn; een
+     vaste samenvatting onderaan toont altijd wat er toegevoegd wordt.
+     De selectie blijft in dezelfde structuren staan (catChecked,
+     rowGroenteSelectie, rowSamengesteldSelectie) zodat _peBulkAdd ongewijzigd werkt.
+     ══════════════════════════════ */
+  let activePillId = null;
+  let pillFilter = '';
+  let currentPills = [];
+  let visiblePill = null;
+  let visibleEntries = [];
+  let lastAddedMsg = '';
+
+  function sortEntriesChrono(list) {
+    return [...list].sort((a, b) => {
+      const dA = a.dateStr || '', dB = b.dateStr || '';
+      if (dA !== dB) return dA.localeCompare(dB);
+      return (a.room || '').localeCompare(b.room || '');
+    });
+  }
+
+  // Eén keuzeknop per product; bij seizoensgroenten per groente uit het
+  // assortiment, bij samengestelde gerechten per onderdeel.
+  function buildPills(entries) {
+    const bases = [...new Set(entries.map(e => e.base))].sort((a, b) => a.localeCompare(b));
+    const pills = [], notices = [];
+    bases.forEach(base => {
+      const list = sortEntriesChrono(entries.filter(e => e.base === base));
+      if (isSeizoensgroentenHoofdproduct(base)) {
+        const variant = seizoenVariantOf(base);
+        const assortiment = getGroentenAssortiment(variant);
+        if (!assortiment.length) notices.push({ variant });
+        assortiment.forEach(g => pills.push({ id: 'g::' + base + '::' + g.id, kind: 'groente', base, label: g.naam, item: g, entries: list, section: base }));
+        return;
+      }
+      const onderdelen = getSamengesteldOnderdelen(base);
+      if (onderdelen) {
+        onderdelen.forEach(o => pills.push({ id: 'o::' + base + '::' + o.id, kind: 'onderdeel', base, label: o.naam, item: o, entries: list, section: base }));
+        return;
+      }
+      pills.push({ id: 'p::' + base, kind: 'normaal', base, label: base, item: null, entries: list, section: null });
+    });
+    // Gewone producten eerst, daarna de groepen met groenten/onderdelen onder hun kopje
+    pills.sort((a, b) => (a.section ? 1 : 0) - (b.section ? 1 : 0));
+    return { pills, notices };
+  }
+
+  function pillChecked(p, e) {
+    if (p.kind === 'groente') return !!(rowGroenteSelectie[e.key] || {})[p.item.id];
+    if (p.kind === 'onderdeel') return !!(rowSamengesteldSelectie[e.key] || {})[p.item.id];
+    return !!catChecked[e.key];
+  }
+
+  function pillSet(p, e, waarde) {
+    if (p.kind === 'groente') {
+      if (!rowGroenteSelectie[e.key]) rowGroenteSelectie[e.key] = {};
+      rowGroenteSelectie[e.key][p.item.id] = waarde;
+    } else if (p.kind === 'onderdeel') {
+      if (!rowSamengesteldSelectie[e.key]) rowSamengesteldSelectie[e.key] = {};
+      rowSamengesteldSelectie[e.key][p.item.id] = waarde;
+    } else {
+      catChecked[e.key] = waarde;
+    }
+  }
+
+  function pillCount(p) { return p.entries.filter(e => pillChecked(p, e)).length; }
+
+  function fmtGewicht(gram) {
+    return gram >= 1000 ? `${(gram / 1000).toFixed(gram % 1000 === 0 ? 0 : 1)}kg` : `${gram}g`;
+  }
+
+  function pillDetail(p, e) {
+    if (p.kind === 'normaal') {
+      const per = catPerOverride[p.base] || portieRegels[p.base] || 100;
+      return `${Math.ceil(e.persons / per)}× emmer`;
+    }
+    const it = p.item;
+    if (it.eenheid === 'gram') return `${e.persons}p × ${it.perPlateau}g = ${fmtGewicht(e.persons * it.perPlateau)}`;
+    return `${Math.ceil(e.persons / it.perPlateau)}× plateau`;
+  }
+
+  function pillsHtml() {
+    const q = pillFilter.trim().toLowerCase();
+    let laatsteSectie = null;
+    let html = '';
+    currentPills.forEach((p, i) => {
+      if (q && !p.label.toLowerCase().includes(q) && p.id !== activePillId) return;
+      if (p.section && p.section !== laatsteSectie) html += `<div class="pe2-section">${escapeHtml(p.section)}</div>`;
+      laatsteSectie = p.section;
+      const n = pillCount(p);
+      html += `<button type="button" class="pe2-pill ${p.id === activePillId ? 'act' : ''} ${n ? 'has' : ''}" onclick="window._peKiesPill(${i})">
+        <span class="pe2-pill-name">${escapeHtml(p.label)}</span><span class="pe2-pill-badge">${n}</span></button>`;
+    });
+    return html || '<div style="font-size:13px;color:#9A9590;padding:6px 2px">Geen product gevonden.</div>';
+  }
+
   function renderCategoryGroups(catId) {
     const wrap = document.getElementById('pe-cat-groups-wrap');
     if (!wrap) return;
+    const scrollY = window.scrollY;
 
     const entries = buildCategoryEntries(catId);
-
     if (!entries.length) {
       wrap.innerHTML = `<div class="pe-card pe-empty"><div class="pe-empty-title">Geen producten in deze categorie</div></div>`;
       return;
     }
 
-    // Groepeer per volledige productnaam (niet r.base — zie groupNameOf hierboven)
-    const groups = new Map();
-    entries.forEach(e => {
-      if (!groups.has(e.base)) groups.set(e.base, []);
-      groups.get(e.base).push(e);
-    });
-    // Sorteer binnen elke groep chronologisch op datum (dan op zaal, voor stabiele volgorde)
-    groups.forEach(list => {
-      list.sort((a, b) => {
-        const dA = a.dateStr || '', dB = b.dateStr || '';
-        if (dA !== dB) return dA.localeCompare(dB);
-        return (a.room || '').localeCompare(b.room || '');
-      });
-    });
-    const sortedBases = [...groups.keys()].sort((a,b) => a.localeCompare(b));
-    const totalRows = entries.length;
-    // Zelfde per-type logica als _peToggleCategoryAll: een seizoensgroente/
-    // samengesteld gerecht telt hier als "aangevinkt" via zijn eigen
-    // selectiemechanisme, niet via catChecked.
+    const { pills, notices } = buildPills(entries);
+    currentPills = pills;
+    if (!pills.some(p => p.id === activePillId)) activePillId = pills.length ? pills[0].id : null;
+    visiblePill = pills.find(p => p.id === activePillId) || null;
+    visibleEntries = visiblePill ? visiblePill.entries : [];
+
+    // Zelfde per-type logica als _peToggleCategoryAll
     const allCategoryChecked = entries.every(e => {
       if (isSeizoensgroentenHoofdproduct(e.base)) {
         const assortiment = getGroentenAssortiment(seizoenVariantOf(e.base));
@@ -1200,25 +1334,107 @@
       return !!catChecked[e.key];
     });
 
+    const totaal = countChecked();
+    const p = visiblePill;
+    const alleAan = p && visibleEntries.length > 0 && visibleEntries.every(e => pillChecked(p, e));
+
+    let kop = '';
+    if (p) {
+      const sub = p.kind !== 'normaal' ? `<div class="pe2-meta">${escapeHtml(p.base)}</div>` : '';
+      const per = p.kind === 'normaal' ? (catPerOverride[p.base] || portieRegels[p.base] || 100) : 0;
+      kop = `
+        <div class="pe2-head">
+          <div class="pe2-head-title">${escapeHtml(p.label)}${sub}</div>
+          <span class="pe2-link" onclick="window._peAlleZalen()">${alleAan ? 'Alles uitvinken' : 'Alle zalen'}</span>
+          ${p.kind === 'normaal' ? `
+          <div class="pe-group-per">
+            <span>1 emmer =</span>
+            <input type="number" min="1" value="${per}" onchange="window._peSetGroupPer('${jsStr(p.base)}', this.value)">
+            <span>p</span>
+          </div>` : ''}
+        </div>`;
+    }
+
+    const rijen = visibleEntries.map((e, i) => {
+      const aan = p ? pillChecked(p, e) : false;
+      const locLabel = e.locCode ? (LOC_LABELS[e.locCode] || e.locCode) : '';
+      const dateLabel = fmtRowDate(e.dateStr);
+      const meta = [dateLabel ? `<span class="pe-row-check-date">${escapeHtml(dateLabel)}</span>` : '', e.event ? escapeHtml(e.event) : '', locLabel ? escapeHtml(locLabel) : '', `${e.persons}p`].filter(Boolean).join(' · ');
+      const pak = p.kind === 'normaal'
+        ? `<select onclick="event.stopPropagation()" onchange="window._peRijPak(${i}, this.value)">${PAK_FORMATEN.map(f => `<option value="${f}" ${f === (rowPakOverride[e.key] || '1/1 emmer') ? 'selected' : ''}>${f}</option>`).join('')}</select>`
+        : '';
+      return `
+        <div class="pe2-row ${aan ? 'on' : ''}" onclick="window._peRij(${i})">
+          <div class="pe2-box">✓</div>
+          <div class="pe2-main">
+            <div class="pe2-title">${escapeHtml(e.room || e.event || '—')}</div>
+            <div class="pe2-meta">${meta}</div>
+          </div>
+          <div class="pe2-right">${escapeHtml(pillDetail(p, e))}${pak}</div>
+        </div>`;
+    }).join('');
+
+    const chips = pills.filter(x => pillCount(x) > 0)
+      .map(x => `<span class="pe2-chip" title="${escAttr(x.label)}">${escapeHtml(x.label)} × ${pillCount(x)}</span>`).join('');
+
     wrap.innerHTML = `
       <div class="pe-card">
-        <div class="pe-cat-header-bar">
-          <span class="pe-cat-header-count">${totalRows} rij${totalRows===1?'':'en'} in deze categorie</span>
-          <span class="pe-cat-select-all-global" onclick="window._peToggleCategoryAll(${allCategoryChecked ? 'false' : 'true'})">
-            ${allCategoryChecked ? 'Alles uitvinken' : 'Alles aanvinken (hele categorie)'}
-          </span>
+        <div class="pe2-top">
+          <span class="pe2-top-count">${entries.length} rij${entries.length === 1 ? '' : 'en'} in deze categorie</span>
+          <span class="pe2-link" onclick="window._peToggleCategoryAll(${allCategoryChecked ? 'false' : 'true'})">${allCategoryChecked ? 'Alles uitvinken' : 'Alles in categorie'}</span>
         </div>
-
-        ${sortedBases.map(base => renderProductGroup(base, groups.get(base))).join('')}
-
-        <div class="pe-cat-actions">
-          <span class="pe-cat-selected-count" id="pe-cat-selected-count">${countChecked()} rij(en) geselecteerd</span>
-          <button class="pe-cat-add-btn" id="pe-cat-add-btn" onclick="window._peBulkAdd()" ${countChecked()?'':'disabled'}>
-            + Toevoegen aan lijst
-          </button>
+        ${pills.length > 10 ? `<input type="search" class="pe2-search" id="pe2-search" placeholder="Zoek een product…" value="${escAttr(pillFilter)}" oninput="window._peFilterPills(this.value)">` : ''}
+        <div class="pe2-pills" id="pe2-pills">${pillsHtml()}</div>
+        ${notices.map(n => `
+          <div class="pe-groente-leeg" style="margin-bottom:12px">
+            Nog geen groenten ingesteld voor ${n.variant === 'rouwmaaltijd' ? 'Rouwmaaltijd' : 'deze week'}.
+            <a href="#" onclick="switchMode('settings'); return false;">Ga naar Instellingen</a> om dit assortiment in te vullen.
+          </div>`).join('')}
+        ${kop}
+        ${rijen}
+        <div class="pe2-sum">
+          ${lastAddedMsg ? `<div class="pe2-added">✓ ${escapeHtml(lastAddedMsg)} · <span class="pe2-link" onclick="document.getElementById('pe-right-col-cat').scrollIntoView({behavior:'smooth'})">bekijk de lijst</span></div>` : ''}
+          <div class="pe2-sum-tel" id="pe-cat-selected-count">${totaal} geselecteerd</div>
+          ${chips ? `<div class="pe2-chips">${chips}</div>` : ''}
+          <button class="pe-cat-add-btn" id="pe-cat-add-btn" onclick="window._peBulkAdd()" ${totaal ? '' : 'disabled'}>+ Toevoegen aan lijst</button>
         </div>
       </div>`;
+    window.scrollTo(0, scrollY);
   }
+
+  window._peKiesPill = function (i) {
+    const p = currentPills[i];
+    if (!p) return;
+    activePillId = p.id;
+    renderCategoryGroups(activeCatId);
+  };
+
+  window._peFilterPills = function (v) {
+    pillFilter = v || '';
+    const box = document.getElementById('pe2-pills');
+    if (box) box.innerHTML = pillsHtml();
+  };
+
+  window._peRij = function (i) {
+    const e = visibleEntries[i];
+    if (!visiblePill || !e) return;
+    pillSet(visiblePill, e, !pillChecked(visiblePill, e));
+    lastAddedMsg = '';
+    renderCategoryGroups(activeCatId);
+  };
+
+  window._peAlleZalen = function () {
+    if (!visiblePill) return;
+    const nieuw = !visibleEntries.every(e => pillChecked(visiblePill, e));
+    visibleEntries.forEach(e => pillSet(visiblePill, e, nieuw));
+    lastAddedMsg = '';
+    renderCategoryGroups(activeCatId);
+  };
+
+  window._peRijPak = function (i, waarde) {
+    const e = visibleEntries[i];
+    if (e) rowPakOverride[e.key] = waarde;
+  };
 
   function countChecked() {
     const normalCount = Object.values(catChecked).filter(Boolean).length;
@@ -1231,65 +1447,6 @@
       samengesteldCount += Object.values(sel).filter(Boolean).length;
     });
     return normalCount + groenteCount + samengesteldCount;
-  }
-
-  function renderProductGroup(base, entries) {
-    const isSeizoen = isSeizoensgroentenHoofdproduct(base);
-    const samengesteldOnderdelen = getSamengesteldOnderdelen(base);
-    const isSamengesteld = !!samengesteldOnderdelen;
-    const per = catPerOverride[base] || portieRegels[base] || 100;
-
-    if (isSamengesteld) {
-      const allChecked = entries.every(e => {
-        const sel = rowSamengesteldSelectie[e.key] || {};
-        return samengesteldOnderdelen.every(o => sel[o.id]);
-      });
-      return `
-        <div class="pe-group">
-          <div class="pe-group-head">
-            <span class="pe-group-name">${escapeHtml(base)}</span>
-            <span class="pe-group-soorten" title="Beheer de onderdelen in Instellingen">${samengesteldOnderdelen.length} onderdelen</span>
-            <span class="pe-group-select-all" onclick="window._peToggleSamengesteldGroupAll('${jsStr(base)}', ${allChecked ? 'false' : 'true'})">${allChecked ? 'Alles uitvinken' : 'Alles selecteren'}</span>
-          </div>
-          ${entries.map(e => renderSamengesteldRow(e, samengesteldOnderdelen)).join('')}
-        </div>`;
-    }
-
-    const allChecked = isSeizoen
-      ? entries.every(e => Object.values(rowGroenteSelectie[e.key]||{}).some(Boolean))
-      : entries.every(e => catChecked[e.key]);
-
-    if (isSeizoen) {
-      const variant = seizoenVariantOf(base);
-      const assortiment = getGroentenAssortiment(variant);
-      return `
-        <div class="pe-group">
-          <div class="pe-group-head">
-            <span class="pe-group-name">${escapeHtml(base)}</span>
-            <span class="pe-group-soorten" title="Beheer het assortiment in Instellingen">${assortiment.length} groente${assortiment.length===1?'':'n'} in assortiment</span>
-            ${assortiment.length ? `<span class="pe-group-select-all" onclick="window._peToggleSeizoenGroupAll('${jsStr(base)}', ${allChecked ? 'false' : 'true'})">${allChecked ? 'Alles uitvinken' : 'Alles selecteren'}</span>` : ''}
-          </div>
-          ${!assortiment.length ? `
-            <div class="pe-groente-leeg">
-              Nog geen groenten ingesteld voor ${variant === 'rouwmaaltijd' ? 'Rouwmaaltijd' : 'deze week'}.
-              <a href="#" onclick="switchMode('settings'); return false;">Ga naar Instellingen</a> om dit assortiment in te vullen.
-            </div>` : entries.map(e => renderSeizoensgroentenRow(e, assortiment)).join('')}
-        </div>`;
-    }
-
-    return `
-      <div class="pe-group">
-        <div class="pe-group-head">
-          <span class="pe-group-name">${escapeHtml(base)}</span>
-          <span class="pe-group-select-all" onclick="window._peToggleGroupAll('${jsStr(base)}', ${allChecked ? 'false' : 'true'})">${allChecked ? 'Alles uitvinken' : 'Alles aanvinken'}</span>
-          <div class="pe-group-per">
-            <span>1 emmer =</span>
-            <input type="number" min="1" value="${per}" onchange="window._peSetGroupPer('${jsStr(base)}', this.value)">
-            <span>p</span>
-          </div>
-        </div>
-        ${entries.map(e => renderCheckRow(e, per)).join('')}
-      </div>`;
   }
 
   // Productiedatum = dag van afdrukken; THT = productiedatum + bewaarDagen.
@@ -1320,99 +1477,6 @@
   }
   const fmtLabelDate = fmtRowDate;
 
-  function renderSeizoensgroentenRow(entry, assortiment) {
-    const locLabel = entry.locCode ? (LOC_LABELS[entry.locCode] || entry.locCode) : '';
-    const dateLabel = fmtRowDate(entry.dateStr);
-    const selectie = rowGroenteSelectie[entry.key] || {};
-
-    return `
-      <div class="pe-seizoen-row">
-        <div class="pe-row-check-main" style="margin-bottom:8px">
-          <div class="pe-row-check-event">${escapeHtml(entry.event || entry.room)}</div>
-          <div class="pe-row-check-meta">${dateLabel ? `<span class="pe-row-check-date">${escapeHtml(dateLabel)}</span> · ` : ''}${escapeHtml(entry.room)}${locLabel ? ` · ${escapeHtml(locLabel)}` : ''} · ${entry.persons}p</div>
-        </div>
-        <div class="pe-groente-chips">
-          ${assortiment.map(g => {
-            const checked = !!selectie[g.id];
-            if (g.eenheid === 'gram') {
-              const totaalGram = entry.persons * g.perPlateau;
-              const totaalTxt = totaalGram >= 1000 ? `${(totaalGram/1000).toFixed(totaalGram % 1000 === 0 ? 0 : 1)}kg` : `${totaalGram}g`;
-              return `
-                <label class="pe-groente-chip ${checked?'checked':''}">
-                  <input type="checkbox" ${checked?'checked':''} onchange="window._peToggleGroenteRow('${jsStr(entry.key)}','${g.id}', this.checked, this)">
-                  <span class="pe-groente-chip-naam">${escapeHtml(g.naam)}</span>
-                  <span class="pe-groente-chip-meta">${entry.persons}p × ${g.perPlateau}g = ${totaalTxt}</span>
-                </label>`;
-            }
-            const aantalEtiketten = Math.ceil(entry.persons / g.perPlateau);
-            return `
-              <label class="pe-groente-chip ${checked?'checked':''}">
-                <input type="checkbox" ${checked?'checked':''} onchange="window._peToggleGroenteRow('${jsStr(entry.key)}','${g.id}', this.checked, this)">
-                <span class="pe-groente-chip-naam">${escapeHtml(g.naam)}</span>
-                <span class="pe-groente-chip-meta">${g.perPlateau}st/plateau · ${aantalEtiketten}×</span>
-              </label>`;
-          }).join('')}
-        </div>
-      </div>`;
-  }
-
-  function renderSamengesteldRow(entry, onderdelen) {
-    const locLabel = entry.locCode ? (LOC_LABELS[entry.locCode] || entry.locCode) : '';
-    const dateLabel = fmtRowDate(entry.dateStr);
-    const selectie = rowSamengesteldSelectie[entry.key] || {};
-
-    return `
-      <div class="pe-seizoen-row">
-        <div class="pe-row-check-main" style="margin-bottom:8px">
-          <div class="pe-row-check-event">${escapeHtml(entry.event || entry.room)}</div>
-          <div class="pe-row-check-meta">${dateLabel ? `<span class="pe-row-check-date">${escapeHtml(dateLabel)}</span> · ` : ''}${escapeHtml(entry.room)}${locLabel ? ` · ${escapeHtml(locLabel)}` : ''} · ${entry.persons}p</div>
-        </div>
-        <div class="pe-groente-chips">
-          ${onderdelen.map(o => {
-            const checked = !!selectie[o.id];
-            if (o.eenheid === 'gram') {
-              const totaalGram = entry.persons * o.perPlateau;
-              const totaalTxt = totaalGram >= 1000 ? `${(totaalGram/1000).toFixed(totaalGram % 1000 === 0 ? 0 : 1)}kg` : `${totaalGram}g`;
-              return `
-                <label class="pe-groente-chip ${checked?'checked':''}">
-                  <input type="checkbox" ${checked?'checked':''} onchange="window._peToggleSamengesteldRow('${jsStr(entry.key)}','${o.id}', this.checked, this)">
-                  <span class="pe-groente-chip-naam">${escapeHtml(o.naam)}</span>
-                  <span class="pe-groente-chip-meta">${entry.persons}p × ${o.perPlateau}g = ${totaalTxt}</span>
-                </label>`;
-            }
-            const aantalEtiketten = Math.ceil(entry.persons / o.perPlateau);
-            return `
-              <label class="pe-groente-chip ${checked?'checked':''}">
-                <input type="checkbox" ${checked?'checked':''} onchange="window._peToggleSamengesteldRow('${jsStr(entry.key)}','${o.id}', this.checked, this)">
-                <span class="pe-groente-chip-naam">${escapeHtml(o.naam)}</span>
-                <span class="pe-groente-chip-meta">${o.perPlateau}p/plateau · ${aantalEtiketten}×</span>
-              </label>`;
-          }).join('')}
-        </div>
-      </div>`;
-  }
-
-  function renderCheckRow(entry, per) {
-    const checked = !!catChecked[entry.key];
-    const aantalEtiketten = Math.ceil(entry.persons / per);
-    const locLabel = entry.locCode ? (LOC_LABELS[entry.locCode] || entry.locCode) : '';
-    const dateLabel = fmtRowDate(entry.dateStr);
-    return `
-      <label class="pe-row-check">
-        <input type="checkbox" ${checked?'checked':''} onchange="window._peToggleRow('${jsStr(entry.key)}', this.checked)">
-        <div class="pe-row-check-main">
-          <div class="pe-row-check-event">${escapeHtml(entry.event || entry.room)}</div>
-          <div class="pe-row-check-meta">${dateLabel ? `<span class="pe-row-check-date">${escapeHtml(dateLabel)}</span> · ` : ''}${escapeHtml(entry.room)}${locLabel ? ` · ${escapeHtml(locLabel)}` : ''} · ${entry.persons}p</div>
-        </div>
-        <div class="pe-row-check-pak">
-          <select onchange="window._peSetRowPak('${jsStr(entry.key)}', this.value)" id="pe-pak-${entry.key.replace(/[^a-zA-Z0-9]/g,'_')}">
-            ${PAK_FORMATEN.map(p => `<option value="${p}" ${p==='1/1 emmer'?'selected':''}>${p}</option>`).join('')}
-          </select>
-        </div>
-        <div class="pe-row-check-etik">${aantalEtiketten}× emmer</div>
-      </label>`;
-  }
-
   function resolveLocCode(r) {
     // Directe bron: het Location-veld dat nu op elke allRows-rij staat
     if (r.location) return r.location;
@@ -1425,64 +1489,6 @@
     const ev = allEvents.find(e => e.room && room && (e.room === room || e.room.includes(room) || room.includes(e.room)));
     return ev ? ev.location : null;
   }
-
-  window._peToggleRow = function (key, checked) {
-    catChecked[key] = checked;
-    document.getElementById('pe-cat-selected-count').textContent = `${countChecked()} rij(en) geselecteerd`;
-    document.getElementById('pe-cat-add-btn').disabled = countChecked() === 0;
-  };
-
-  window._peToggleGroenteRow = function (key, groenteId, checked, el) {
-    if (!rowGroenteSelectie[key]) rowGroenteSelectie[key] = {};
-    rowGroenteSelectie[key][groenteId] = checked;
-    // Herrender enkel de chip-styling en telling, niet de hele lijst (voorkomt
-    // scroll-jump). Gebruikt het meegegeven element rechtstreeks i.p.v. een
-    // herzoek-selector — die brak stil bij namen met een apostrof, doordat
-    // HTML/JS/CSS elk anders omgaan met escape-tekens.
-    if (el) el.closest('.pe-groente-chip')?.classList.toggle('checked', checked);
-    const countEl = document.getElementById('pe-cat-selected-count');
-    if (countEl) countEl.textContent = `${countChecked()} rij(en) geselecteerd`;
-    const addBtn = document.getElementById('pe-cat-add-btn');
-    if (addBtn) addBtn.disabled = countChecked() === 0;
-  };
-
-  window._peToggleSamengesteldRow = function (key, onderdeelId, checked, el) {
-    if (!rowSamengesteldSelectie[key]) rowSamengesteldSelectie[key] = {};
-    rowSamengesteldSelectie[key][onderdeelId] = checked;
-    if (el) el.closest('.pe-groente-chip')?.classList.toggle('checked', checked);
-    const countEl = document.getElementById('pe-cat-selected-count');
-    if (countEl) countEl.textContent = `${countChecked()} rij(en) geselecteerd`;
-    const addBtn = document.getElementById('pe-cat-add-btn');
-    if (addBtn) addBtn.disabled = countChecked() === 0;
-  };
-
-  window._peToggleGroupAll = function (base, setTo) {
-    buildCategoryEntries(activeCatId).forEach(e => {
-      if (e.base !== base) return;
-      catChecked[e.key] = setTo;
-    });
-    renderCategoryGroups(activeCatId);
-  };
-
-  window._peToggleSeizoenGroupAll = function (base, setTo) {
-    const assortiment = getGroentenAssortiment(seizoenVariantOf(base));
-    buildCategoryEntries(activeCatId).forEach(e => {
-      if (e.base !== base) return;
-      if (!rowGroenteSelectie[e.key]) rowGroenteSelectie[e.key] = {};
-      assortiment.forEach(g => { rowGroenteSelectie[e.key][g.id] = setTo; });
-    });
-    renderCategoryGroups(activeCatId);
-  };
-
-  window._peToggleSamengesteldGroupAll = function (base, setTo) {
-    const onderdelen = getSamengesteldOnderdelen(base) || [];
-    buildCategoryEntries(activeCatId).forEach(e => {
-      if (e.base !== base) return;
-      if (!rowSamengesteldSelectie[e.key]) rowSamengesteldSelectie[e.key] = {};
-      onderdelen.forEach(o => { rowSamengesteldSelectie[e.key][o.id] = setTo; });
-    });
-    renderCategoryGroups(activeCatId);
-  };
 
   // "Alles aanvinken (hele categorie)" moet elk type product via zijn EIGEN
   // selectiemechanisme aanvinken — anders komt een seizoensgroente/
@@ -1517,12 +1523,9 @@
   };
 
   let rowPakOverride = {}; // { key: pakformaat }
-  window._peSetRowPak = function (key, val) {
-    rowPakOverride[key] = val;
-  };
-
   window._peBulkAdd = function () {
     if (!countChecked()) return;
+    const queueLenVoor = queue.length;
     // De rijen zijn al samengevoegd per (product + zaal + gelegenheid + datum
     // + locatie) door buildCategoryEntries() — elk aangevinkt entry-item hier
     // vertegenwoordigt dus al het volledige, juiste aantal personen, ook als
@@ -1631,6 +1634,9 @@
     });
 
     // Reset selectie na toevoegen
+    const nieuw = queue.slice(queueLenVoor);
+    const nieuwEtiketten = nieuw.reduce((s, it) => s + it.aantalEtiketten, 0);
+    lastAddedMsg = `${nieuwEtiketten} etiket${nieuwEtiketten === 1 ? '' : 'ten'} toegevoegd (${nieuw.length} regel${nieuw.length === 1 ? '' : 's'})`;
     catChecked = {};
     rowPakOverride = {};
     rowGroenteSelectie = {};
@@ -1644,6 +1650,60 @@
      ══════════════════════════════ */
   function renderList() {
     renderListInto(currentModus === 'categorie' ? 'pe-right-col-cat' : 'pe-right-col');
+  }
+
+  // Afdruklijst: één regel per product (ingeklapt), met eronder per zaal de
+  // eigen regels. Een product met maar één regel wordt gewoon direct getoond.
+  let openListGroups = {};   // { productNaam: true }
+  let listGroupNames = [];
+
+  function listGroups() {
+    const map = new Map();
+    queue.forEach(it => {
+      if (!map.has(it.product)) map.set(it.product, []);
+      map.get(it.product).push(it);
+    });
+    return [...map.entries()].map(([name, items]) => ({ name, items }));
+  }
+
+  window._peToggleGroup = function (i) {
+    const name = listGroupNames[i];
+    if (name === undefined) return;
+    openListGroups[name] = !openListGroups[name];
+    renderList();
+  };
+
+  window._peRemoveGroup = function (i) {
+    const name = listGroupNames[i];
+    if (name === undefined) return;
+    const n = queue.filter(it => it.product === name).length;
+    if (n > 1 && !confirm(`Alle ${n} regels van "${name}" verwijderen?`)) return;
+    queue = queue.filter(it => it.product !== name);
+    delete openListGroups[name];
+    renderList();
+  };
+
+  function renderListGroup(g, i) {
+    if (g.items.length === 1) return renderItem(g.items[0]);
+    const open = !!openListGroups[g.name] || g.items.some(it => it.editing);
+    const totaal = g.items.reduce((s, it) => s + it.aantalEtiketten, 0);
+    const zalen = [...new Set(g.items.map(it => it.zaal).filter(Boolean))];
+    const zalenTxt = zalen.length > 2 ? `${zalen.length} zalen` : zalen.join(', ');
+    return `
+      <div class="pe-lgroup ${open ? 'open' : ''}">
+        <div class="pe-lgroup-head" onclick="window._peToggleGroup(${i})">
+          <span class="pe-lgroup-chev">${open ? '▾' : '▸'}</span>
+          <div class="pe-lgroup-main">
+            <div class="pe-lgroup-name">${escapeHtml(g.name)}</div>
+            <div class="pe-lgroup-meta">${g.items.length} regels${zalenTxt ? ' · ' + escapeHtml(zalenTxt) : ''}</div>
+          </div>
+          <div class="pe-item-etik">${totaal}×</div>
+          <button class="pe-item-del" onclick="event.stopPropagation(); window._peRemoveGroup(${i})" title="Hele product verwijderen">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        ${open ? `<div class="pe-lgroup-body">${g.items.map(it => renderItem(it, true)).join('')}</div>` : ''}
+      </div>`;
   }
 
   function renderListInto(targetId) {
@@ -1662,15 +1722,17 @@
 
     const totalLabels = queue.reduce((s, it) => s + it.aantalEtiketten, 0);
     const totalPages = estimatePageCount(queue, nieuwePaginaPerProduct);
+    const groups = listGroups();
+    listGroupNames = groups.map(g => g.name);
 
     col.innerHTML = `
       <div class="pe-card">
         <div class="pe-list-title">
-          <span>${queue.length} product${queue.length===1?'':'en'} in lijst</span>
+          <span>${groups.length} product${groups.length===1?'':'en'} in lijst</span>
           <span class="pe-list-clear" onclick="window._peClearAll()">Alles wissen</span>
         </div>
         <div class="pe-items">
-          ${queue.map(it => renderItem(it)).join('')}
+          ${groups.map((g, i) => renderListGroup(g, i)).join('')}
         </div>
 
         <div class="pe-summary">
@@ -1697,20 +1759,23 @@
       </div>`;
   }
 
-  function renderItem(it) {
+  // inGroup: de productnaam staat al in de groepskop, dus toon hier de zaal als titel.
+  function renderItem(it, inGroup) {
     const locLabel = it.locCode ? (LOC_LABELS[it.locCode] || it.locCode) : null;
     const dateLabel = fmtRowDate(it.dateStr);
+    const titel = inGroup && it.zaal ? it.zaal : it.product;
+    const zaalInMeta = it.zaal && !(inGroup && it.zaal);
     return `
       <div class="pe-item">
         <div class="pe-item-bar"></div>
         <div class="pe-item-main">
-          <div class="pe-item-name">${escapeHtml(it.product)}</div>
+          <div class="pe-item-name">${escapeHtml(titel)}</div>
           <div class="pe-item-meta">
             ${dateLabel ? `<span class="pe-row-check-date">${escapeHtml(dateLabel)}</span>` : ''}
             ${it.persons ? `<span>${it.persons}p</span>` : ''}
             ${it.per ? (it.perEenheid ? `<span>· ${it.per}${it.perEenheid==='gram'?'g':'st'}/plateau</span>` : `<span>· 1/${it.per}p</span>`) : ''}
             ${it.pakformaat ? `<span>· ${escapeHtml(it.pakformaat)}</span>` : ''}
-            ${it.zaal ? `<span>· ${escapeHtml(it.zaal)}</span>` : ''}
+            ${zaalInMeta ? `<span>· ${escapeHtml(it.zaal)}</span>` : ''}
             ${locLabel ? `<span>· ${escapeHtml(locLabel)}</span>` : ''}
           </div>
           ${it.opmerking ? `<div class="pe-item-opm">${escapeHtml(it.opmerking)}</div>` : ''}
