@@ -395,6 +395,71 @@ function switchTab(tabId) {
 
 /* ── Draaitabel overzicht ── */
 let _ovWk = '', _ovQ = '';
+let _ovKeys = [];          // index -> 'sub::product' (voor onclick zonder escaping)
+const _ovOpen = new Set(); // opengeklapte producten
+
+function ovToggle(i) {
+  const key = _ovKeys[i];
+  if (key === undefined) return;
+  if (_ovOpen.has(key)) _ovOpen.delete(key); else _ovOpen.add(key);
+  renderOverzicht();
+}
+
+function _ovEsc(s) {
+  return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// "2026-09-19" -> "za 19/09"
+function _ovDag(dateStr) {
+  const [y, m, d] = (dateStr || '').split('-');
+  if (!y || !m || !d) return dateStr || '';
+  const dt = new Date(+y, +m - 1, +d);
+  const DAG = ['zo','ma','di','wo','do','vr','za'];
+  return `${isNaN(dt) ? '' : DAG[dt.getDay()] + ' '}${d}/${m}`;
+}
+
+// Per feest waar dit product in zit: wie/wanneer + het volledige menu van dat feest.
+function _ovDetail(prodRows, catId, base, SUB_LABELS, SUB_ORDER) {
+  const feestKey = r => r.bookingId || `${r.room}|${r.dateStr}`;
+  const feesten = new Map();
+  prodRows.forEach(r => {
+    const k = feestKey(r);
+    if (!feesten.has(k)) feesten.set(k, { key: k, room: r.room, event: r.event, dateStr: r.dateStr, persons: 0 });
+    feesten.get(k).persons += r.persons;
+  });
+  const lijst = [...feesten.values()].sort((a, b) => (a.dateStr || '').localeCompare(b.dateStr || '') || (a.room || '').localeCompare(b.room || ''));
+
+  return `<div style="padding:10px 16px 14px 28px;display:flex;flex-direction:column;gap:12px">` + lijst.map(f => {
+    // Alle producten van dit feest (ongeacht weekfilter), per categorie, opgeteld per product
+    const menu = {};
+    allRows.forEach(r => {
+      if (feestKey(r) !== f.key) return;
+      const sub = r.sub || r.tabId;
+      const b = r.base || r.name;
+      if (!menu[sub]) menu[sub] = {};
+      menu[sub][b] = (menu[sub][b] || 0) + r.persons;
+    });
+    const subs = [...new Set([...SUB_ORDER, ...Object.keys(menu)])].filter(s => menu[s]);
+    return `
+      <div style="border:1px solid #E8E5E0;border-radius:10px;background:#fff;overflow:hidden">
+        <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;padding:8px 12px;background:#F4F3F0;border-bottom:1px solid #E8E5E0">
+          <span style="font-family:'DM Mono',monospace;font-size:12px;font-weight:600;color:#B8965A">${_ovDag(f.dateStr)}</span>
+          <span style="font-weight:700;font-size:13px;color:#1A1917">${_ovEsc(f.room || f.event || '—')}</span>
+          ${f.event && f.event !== f.room ? `<span style="font-size:12px;color:#6B655E">${_ovEsc(f.event)}</span>` : ''}
+          <span style="margin-left:auto;font-family:'DM Mono',monospace;font-size:12px;color:#1A1917">${f.persons}p</span>
+        </div>
+        <div style="padding:6px 12px 8px">
+          ${subs.map(s => `
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#9A9590;margin:6px 0 2px">${_ovEsc(SUB_LABELS[s] || s)}</div>
+            ${Object.entries(menu[s]).sort((a, b) => a[0].localeCompare(b[0])).map(([b, p]) => {
+              const hit = s === catId && b === base;
+              return `<div style="display:flex;justify-content:space-between;gap:12px;padding:3px 6px;font-size:12.5px;border-radius:5px;${hit ? 'background:#F6EBD3;font-weight:700' : ''}">
+                <span>${_ovEsc(b)}</span><span style="font-family:'DM Mono',monospace">${p}</span></div>`;
+            }).join('')}`).join('')}
+        </div>
+      </div>`;
+  }).join('') + `</div>`;
+}
 function renderOverzicht(wk, q) {
   const el = document.getElementById('overzicht-content');
   if (!el) return;
@@ -447,13 +512,16 @@ function renderOverzicht(wk, q) {
 
   // Bouw pivot op basis van sub (echte CCM categorie)
   const pivot = {};
+  const pivotRows = {}; // { sub: { base: [rijen] } } — voor dag(en) en feest-detail
   rows.forEach(r => {
     const sub = r.sub || r.tabId;
-    if (!pivot[sub]) pivot[sub] = {};
+    if (!pivot[sub]) { pivot[sub] = {}; pivotRows[sub] = {}; }
     const base = r.base || r.name;
-    if (!pivot[sub][base]) pivot[sub][base] = 0;
+    if (!pivot[sub][base]) { pivot[sub][base] = 0; pivotRows[sub][base] = []; }
     pivot[sub][base] += r.persons;
+    pivotRows[sub][base].push(r);
   });
+  _ovKeys = [];
 
   const grandTotal = rows.reduce((s,r)=>s+r.persons,0);
 
@@ -503,11 +571,23 @@ function renderOverzicht(wk, q) {
           </tr>`;
 
     catRows.forEach(([base, pers]) => {
+      const key = catId + '::' + base;
+      const idx = _ovKeys.push(key) - 1;
+      const open = _ovOpen.has(key);
+      const prodRows = pivotRows[catId][base];
+      const dagen = [...new Set(prodRows.map(r => r.dateStr).filter(Boolean))].sort();
+      const dagTxt = dagen.length > 3
+        ? dagen.slice(0, 3).map(_ovDag).join(' · ') + ` · +${dagen.length - 3}`
+        : dagen.map(_ovDag).join(' · ');
       html += `
-          <tr style="border-bottom:1px solid #F4F3F0" onmouseover="this.style.background='#FAFAF8'" onmouseout="this.style.background=''">
-            <td style="padding:9px 16px 9px 28px;color:#1A1917">${base}</td>
+          <tr style="border-bottom:1px solid #F4F3F0;cursor:pointer;${open ? 'background:#FAF6EE' : ''}" onclick="ovToggle(${idx})" onmouseover="this.style.background='#FAFAF8'" onmouseout="this.style.background='${open ? '#FAF6EE' : ''}'">
+            <td style="padding:9px 16px 9px 28px;color:#1A1917">
+              <span style="display:inline-block;width:12px;color:#9A9590;font-size:11px">${open ? '▾' : '▸'}</span>${_ovEsc(base)}
+              ${dagTxt ? `<span style="font-family:'DM Mono',monospace;font-size:11px;color:#B8965A;margin-left:10px;white-space:nowrap">${dagTxt}</span>` : ''}
+            </td>
             <td style="padding:9px 16px;text-align:right;font-family:'DM Mono',monospace;font-weight:600;font-size:14px">${pers.toLocaleString('nl-BE')}</td>
           </tr>`;
+      if (open) html += `<tr><td colspan="2" style="padding:0;background:#FDFCFA;border-bottom:1px solid #E8E5E0">${_ovDetail(prodRows, catId, base, SUB_LABELS, SUB_ORDER)}</td></tr>`;
     });
   });
 
