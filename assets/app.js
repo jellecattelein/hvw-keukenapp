@@ -962,10 +962,12 @@ function renderDessertSimple(mode) {
         variants.forEach(r => {
           basePersons += r.persons;
           const roomShort = r.room.length>22 ? r.room.slice(0,21)+'…' : r.room;
+          // Zoals bij vlees/vis: in het weekoverzicht staat de dag voor de zaal
+          const dagLabel = mode === 'week' ? `<span class="day-tag">${dayShort(r.dateStr)}</span>` : '';
           variantRows += `
           <tr class="variant-row" style="border-left:3px solid ${color.stripe}">
             <td style="padding-left:22px;color:var(--text-muted);font-size:12px" title="${r.name.replace(/"/g,'&quot;')}">${r.name.length>55?r.name.slice(0,54)+'…':r.name}</td>
-            <td style="color:var(--text-muted);font-size:11px" title="${r.room}">${roomShort}</td>
+            <td style="color:var(--text-muted);font-size:11px" title="${r.room}">${dagLabel}${roomShort}</td>
             <td style="text-align:center;font-family:'DM Mono',monospace;font-weight:500">${r.persons}</td>
           </tr>`;
         });
