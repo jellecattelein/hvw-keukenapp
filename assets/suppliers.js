@@ -421,13 +421,80 @@ function renderSamengesteldSettings() {
     </div>
     <div id="samengesteld-lijst"></div>
     <button type="button" class="btn-add-groente" onclick="openAddSamengesteld()">+ Samengesteld gerecht toevoegen</button>
+    <div id="samengesteld-onopgedeeld" style="margin-top:16px"></div>
   `;
   wrap.appendChild(el);
   renderSamengesteldLijst();
   vulSamengesteldProductnaamLijst();
+  // Na het laden van een Excel opnieuw bepalen welke gerechten nog niet zijn opgedeeld
+  document.addEventListener('dataLoaded', () => setTimeout(renderOnopgedeeld, 100));
+}
+
+/* ── Voorgerechten die nog niet zijn opgedeeld ── */
+const ONOPGEDEELD_SUBS = ['vg_warm', 'vg_veggie', 'vg_koud'];
+let onopgedeeldNamen = [];
+
+function renderOnopgedeeld() {
+  const el = document.getElementById('samengesteld-onopgedeeld');
+  if (!el) return;
+  if (typeof allRows === 'undefined' || !allRows.length) { el.innerHTML = ''; return; }
+  const gedaan = new Set(samengesteldeGerechten.map(g => (g.productNaam || '').trim().toLowerCase()));
+  const namen = [...new Set(allRows
+    .filter(r => ONOPGEDEELD_SUBS.includes(r.sub))
+    .map(r => r.name)
+    .filter(n => n && /,|\smet\s/i.test(n) && !gedaan.has(n.trim().toLowerCase())))].sort();
+  onopgedeeldNamen = namen;
+  if (!namen.length) { el.innerHTML = ''; return; }
+  el.innerHTML = `
+    <div class="settings-hint" style="font-weight:600;color:#B8965A;margin-bottom:6px">
+      ${namen.length} voorgerecht${namen.length === 1 ? '' : 'en'} nog niet opgedeeld
+    </div>
+    ${namen.map((n, i) => `
+      <div class="groente-card">
+        <div class="groente-info"><div class="groente-naam" style="font-size:13px;font-weight:500">${escapeHtmlSuppliers(n)}</div></div>
+        <div class="groente-actions">
+          <button type="button" class="btn-add-groente" style="margin:0;white-space:nowrap" onclick="opdelenGerecht(${i})">✨ Opdelen</button>
+        </div>
+      </div>`).join('')}`;
+}
+
+function opdelenGerecht(i) {
+  const naam = onopgedeeldNamen[i];
+  if (naam === undefined) return;
+  openAddSamengesteld();
+  document.getElementById('samengesteld-productnaam').value = naam;
+  autoSplitSamengesteld();
+}
+
+// Vraagt een voorstel (AI, of eenvoudige regels als terugval) en zet dat in het formulier.
+// Er wordt niets opgeslagen voor de gebruiker "Opslaan" klikt.
+async function autoSplitSamengesteld() {
+  const naam = document.getElementById('samengesteld-productnaam').value.trim();
+  const status = document.getElementById('sg-auto-status');
+  const knop = document.getElementById('sg-auto-btn');
+  if (!naam) { if (status) status.textContent = 'Vul eerst de productnaam in.'; return; }
+  if (typeof window.hvwSplitGerecht !== 'function') { if (status) status.textContent = 'Opdelen is niet beschikbaar.'; return; }
+  if (samengesteldModalOnderdelen.some(o => o.naam) && !confirm('De huidige onderdelen vervangen door een nieuw voorstel?')) return;
+  if (knop) knop.disabled = true;
+  if (status) status.textContent = 'Bezig met opdelen…';
+  try {
+    const res = await window.hvwSplitGerecht(naam);
+    if (!res.onderdelen.length) { if (status) status.textContent = 'Geen onderdelen gevonden.'; return; }
+    samengesteldModalOnderdelen = res.onderdelen;
+    renderSamengesteldOnderdelenLijst();
+    if (status) status.textContent = res.bron === 'ai'
+      ? 'Voorstel van de AI — controleer de onderdelen en de aantallen voor je opslaat.'
+      : (res.reden === 'limiet' ? 'De AI heeft even te veel aanvragen gehad (gratis limiet per minuut). '
+        : res.reden === 'druk' ? 'De AI is nu erg druk. '
+        : 'AI niet bereikbaar. ')
+        + 'Voorstel op basis van komma\'s — probeer straks opnieuw voor een slimmere opdeling. Controleer de onderdelen en de aantallen voor je opslaat.';
+  } finally {
+    if (knop) knop.disabled = false;
+  }
 }
 
 function renderSamengesteldLijst() {
+  setTimeout(renderOnopgedeeld, 0);
   const el = document.getElementById('samengesteld-lijst');
   if (!el) return;
   if (!samengesteldeGerechten.length) {
@@ -506,6 +573,7 @@ function addSamengesteldOnderdeelRow() {
 }
 
 function openAddSamengesteld() {
+  const st = document.getElementById('sg-auto-status'); if (st) st.textContent = '';
   document.getElementById('samengesteld-form-title').textContent = 'Samengesteld gerecht toevoegen';
   document.getElementById('samengesteld-id').value = '';
   document.getElementById('samengesteld-productnaam').value = '';
@@ -518,6 +586,7 @@ function openAddSamengesteld() {
 function editSamengesteld(id) {
   const g = samengesteldeGerechten.find(g => g.id === id);
   if (!g) return;
+  const st = document.getElementById('sg-auto-status'); if (st) st.textContent = '';
   document.getElementById('samengesteld-form-title').textContent = 'Samengesteld gerecht bewerken';
   document.getElementById('samengesteld-id').value = g.id;
   document.getElementById('samengesteld-productnaam').value = g.productNaam;
