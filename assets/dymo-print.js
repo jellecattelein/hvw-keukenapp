@@ -606,7 +606,10 @@ ${body}
     //    en dag/volgnummer enkel indien van toepassing). ──
     const daySeqText = klDaySeqText(label);
     const ROW_GAP = 35; // 0.6mm
-    const rows = [{ key: 'pieces', h: 410 }, { key: 'totalGuests', h: 170 }];
+    // subline (optioneel) vervangt "van N p." onder het grote getal
+    const subText = label.subline !== undefined ? label.subline : `van ${label.totalGuests ?? ''} p.`;
+    const rows = [{ key: 'pieces', h: 410 }];
+    if (subText) rows.push({ key: 'totalGuests', h: 170 });
     if (label.splitNote) rows.push({ key: 'split', h: 155 });
     if (daySeqText) rows.push({ key: 'dayseq', h: 190 });
     const contentH = rows.reduce((s, r) => s + r.h, 0) + ROW_GAP * (rows.length - 1);
@@ -623,7 +626,7 @@ ${body}
           { text: ' ' + (label.unit || 'st'), size: 8.5, bold: true },
         ], rowX, row.y ?? y, rowW, row.h, 'Center'));
       } else if (row.key === 'totalGuests') {
-        objs.push(textObject('TOTALGUESTS', `van ${label.totalGuests ?? ''} p.`, rowX, y, rowW, row.h, { size: 7.4, bold: true, align: 'Center' }));
+        objs.push(textObject('TOTALGUESTS', subText, rowX, y, rowW, row.h, { size: 7.4, bold: true, align: 'Center' }));
       } else if (row.key === 'split') {
         objs.push(textObject('SPLIT', label.splitNote, rowX, y, rowW, row.h, { size: 6.8, align: 'Center', color: KL_INK_SECONDARY }));
       } else if (row.key === 'dayseq') {
@@ -664,7 +667,7 @@ ${body}
             <div class="kl-pieces-num${piecesLen >= 4 ? ' kl-pieces-num-lg' : ''}">${esc(String(label.pieces ?? ''))}</div>
             <div class="kl-pieces-unit">${esc(label.unit || 'st')}</div>
           </div>
-          <div class="kl-totalguests">van ${esc(String(label.totalGuests ?? ''))} p.</div>
+          ${(() => { const s = label.subline !== undefined ? label.subline : `van ${label.totalGuests ?? ''} p.`; return s ? `<div class="kl-totalguests">${esc(String(s))}</div>` : ''; })()}
           ${label.splitNote ? `<div class="kl-splitnote">${esc(label.splitNote)}</div>` : ''}
           ${daySeqText ? `<div class="kl-dayseq">${esc(daySeqText)}</div>` : ''}
         </div>

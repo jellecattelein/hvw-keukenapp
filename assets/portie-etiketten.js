@@ -2171,17 +2171,19 @@
   // type in dat bestand.
   function toKitchenLabel(label) {
     const isGram = isTotaal(label.perEenheid) && label.totaalGewicht != null;
-    let pieces, unit, splitNote;
+    let pieces, unit, splitNote, subline;   // subline: vervangt "van N p." onder het grote getal
 
     if (isGram) {
       ({ pieces, unit } = fmtTotaal(label.perEenheid, label.totaalGewicht));
       splitNote = '';
     } else if (label.perEenheid === 'container') {
-      // Groot getal = het aantal personen in DIT etiket (bv. 130 p); de inhoud
-      // (bv. 10 L) staat klein bij het portieveld, en de verdeling (130p + 50p) in de notitie.
+      // Groot getal = het VOLLEDIGE aantal personen (bv. 180 p). Klein eronder:
+      // de personen en inhoud van DIT etiket (130p · 10 L), en de verdeling (130p + 50p).
       const inh = inhoudInEtiket(label);
-      pieces = inh.persons;
+      const inhTxt = `${String(inh.pieces).replace('.', ',')} ${inh.unit}`;
+      pieces = label.persons;
       unit = 'p';
+      subline = label.aantalEtiketten > 1 ? `${inh.persons}p · ${inhTxt}` : inhTxt;
       splitNote = label.aantalEtiketten > 1 ? (label.splitNote || '') : '';
     } else {
       pieces = (label.emmerPersonen !== undefined && label.emmerPersonen !== null)
@@ -2197,7 +2199,6 @@
       // Portie-breuk (bv. "1/1", "2/3") — enkel zinvol bij een verpakkingsformaat;
       // groenten/samengestelde onderdelen (perEenheid) hebben dit niet.
       portions: (!label.perEenheid && label.pakformaat) ? compactPakformaat(label.pakformaat)
-        : label.perEenheid === 'container' ? (() => { const i = inhoudInEtiket(label); return `${String(i.pieces).replace('.', ',')} ${i.unit}`; })()
         : '',
       location: label.zaal || '',
       // Vrije opmerking (bv. allergie-notitie) krijgt voorrang op de metaregel-
@@ -2211,6 +2212,7 @@
       pieces,
       unit,
       totalGuests: label.persons,
+      subline,
       splitNote,
     };
   }
@@ -2286,7 +2288,8 @@
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(90, 87, 83);
       const inh = inhoudInEtiket(label);
-      doc.text(`${inh.persons}p · ${String(inh.pieces).replace('.', ',')} ${inh.unit}`, tx, cursorY);
+      // Totaal groot staat onderaan rechts ("N pers."); hier de inhoud van dit etiket
+      doc.text(`${label.aantalEtiketten > 1 ? inh.persons + 'p · ' : ''}${String(inh.pieces).replace('.', ',')} ${inh.unit}`, tx, cursorY);
       cursorY += 4.6;
     } else if (label.perEenheid) {
       doc.setFontSize(9);
@@ -2381,7 +2384,7 @@
       ? label.persons
       : ((label.emmerPersonen !== undefined && label.emmerPersonen !== null) ? label.emmerPersonen : label.persons);
     if (toonAantal) {
-      doc.setFontSize(9);
+      doc.setFontSize(label.perEenheid === 'container' ? 13 : 9);   // bij een bak-etiket staat het totaal groot
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(28, 28, 26);
       doc.text(`${toonAantal} pers.`, x + w - pad, y + h - pad - 1, { align: 'right' });
