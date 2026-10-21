@@ -19,7 +19,6 @@
     'hvw-groenten-assortiment',
     'hvw-groenten-assortiment-rouwmaaltijd',
     'hvw-samengestelde-gerechten',
-    'hvw-recepten',
     'hvw-weekmap-secties',
     'mmm-suppliers',
     'mmm-assignments',
@@ -27,6 +26,7 @@
     'mmm-cars',
     'mmm-car-assign',
   ]);
+  const RECEPT_KEY = 'hvw-recepten';  // apart gedeeld: elk recept een eigen document
   const MAX_VALUE = 900000;           // Firestore: max ~1 MiB per document
   const WEEK_STAMP = 'hvw-week-stamp';
   const WEEK_CACHE = 'hvw-week-cache';
@@ -52,8 +52,18 @@
   /* ── Schrijven (enkel beheerder) ── */
   Storage.prototype.setItem = function (k, v) {
     // Enkel de beheerder schrijft naar de gedeelde gegevens
-    const track = this === localStorage && SHARED_KEYS.has(k) && !applyingRemote && isAdmin;
+    const mine = this === localStorage && !applyingRemote && isAdmin;
+    const track = mine && SHARED_KEYS.has(k);
     const prev = track ? ls.get(k) : null;
+    if (mine && k === RECEPT_KEY) {
+      // Verwijderde recepten onthouden, zodat ze ook online verdwijnen
+      const voor = parseRecepten(ls.get(k)).map(r => r && r.id);
+      rawSet.call(this, k, v);
+      const na = new Set(parseRecepten(String(v)).map(r => r && r.id));
+      voor.forEach(id => { if (id != null && !na.has(id)) receptDeleted.add(String(id)); });
+      scheduleReceptPush();
+      return;
+    }
     rawSet.call(this, k, v);
     if (track && prev !== String(v)) { dirty.add(k); scheduleFlush(); }
   };
@@ -117,6 +127,92 @@
   function reloadNow() {
     try { sessionStorage.setItem(RELOAD_FLAG, String(Date.now())); } catch (e) {}
     location.reload();
+  }
+
+  /* ── Recepten: elk recept een eigen document, foto's verkleind ── */
+  let remoteRecept = {};              // id -> hash zoals online bekend
+  const receptDeleted = new Set();
+  let receptTimer = null, firstRecepten = true;
+
+  function parseRecepten(s) {
+    try { const a = JSON.parse(s || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; }
+  }
+  function hashStr(s) {
+    let h = 5381;
+    for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+    return (h >>> 0) + ':' + s.length;
+  }
+  const docId = id => 'recept_' + String(id).replace(/[^\w-]/g, '_');
+
+  function shrinkFoto(src, maxPx = 900, q = 0.72) {
+    if (!src || !/^data:image/.test(src)) return Promise.resolve(src || '');
+    return new Promise(res => {
+      const img = new Image();
+      img.onload = () => {
+        const f = Math.min(1, maxPx / Math.max(img.width, img.height));
+        const c = document.createElement('canvas');
+        c.width = Math.round(img.width * f); c.height = Math.round(img.height * f);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        res(c.toDataURL('image/jpeg', q));
+      };
+      img.onerror = () => res('');
+      img.src = src;
+    });
+  }
+
+  function scheduleReceptPush() {
+    clearTimeout(receptTimer);
+    receptTimer = setTimeout(() => { pushRecepten().catch(e => console.warn('[sync] recepten', e)); }, 1500);
+  }
+
+  async function pushRecepten(force) {
+    if (!isAdmin || !db) return 0;
+    if (force) remoteRecept = {};
+    const list = parseRecepten(ls.get(RECEPT_KEY));
+    const col = db.collection('shared');
+    let n = 0;
+    for (let i = 0; i < list.length; i++) {
+      const r = list[i];
+      if (!r || r.id == null) continue;
+      const hash = hashStr(JSON.stringify(r)) + '#' + i;     // volgorde telt mee
+      if (remoteRecept[r.id] === hash) continue;
+      const slim = Object.assign({}, r, { foto: await shrinkFoto(r.foto) });
+      let json = JSON.stringify(slim);
+      if (json.length > MAX_VALUE) { slim.foto = ''; json = JSON.stringify(slim); }
+      await col.doc(docId(r.id)).set({
+        type: 'recept', id: String(r.id), idx: i, hash, json,
+        _updated: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      remoteRecept[r.id] = hash; n++;
+    }
+    for (const id of [...receptDeleted]) {
+      await col.doc(docId(id)).delete();
+      delete remoteRecept[id]; receptDeleted.delete(id);
+    }
+    return n;
+  }
+
+  // Binnenhalen: keuken altijd; beheerder enkel als er lokaal nog geen recepten staan
+  function onRecepten(snap, force) {
+    if (snap.metadata.hasPendingWrites) return false;
+    const docs = [];
+    remoteRecept = {};
+    snap.forEach(d => { const x = d.data(); docs.push(x); remoteRecept[x.id] = x.hash; });
+    const local = ls.get(RECEPT_KEY);
+    const eerste = firstRecepten; firstRecepten = false;
+    if (isAdmin && parseRecepten(local).length) {      // beheerder is de bron
+      pushRecepten().catch(e => console.warn('[sync] recepten', e));
+      return false;
+    }
+    if (!docs.length) return false;
+    docs.sort((a, b) => (a.idx || 0) - (b.idx || 0));
+    const nieuw = JSON.stringify(docs.map(x => { try { return JSON.parse(x.json); } catch (e) { return null; } }).filter(Boolean));
+    if (nieuw === local) return false;
+    applyingRemote = true; ls.set(RECEPT_KEY, nieuw); applyingRemote = false;
+    if (force) reloadNow();
+    else if (eerste && canAutoReload()) reloadNow();
+    else toast('Recepten bijgewerkt', 'Vernieuwen', () => location.reload());
+    return true;
   }
 
   /* ── Week (Excel) ── */
@@ -201,17 +297,20 @@
         SHARED_KEYS.forEach(k => { if (ls.get(k) != null) dirty.add(k); });
         clearTimeout(flushTimer);
         if (typeof rawData !== 'undefined' && Array.isArray(rawData) && rawData.length) await saveWeek(rawData);
-        const ok = await flush();
+        let ok = await flush();
+        try { await pushRecepten(true); } catch (e) { console.warn('[sync] recepten', e); ok = false; }
         setChip(ok === false ? 'fout' : 'ok');
         toast(ok === false ? 'Delen mislukt — controleer de verbinding' : 'Gedeeld met de andere computers ✓');
       } else {
         // Keuken: meteen het nieuwste binnenhalen
-        const [s, w] = await Promise.all([
+        const [s, w, r] = await Promise.all([
           db.collection('shared').doc('settings').get({ source: 'server' }),
           db.collection('shared').doc('week').get({ source: 'server' }),
+          db.collection('shared').where('type', '==', 'recept').get({ source: 'server' }),
         ]);
         const weekNieuw = await onWeek(w, true);
-        const wijzigd = onSettings(s, true);   // herlaadt zelf bij wijzigingen
+        const receptNieuw = onRecepten(r, true);   // herlaadt zelf bij wijzigingen
+        const wijzigd = receptNieuw || onSettings(s, true);   // herlaadt zelf bij wijzigingen
         setChip('ok');
         if (!wijzigd) toast(weekNieuw ? 'Nieuwe week geladen ✓' : 'Alles is up-to-date ✓');
       }
@@ -265,6 +364,7 @@
       setChip('ok');
       db.collection('shared').doc('settings').onSnapshot(onSettings, e => failed(e));
       db.collection('shared').doc('week').onSnapshot(onWeek, e => failed(e));
+      db.collection('shared').where('type', '==', 'recept').onSnapshot(s => onRecepten(s), e => failed(e));
     });
   }
 
