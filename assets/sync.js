@@ -77,14 +77,15 @@
     keys.forEach(k => dirty.delete(k));
     if (!Object.keys(patch).length) return;
     patch._updated = firebase.firestore.FieldValue.serverTimestamp();
-    db.collection('shared').doc('settings').set(patch, { merge: true })
-      .then(() => setChip('ok'))
-      .catch(err => { keys.forEach(k => dirty.add(k)); console.warn('[sync] schrijven mislukt', err); setChip('fout'); });
+    return db.collection('shared').doc('settings').set(patch, { merge: true })
+      .then(() => { setChip('ok'); return true; })
+      .catch(err => { keys.forEach(k => dirty.add(k)); console.warn('[sync] schrijven mislukt', err); setChip('fout'); return false; });
   }
 
   /* ── Instellingen binnenhalen ── */
-  function onSettings(snap) {
-    if (snap.metadata.hasPendingWrites) return;
+  // force = handmatig "Nu synchroniseren": direct toepassen en herladen bij wijzigingen
+  function onSettings(snap, force) {
+    if (snap.metadata.hasPendingWrites) return false;
     const data = snap.exists ? snap.data() : {};
     let changed = false;
     SHARED_KEYS.forEach(k => {
@@ -101,10 +102,12 @@
     });
     const eerste = firstSettings; firstSettings = false;
     if (changed) {
-      if (eerste && canAutoReload()) reloadNow();
+      if (force) reloadNow();
+      else if (eerste && canAutoReload()) reloadNow();
       else toast('Nieuwe instellingen beschikbaar', 'Vernieuwen', () => location.reload());
     }
     if (dirty.size) scheduleFlush();
+    return changed;
   }
 
   function canAutoReload() {
@@ -168,12 +171,12 @@
     }
   }
 
-  async function onWeek(snap) {
-    if (snap.metadata.hasPendingWrites) return;
-    const eerste = firstWeek; firstWeek = false;
-    if (!snap.exists) return;
+  async function onWeek(snap, force) {
+    if (snap.metadata.hasPendingWrites) return false;
+    const eerste = firstWeek || force; firstWeek = false;
+    if (!snap.exists) return false;
     const d = snap.data();
-    if (d.stamp === ls.get(WEEK_STAMP) || d.stamp === ownWeekStamp) return;
+    if (d.stamp === ls.get(WEEK_STAMP) || d.stamp === ownWeekStamp) return false;
     const apply = async () => {
       try {
         const rows = await unpack(d.enc, d.b64);
@@ -183,7 +186,41 @@
     };
     if (eerste) await apply();
     else toast('Nieuwe week beschikbaar', 'Laden', apply);
+    return true;
   }
+
+  // Knop "Nu synchroniseren"
+  let syncing = false;
+  window.hvwSyncNow = async function () {
+    if (syncing) return;
+    if (!db || !signedIn) { skipLogin = false; showLogin(); return; }
+    syncing = true; setChip('bezig');
+    try {
+      if (isAdmin) {
+        // Beheerder: alles van deze pc opnieuw online zetten
+        SHARED_KEYS.forEach(k => { if (ls.get(k) != null) dirty.add(k); });
+        clearTimeout(flushTimer);
+        if (typeof rawData !== 'undefined' && Array.isArray(rawData) && rawData.length) await saveWeek(rawData);
+        const ok = await flush();
+        setChip(ok === false ? 'fout' : 'ok');
+        toast(ok === false ? 'Delen mislukt — controleer de verbinding' : 'Gedeeld met de andere computers ✓');
+      } else {
+        // Keuken: meteen het nieuwste binnenhalen
+        const [s, w] = await Promise.all([
+          db.collection('shared').doc('settings').get({ source: 'server' }),
+          db.collection('shared').doc('week').get({ source: 'server' }),
+        ]);
+        const weekNieuw = await onWeek(w, true);
+        const wijzigd = onSettings(s, true);   // herlaadt zelf bij wijzigingen
+        setChip('ok');
+        if (!wijzigd) toast(weekNieuw ? 'Nieuwe week geladen ✓' : 'Alles is up-to-date ✓');
+      }
+    } catch (err) {
+      console.warn('[sync] handmatig synchroniseren mislukt', err);
+      setChip('fout');
+      toast('Synchroniseren mislukt — controleer de verbinding');
+    } finally { syncing = false; }
+  };
 
   // Bij het opstarten: laatst gekende week meteen tonen (ook zonder verbinding)
   async function loadCachedWeek() {
@@ -256,6 +293,7 @@
       #hvw-chip { margin: 6px 12px 2px; padding: 7px 10px; border-radius: 8px; background: rgba(255,255,255,.07); color: #C9C4BB; font: 500 11.5px 'Outfit', sans-serif; line-height: 1.35; }
       #hvw-chip b { color: #fff; display: block; }
       #hvw-chip a { color: #B8965A; cursor: pointer; text-decoration: underline; }
+      #hvw-chip .sync-btn { display: block; width: 100%; margin-top: 7px; padding: 8px 10px; background: #B8965A; color: #fff; border: 0; border-radius: 7px; font: 600 12.5px 'Outfit', sans-serif; cursor: pointer; }
       #hvw-toast { position: fixed; right: 16px; bottom: 16px; z-index: 99998; background: #1A1917; color: #fff; padding: 12px 16px; border-radius: 10px; font: 500 13px 'Outfit', sans-serif; display: none; align-items: center; gap: 12px; box-shadow: 0 6px 24px rgba(0,0,0,.25); max-width: 340px; }
       #hvw-toast button { background: #B8965A; color: #fff; border: 0; border-radius: 6px; padding: 6px 12px; font-weight: 600; cursor: pointer; }
     `;
@@ -312,9 +350,13 @@
       bottom.parentNode.insertBefore(chip, bottom);
     }
     const out = ' · <a onclick="window.hvwSyncLogout()">afmelden</a>';
+    const knop = isAdmin
+      ? '<button class="sync-btn" onclick="window.hvwSyncNow()">↻ Nu delen</button>'
+      : '<button class="sync-btn" onclick="window.hvwSyncNow()">↻ Nu synchroniseren</button>';
     chip.innerHTML =
-      state === 'ok' && isAdmin ? `<b>☁ Beheerder</b>Wijzigingen worden gedeeld${out}`
-      : state === 'ok' ? `<b>☁ Keuken</b>Uitvoeren en afdrukken${out}`
+      state === 'ok' && isAdmin ? `<b>☁ Beheerder</b>Wijzigingen worden gedeeld${out}${knop}`
+      : state === 'ok' ? `<b>☁ Keuken</b>Uitvoeren en afdrukken${out}${knop}`
+      : state === 'bezig' ? `<b>☁ Bezig…</b>Even geduld`
       : state === 'fout' ? `<b>☁ Synchronisatie haperde</b>Wordt opnieuw geprobeerd`
       : state === 'offline' ? `<b>☁ Niet bereikbaar</b>Je werkt met de gegevens van dit toestel`
       : `<b>☁ Niet aangemeld</b><a onclick="window.hvwSyncLogin()">aanmelden</a>`;
