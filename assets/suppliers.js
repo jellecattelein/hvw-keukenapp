@@ -505,7 +505,7 @@ function renderSamengesteldLijst() {
     <div class="groente-card">
       <div class="groente-info">
         <div class="groente-naam">${escapeHtmlSuppliers(g.productNaam)}</div>
-        <div class="groente-meta">${g.onderdelen.map(o => `${escapeHtmlSuppliers(o.naam)} (${o.eenheid === 'gram' ? o.perPlateau + 'g/p' : o.perPlateau + 'p/plateau'}${o.categorie ? ' → ' + (SG_CATEGORIEEN.find(c => c.id === o.categorie) || {}).label : ''})`).join(' · ')}</div>
+        <div class="groente-meta">${g.onderdelen.map(o => `${escapeHtmlSuppliers(o.naam)} (${sgEenheidKort(o)}${o.categorie ? ' → ' + (SG_CATEGORIEEN.find(c => c.id === o.categorie) || {}).label : ''})`).join(' · ')}</div>
       </div>
       <div class="groente-actions">
         <button class="btn-icon" onclick="editSamengesteld('${g.id}')" title="Bewerken">
@@ -545,11 +545,10 @@ function renderSamengesteldOnderdelenLijst() {
     <div class="sgo-row">
       <input type="text" placeholder="Naam onderdeel" value="${escapeHtmlSuppliers(o.naam)}"
              onchange="window._sgoUpdate(${i}, 'naam', this.value)">
-      <select onchange="window._sgoUpdate(${i}, 'eenheid', this.value)">
-        <option value="stuk" ${o.eenheid==='stuk'?'selected':''}>Per plateau</option>
-        <option value="gram" ${o.eenheid==='gram'?'selected':''}>Per gram</option>
+      <select onchange="window._sgoUpdate(${i}, 'eenheid', this.value); renderSamengesteldOnderdelenLijst()">
+        ${SG_EENHEDEN.map(e => `<option value="${e.id}" ${o.eenheid===e.id?'selected':''}>${e.label}</option>`).join('')}
       </select>
-      <input type="number" min="1" placeholder="${o.eenheid==='gram'?'g/pers':'p/plateau'}" value="${o.perPlateau || ''}"
+      <input type="number" min="1" placeholder="${(SG_EENHEDEN.find(e => e.id === o.eenheid) || SG_EENHEDEN[0]).placeholder}" value="${o.perPlateau || ''}"
              onchange="window._sgoUpdate(${i}, 'perPlateau', this.value)">
       <button type="button" class="sgo-remove" onclick="window._sgoRemove(${i})" title="Verwijderen">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -562,6 +561,16 @@ function renderSamengesteldOnderdelenLijst() {
       </div>
     </div>`).join('');
 }
+
+// Eenheden: 'stuk' = personen per plateau (meerdere etiketten); gram, cl en
+// aantal = hoeveelheid per persoon (1 etiket met het totaal).
+const SG_EENHEDEN = [
+  { id: 'stuk',   label: 'Per plateau',  placeholder: 'p/plateau', kort: v => v + 'p/plateau' },
+  { id: 'gram',   label: 'Per gram',     placeholder: 'g/pers',    kort: v => v + 'g/p' },
+  { id: 'cl',     label: 'Per cl',       placeholder: 'cl/pers',   kort: v => v + 'cl/p' },
+  { id: 'aantal', label: 'Aantal stuks', placeholder: 'st/pers',   kort: v => v + ' st/p' },
+];
+const sgEenheidKort = o => (SG_EENHEDEN.find(e => e.id === o.eenheid) || SG_EENHEDEN[0]).kort(o.perPlateau);
 
 // Waar een onderdeel in Portie-Etiketten verschijnt ('' = bij het gerecht zelf)
 const SG_CATEGORIEEN = [
@@ -618,7 +627,7 @@ function saveSamengesteldForm() {
   const id = document.getElementById('samengesteld-id').value;
   const productNaam = document.getElementById('samengesteld-productnaam').value.trim();
   const onderdelen = samengesteldModalOnderdelen
-    .map(o => ({ id: o.id, naam: (o.naam || '').trim(), eenheid: o.eenheid === 'gram' ? 'gram' : 'stuk', perPlateau: parseFloat(o.perPlateau),
+    .map(o => ({ id: o.id, naam: (o.naam || '').trim(), eenheid: SG_EENHEDEN.some(e => e.id === o.eenheid) ? o.eenheid : 'stuk', perPlateau: parseFloat(o.perPlateau),
                  categorie: SG_CATEGORIEEN.some(c => c.id && c.id === o.categorie) ? o.categorie : '' }))
     .filter(o => o.naam && o.perPlateau > 0);
 

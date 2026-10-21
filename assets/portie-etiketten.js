@@ -102,6 +102,25 @@
     } catch (e) { return []; }
   }
 
+  /* ── Eenheden van onderdelen/groenten ──
+     'stuk'  = personen per plateau (meerdere etiketten, elk "N st / plateau")
+     'gram' / 'cl' / 'aantal' = hoeveelheid PER PERSOON: altijd 1 etiket met
+     het totaal (personen × hoeveelheid), bv. 100p × 30g = 3kg. */
+  const isTotaal = e => e === 'gram' || e === 'cl' || e === 'aantal';
+
+  // Totaal omzetten naar een leesbaar getal + eenheid (kg/g, L/cl, st)
+  function fmtTotaal(eenheid, totaal) {
+    if (eenheid === 'gram') {
+      return totaal >= 1000 ? { pieces: +(totaal / 1000).toFixed(totaal % 1000 === 0 ? 0 : 1), unit: 'kg' } : { pieces: totaal, unit: 'g' };
+    }
+    if (eenheid === 'cl') {
+      return totaal >= 100 ? { pieces: +(totaal / 100).toFixed(totaal % 100 === 0 ? 0 : 1), unit: 'L' } : { pieces: totaal, unit: 'cl' };
+    }
+    return { pieces: totaal, unit: 'st' };
+  }
+  const perPersoonTxt = (eenheid, per) => eenheid === 'gram' ? `${per}g` : eenheid === 'cl' ? `${per}cl` : `${per} st`;
+  const totaalTxt = (eenheid, totaal) => { const f = fmtTotaal(eenheid, totaal); return `${f.pieces}${f.unit === 'st' ? ' st' : f.unit}`; };
+
   function getSamengesteldOnderdelen(productName) {
     if (!productName) return null;
     const n = productName.trim().toLowerCase();
@@ -890,12 +909,16 @@
   window._peUpdateField = function (id, field, value) {
     const it = queue.find(it => it.id === id);
     if (!it) return;
-    if (field === 'persons') {
-      it.persons = parseInt(value, 10) || 0;
-      it.aantalEtiketten = it.persons > 0 ? Math.ceil(it.persons / it.per) : it.aantalEtiketten;
-    } else if (field === 'per') {
-      it.per = Math.max(1, parseInt(value, 10) || 100);
-      it.aantalEtiketten = it.persons > 0 ? Math.ceil(it.persons / it.per) : it.aantalEtiketten;
+    if (field === 'persons' || field === 'per') {
+      if (field === 'persons') it.persons = parseInt(value, 10) || 0;
+      else it.per = Math.max(1, parseInt(value, 10) || 100);
+      if (isTotaal(it.perEenheid)) {
+        // gram/cl/aantal: altijd 1 etiket, het totaal volgt personen × hoeveelheid
+        it.totaalGewicht = it.persons * it.per;
+        it.aantalEtiketten = 1;
+      } else {
+        it.aantalEtiketten = it.persons > 0 ? Math.ceil(it.persons / it.per) : it.aantalEtiketten;
+      }
     } else if (field === 'aantalEtiketten') {
       it.aantalEtiketten = Math.max(1, parseInt(value, 10) || 1);
     } else if (field === 'bewaarDagen') {
@@ -1327,7 +1350,7 @@
       return `${Math.ceil(e.persons / per)}× emmer`;
     }
     const it = p.item;
-    if (it.eenheid === 'gram') return `${e.persons}p × ${it.perPlateau}g = ${fmtGewicht(e.persons * it.perPlateau)}`;
+    if (isTotaal(it.eenheid)) return `${e.persons}p × ${perPersoonTxt(it.eenheid, it.perPlateau)} = ${totaalTxt(it.eenheid, e.persons * it.perPlateau)}`;
     return `${Math.ceil(e.persons / it.perPlateau)}× plateau`;
   }
 
@@ -1614,7 +1637,7 @@
         if (!groenteSel[groenteId]) return;
         const g = assortimentById[groenteId];
         if (!g) return;
-        const isGram = g.eenheid === 'gram';
+        const isGram = isTotaal(g.eenheid);
         queue.push({
           id: idCounter++,
           product: g.naam,
@@ -1649,7 +1672,7 @@
         if (!sel[onderdeelId]) return;
         const o = samengesteldOnderdeelById[onderdeelId];
         if (!o) return;
-        const isGram = o.eenheid === 'gram';
+        const isGram = isTotaal(o.eenheid);
         queue.push({
           id: idCounter++,
           // Verwijzing naar voor- (VG) of hoofdgerecht (HG), ook op het etiket
@@ -1838,7 +1861,7 @@
           <div class="pe-item-meta">
             ${dateLabel ? `<span class="pe-row-check-date">${escapeHtml(dateLabel)}</span>` : ''}
             ${it.persons ? `<span>${it.persons}p</span>` : ''}
-            ${it.per ? (it.perEenheid ? `<span>· ${it.per}${it.perEenheid==='gram'?'g':'st'}/plateau</span>` : `<span>· 1/${it.per}p</span>`) : ''}
+            ${it.per ? (it.perEenheid ? `<span>· ${isTotaal(it.perEenheid) ? perPersoonTxt(it.perEenheid, it.per) + ' p.p.' : it.per + 'st/plateau'}</span>` : `<span>· 1/${it.per}p</span>`) : ''}
             ${it.pakformaat ? `<span>· ${escapeHtml(it.pakformaat)}</span>` : ''}
             ${zaalInMeta ? `<span>· ${escapeHtml(it.zaal)}</span>` : ''}
             ${locLabel ? `<span>· ${escapeHtml(locLabel)}</span>` : ''}
@@ -2094,7 +2117,7 @@
       const perEmmerAantallen = verdeelPersonenOverEtiketten(it.persons, it.aantalEtiketten, it.per);
       // Bij gram-producten (bv. puree) is er altijd maar 1 etiket met het
       // totaalgewicht — een verdeling over meerdere etiketten is dan niet van toepassing.
-      const isGram = it.perEenheid === 'gram' && it.totaalGewicht != null;
+      const isGram = isTotaal(it.perEenheid) && it.totaalGewicht != null;
       const splitNote = isGram ? '' : buildSplitNote(perEmmerAantallen, 'st');
       for (let k = 1; k <= it.aantalEtiketten; k++) {
         labels.push({ ...it, karNr: k, emmerPersonen: perEmmerAantallen[k - 1], splitNote });
@@ -2108,18 +2131,11 @@
   // verwacht via window.hvwDymoPrintKitchenLabel — zie het KitchenLabel
   // type in dat bestand.
   function toKitchenLabel(label) {
-    const isGram = label.perEenheid === 'gram' && label.totaalGewicht != null;
+    const isGram = isTotaal(label.perEenheid) && label.totaalGewicht != null;
     let pieces, unit, splitNote;
 
     if (isGram) {
-      const totaalGram = label.totaalGewicht;
-      if (totaalGram >= 1000) {
-        pieces = +(totaalGram / 1000).toFixed(totaalGram % 1000 === 0 ? 0 : 1);
-        unit = 'kg';
-      } else {
-        pieces = totaalGram;
-        unit = 'g';
-      }
+      ({ pieces, unit } = fmtTotaal(label.perEenheid, label.totaalGewicht));
       splitNote = '';
     } else {
       pieces = (label.emmerPersonen !== undefined && label.emmerPersonen !== null)
@@ -2211,14 +2227,11 @@
     //    "100p × 20g = 2kg" — altijd 1 etiket met het totaalgewicht.
     //    Bij stuk-producten: het werkelijke aantal in DIT etiket (bv. bij
     //    110p/50 per plateau toont het laatste etiket "10 st", niet "50 st"). ──
-    if (label.perEenheid === 'gram' && label.totaalGewicht != null) {
+    if (isTotaal(label.perEenheid) && label.totaalGewicht != null) {
       doc.setFontSize(9);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(90, 87, 83);
-      const totaalTxt = label.totaalGewicht >= 1000
-        ? `${(label.totaalGewicht/1000).toFixed(label.totaalGewicht % 1000 === 0 ? 0 : 1)}kg`
-        : `${label.totaalGewicht}g`;
-      doc.text(`${label.persons}p × ${label.per}g = ${totaalTxt}`, tx, cursorY);
+      doc.text(`${label.persons}p × ${perPersoonTxt(label.perEenheid, label.per)} = ${totaalTxt(label.perEenheid, label.totaalGewicht)}`, tx, cursorY);
       cursorY += 4.6;
     } else if (label.perEenheid) {
       doc.setFontSize(9);
