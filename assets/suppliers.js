@@ -222,7 +222,7 @@ function renderGroentenLijst(variant) {
     <div class="groente-card">
       <div class="groente-info">
         <div class="groente-naam">${g.naam}</div>
-        <div class="groente-meta">${g.eenheid === 'gram' ? `${g.perPlateau} g per persoon` : `${g.perPlateau} st. per plateau`}</div>
+        <div class="groente-meta">${g.eenheid === 'gram' ? `${g.perPlateau} g per persoon` : g.eenheid === 'cl' ? `${g.perPlateau} cl per persoon` : g.eenheid === 'aantal' ? `${g.perPlateau} st. per persoon` : `${g.perPlateau} st. per plateau`}</div>
       </div>
       <div class="groente-actions">
         <button class="btn-icon" onclick="editGroente('${variant}', '${g.id}')" title="Bewerken">
@@ -264,9 +264,9 @@ window._updateGroentePerLabel = function () {
   const label = document.getElementById('groente-perplateau-label');
   const hint = document.getElementById('groente-perplateau-hint');
   const input = document.getElementById('groente-perplateau');
-  if (eenheid === 'gram') {
-    label.textContent = 'Gram per persoon';
-    input.placeholder = 'bv. 20';
+  if (eenheid === 'gram' || eenheid === 'cl' || eenheid === 'aantal') {
+    label.textContent = eenheid === 'gram' ? 'Gram per persoon' : eenheid === 'cl' ? 'cl per persoon' : 'Stuks per persoon';
+    input.placeholder = eenheid === 'aantal' ? 'bv. 2' : eenheid === 'cl' ? 'bv. 5' : 'bv. 20';
     hint.style.display = 'block';
   } else {
     label.textContent = 'Aantal per plateau';
@@ -348,7 +348,7 @@ function importGroentenAssortiment(event, variant) {
     }
 
     // Basale validatie per item
-    const valid = imported.every(g => g && typeof g.naam === 'string' && (g.eenheid === 'stuk' || g.eenheid === 'gram'));
+    const valid = imported.every(g => g && typeof g.naam === 'string' && ['stuk', 'gram', 'cl', 'aantal'].includes(g.eenheid));
     if (!valid) {
       alert('Het bestand bevat geen geldige groenten-data.');
       event.target.value = '';

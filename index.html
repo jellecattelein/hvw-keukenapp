@@ -18,7 +18,7 @@
   <meta name="theme-color" content="#111110">
 
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/style.css?v=c0a85d7e06">
+  <link rel="stylesheet" href="assets/style.css?v=449158c6d3">
   <style>
     :root {
       --sb-w: 224px;
@@ -772,14 +772,16 @@
         <div class="form-field"><label>Naam</label><input type="text" id="groente-naam" placeholder="bv. Witloof, Puree wortel"></div>
         <div class="form-field"><label>Eenheid</label>
           <select id="groente-eenheid" onchange="window._updateGroentePerLabel()">
-            <option value="stuk">Per stuk</option>
+            <option value="stuk">Per plateau</option>
             <option value="gram">Per gram</option>
+            <option value="cl">Per cl</option>
+            <option value="aantal">Aantal stuks</option>
           </select>
         </div>
         <div class="form-field">
           <label id="groente-perplateau-label">Aantal per plateau</label>
           <input type="number" id="groente-perplateau" min="1" step="1" placeholder="bv. 50">
-          <div class="settings-hint" id="groente-perplateau-hint" style="display:none">Puree en andere gram-producten komen altijd op 1 etiket met het totaalgewicht (personen × gram/persoon).</div>
+          <div class="settings-hint" id="groente-perplateau-hint" style="display:none">Puree en andere producten per gram, cl of aantal stuks komen altijd op 1 etiket met het totaal (personen × hoeveelheid per persoon).</div>
         </div>
       </div>
       <div class="modal-footer">
@@ -857,25 +859,25 @@
     </div>
   </div>
 
-  <script src="assets/firebase-config.js?v=c0a85d7e06"></script>
-  <script src="assets/sync.js?v=c0a85d7e06"></script>
-  <script src="assets/ai-split.js?v=c0a85d7e06"></script>
-  <script src="assets/app.js?v=c0a85d7e06"></script>
-  <script src="assets/bestelling_pdf.js?v=c0a85d7e06"></script>
-  <script src="assets/suppliers.js?v=c0a85d7e06"></script>
-  <script src="assets/ijsdesserts.js?v=c0a85d7e06"></script>
-  <script src="assets/cars.js?v=c0a85d7e06"></script>
-  <script src="assets/tijdstool.js?v=c0a85d7e06"></script>
-  <script src="assets/functionsheets.js?v=c0a85d7e06"></script>
-  <script src="assets/dymo-print.js?v=c0a85d7e06"></script>
-  <script src="assets/snelle-etiketten.js?v=c0a85d7e06"></script>
-  <script src="assets/portie-etiketten.js?v=c0a85d7e06"></script>
-  <script src="assets/weekmap.js?v=c0a85d7e06"></script>
-  <script src="assets/kiosk.js?v=c0a85d7e06"></script>
-  <script src="assets/bakker.js?v=c0a85d7e06"></script>
-  <script src="assets/broodjes.js?v=c0a85d7e06"></script>
-  <script src="assets/recepten.js?v=c0a85d7e06"></script>
-  <script src="assets/etiketten.js?v=c0a85d7e06"></script>
+  <script src="assets/firebase-config.js?v=449158c6d3"></script>
+  <script src="assets/sync.js?v=449158c6d3"></script>
+  <script src="assets/ai-split.js?v=449158c6d3"></script>
+  <script src="assets/app.js?v=449158c6d3"></script>
+  <script src="assets/bestelling_pdf.js?v=449158c6d3"></script>
+  <script src="assets/suppliers.js?v=449158c6d3"></script>
+  <script src="assets/ijsdesserts.js?v=449158c6d3"></script>
+  <script src="assets/cars.js?v=449158c6d3"></script>
+  <script src="assets/tijdstool.js?v=449158c6d3"></script>
+  <script src="assets/functionsheets.js?v=449158c6d3"></script>
+  <script src="assets/dymo-print.js?v=449158c6d3"></script>
+  <script src="assets/snelle-etiketten.js?v=449158c6d3"></script>
+  <script src="assets/portie-etiketten.js?v=449158c6d3"></script>
+  <script src="assets/weekmap.js?v=449158c6d3"></script>
+  <script src="assets/kiosk.js?v=449158c6d3"></script>
+  <script src="assets/bakker.js?v=449158c6d3"></script>
+  <script src="assets/broodjes.js?v=449158c6d3"></script>
+  <script src="assets/recepten.js?v=449158c6d3"></script>
+  <script src="assets/etiketten.js?v=449158c6d3"></script>
 
   <script>
   /* ═══ SIDEBAR ROUTING ═══ */

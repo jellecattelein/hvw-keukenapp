@@ -110,11 +110,12 @@
 
   // Totaal omzetten naar een leesbaar getal + eenheid (kg/g, L/cl, st)
   function fmtTotaal(eenheid, totaal) {
+    totaal = Math.round(totaal * 100) / 100;   // 2,5 cl × 62 e.d. zonder drijvende-komma-restjes
     if (eenheid === 'gram') {
-      return totaal >= 1000 ? { pieces: +(totaal / 1000).toFixed(totaal % 1000 === 0 ? 0 : 1), unit: 'kg' } : { pieces: totaal, unit: 'g' };
+      return totaal >= 1000 ? { pieces: +(totaal / 1000).toFixed(2), unit: 'kg' } : { pieces: totaal, unit: 'g' };
     }
     if (eenheid === 'cl') {
-      return totaal >= 100 ? { pieces: +(totaal / 100).toFixed(totaal % 100 === 0 ? 0 : 1), unit: 'L' } : { pieces: totaal, unit: 'cl' };
+      return totaal >= 100 ? { pieces: +(totaal / 100).toFixed(2), unit: 'L' } : { pieces: totaal, unit: 'cl' };
     }
     return { pieces: totaal, unit: 'st' };
   }
@@ -909,15 +910,18 @@
   window._peUpdateField = function (id, field, value) {
     const it = queue.find(it => it.id === id);
     if (!it) return;
-    if (field === 'persons' || field === 'per') {
+    if (field === 'persons' || field === 'per' || field === 'perEenheid') {
       if (field === 'persons') it.persons = parseInt(value, 10) || 0;
+      else if (field === 'perEenheid') it.perEenheid = value;
+      else if (isTotaal(it.perEenheid)) it.per = Math.max(0.1, parseFloat(value) || 1);   // ook 2,5 cl e.d.
       else it.per = Math.max(1, parseInt(value, 10) || 100);
       if (isTotaal(it.perEenheid)) {
         // gram/cl/aantal: altijd 1 etiket, het totaal volgt personen × hoeveelheid
         it.totaalGewicht = it.persons * it.per;
         it.aantalEtiketten = 1;
       } else {
-        it.aantalEtiketten = it.persons > 0 ? Math.ceil(it.persons / it.per) : it.aantalEtiketten;
+        it.totaalGewicht = null;
+        it.aantalEtiketten = it.persons > 0 ? Math.ceil(it.persons / Math.max(1, it.per)) : it.aantalEtiketten;
       }
     } else if (field === 'aantalEtiketten') {
       it.aantalEtiketten = Math.max(1, parseInt(value, 10) || 1);
@@ -1892,9 +1896,16 @@
           <label>Personen</label>
           <input type="number" min="0" value="${it.persons}" onchange="window._peUpdateField(${it.id},'persons',this.value)">
         </div>
+        ${it.perEenheid ? `
         <div class="pe-field">
-          <label>Per hoeveel personen 1 etiket</label>
-          <input type="number" min="1" value="${it.per}" onchange="window._peUpdateField(${it.id},'per',this.value)">
+          <label>Eenheid</label>
+          <select onchange="window._peUpdateField(${it.id},'perEenheid',this.value)">
+            ${[['stuk','Per plateau'],['gram','Per gram'],['cl','Per cl'],['aantal','Aantal stuks']].map(([v, l]) => `<option value="${v}" ${v===it.perEenheid?'selected':''}>${l}</option>`).join('')}
+          </select>
+        </div>` : ''}
+        <div class="pe-field">
+          <label>${it.perEenheid ? ({ stuk: 'Personen per plateau', gram: 'Gram per persoon', cl: 'cl per persoon', aantal: 'Stuks per persoon' }[it.perEenheid] || 'Hoeveelheid') : 'Per hoeveel personen 1 etiket'}</label>
+          <input type="number" min="${isTotaal(it.perEenheid) ? '0.1' : '1'}" step="${isTotaal(it.perEenheid) ? 'any' : '1'}" value="${it.per}" onchange="window._peUpdateField(${it.id},'per',this.value)">
         </div>
         <div class="pe-field">
           <label>Aantal etiketten (overschrijven)</label>
