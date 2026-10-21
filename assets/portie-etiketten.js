@@ -2155,7 +2155,9 @@
       // Bij gram-producten (bv. puree) is er altijd maar 1 etiket met het
       // totaalgewicht — een verdeling over meerdere etiketten is dan niet van toepassing.
       const isGram = isTotaal(it.perEenheid) && it.totaalGewicht != null;
-      const splitNote = isGram ? '' : buildSplitNote(perEmmerAantallen, it.perEenheid === 'container' ? 'p' : 'st');
+      const splitNote = isGram ? ''
+        : it.perEenheid === 'container' ? (perEmmerAantallen.length > 1 ? perEmmerAantallen.map(v => `${v}p`).join(' + ') : '')   // bv. 130p + 50p
+        : buildSplitNote(perEmmerAantallen, 'st');
       for (let k = 1; k <= it.aantalEtiketten; k++) {
         labels.push({ ...it, karNr: k, emmerPersonen: perEmmerAantallen[k - 1], splitNote });
       }
@@ -2175,8 +2177,11 @@
       ({ pieces, unit } = fmtTotaal(label.perEenheid, label.totaalGewicht));
       splitNote = '';
     } else if (label.perEenheid === 'container') {
-      // Inhoud van DIT etiket (bv. 10 L), met in de notitie voor hoeveel personen
-      ({ pieces, unit } = inhoudInEtiket(label));
+      // Groot getal = het aantal personen in DIT etiket (bv. 130 p); de inhoud
+      // (bv. 10 L) staat klein bij het portieveld, en de verdeling (130p + 50p) in de notitie.
+      const inh = inhoudInEtiket(label);
+      pieces = inh.persons;
+      unit = 'p';
       splitNote = label.aantalEtiketten > 1 ? (label.splitNote || '') : '';
     } else {
       pieces = (label.emmerPersonen !== undefined && label.emmerPersonen !== null)
@@ -2191,7 +2196,9 @@
       dishName: label.product || '',
       // Portie-breuk (bv. "1/1", "2/3") — enkel zinvol bij een verpakkingsformaat;
       // groenten/samengestelde onderdelen (perEenheid) hebben dit niet.
-      portions: (!label.perEenheid && label.pakformaat) ? compactPakformaat(label.pakformaat) : '',
+      portions: (!label.perEenheid && label.pakformaat) ? compactPakformaat(label.pakformaat)
+        : label.perEenheid === 'container' ? (() => { const i = inhoudInEtiket(label); return `${String(i.pieces).replace('.', ',')} ${i.unit}`; })()
+        : '',
       location: label.zaal || '',
       // Vrije opmerking (bv. allergie-notitie) krijgt voorrang op de metaregel-
       // plek die in het ontwerp voor het servicemoment bedoeld is — zichtbaarheid
@@ -2279,7 +2286,7 @@
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(90, 87, 83);
       const inh = inhoudInEtiket(label);
-      doc.text(`${inh.pieces} ${inh.unit} · ${inh.persons}p`, tx, cursorY);
+      doc.text(`${inh.persons}p · ${String(inh.pieces).replace('.', ',')} ${inh.unit}`, tx, cursorY);
       cursorY += 4.6;
     } else if (label.perEenheid) {
       doc.setFontSize(9);
