@@ -119,7 +119,15 @@
     }
     return { pieces: totaal, unit: 'st' };
   }
-  const perPersoonTxt = (eenheid, per) => eenheid === 'gram' ? `${per}g` : eenheid === 'cl' ? `${per}cl` : `${per} st`;
+  // 'container': 1 etiket per N personen met een vaste inhoud (bv. 130p = 10 L).
+  // Een restant-etiket krijgt de inhoud naar verhouding (40p van 130 = 3,1 L).
+  function inhoudInEtiket(label) {
+    const per = label.per || 1;
+    const p = (label.emmerPersonen !== undefined && label.emmerPersonen !== null) ? label.emmerPersonen : Math.min(label.persons, per);
+    const waarde = Math.round((p / per) * (label.inhoud || 0) * 100) / 100;
+    return { pieces: +waarde.toFixed(2), unit: label.inhoudUnit || 'L', persons: p };
+  }
+  const perPersoonTxt =(eenheid, per) => eenheid === 'gram' ? `${per}g` : eenheid === 'cl' ? `${per}cl` : `${per} st`;
   const totaalTxt = (eenheid, totaal) => { const f = fmtTotaal(eenheid, totaal); return `${f.pieces}${f.unit === 'st' ? ' st' : f.unit}`; };
 
   function getSamengesteldOnderdelen(productName) {
@@ -912,7 +920,10 @@
     if (!it) return;
     if (field === 'persons' || field === 'per' || field === 'perEenheid') {
       if (field === 'persons') it.persons = parseInt(value, 10) || 0;
-      else if (field === 'perEenheid') it.perEenheid = value;
+      else if (field === 'perEenheid') {
+        it.perEenheid = value;
+        if (value === 'container') { it.inhoud = it.inhoud || 10; it.inhoudUnit = it.inhoudUnit || 'L'; }
+      }
       else if (isTotaal(it.perEenheid)) it.per = Math.max(0.1, parseFloat(value) || 1);   // ook 2,5 cl e.d.
       else it.per = Math.max(1, parseInt(value, 10) || 100);
       if (isTotaal(it.perEenheid)) {
@@ -923,6 +934,8 @@
         it.totaalGewicht = null;
         it.aantalEtiketten = it.persons > 0 ? Math.ceil(it.persons / Math.max(1, it.per)) : it.aantalEtiketten;
       }
+    } else if (field === 'inhoud') {
+      it.inhoud = Math.max(0.1, parseFloat(value) || 1);
     } else if (field === 'aantalEtiketten') {
       it.aantalEtiketten = Math.max(1, parseInt(value, 10) || 1);
     } else if (field === 'bewaarDagen') {
@@ -1355,6 +1368,7 @@
     }
     const it = p.item;
     if (isTotaal(it.eenheid)) return `${e.persons}p × ${perPersoonTxt(it.eenheid, it.perPlateau)} = ${totaalTxt(it.eenheid, e.persons * it.perPlateau)}`;
+    if (it.eenheid === 'container') return `${Math.ceil(e.persons / it.perPlateau)}× etiket · ${it.inhoud} ${it.inhoudUnit || 'L'}`;
     return `${Math.ceil(e.persons / it.perPlateau)}× plateau`;
   }
 
@@ -1684,6 +1698,7 @@
           persons: entry.persons,
           per: o.perPlateau,
           perEenheid: o.eenheid,
+          inhoud: o.inhoud, inhoudUnit: o.inhoudUnit,
           aantalEtiketten: isGram ? 1 : Math.ceil(entry.persons / o.perPlateau),
           totaalGewicht: isGram ? entry.persons * o.perPlateau : null,
           pakformaat: '',
@@ -1865,7 +1880,7 @@
           <div class="pe-item-meta">
             ${dateLabel ? `<span class="pe-row-check-date">${escapeHtml(dateLabel)}</span>` : ''}
             ${it.persons ? `<span>${it.persons}p</span>` : ''}
-            ${it.per ? (it.perEenheid ? `<span>· ${isTotaal(it.perEenheid) ? perPersoonTxt(it.perEenheid, it.per) + ' p.p.' : it.per + 'st/plateau'}</span>` : `<span>· 1/${it.per}p</span>`) : ''}
+            ${it.per ? (it.perEenheid ? `<span>· ${isTotaal(it.perEenheid) ? perPersoonTxt(it.perEenheid, it.per) + ' p.p.' : it.perEenheid === 'container' ? `${it.per}p/etiket (${it.inhoud} ${it.inhoudUnit || 'L'})` : it.per + 'st/plateau'}</span>` : `<span>· 1/${it.per}p</span>`) : ''}
             ${it.pakformaat ? `<span>· ${escapeHtml(it.pakformaat)}</span>` : ''}
             ${zaalInMeta ? `<span>· ${escapeHtml(it.zaal)}</span>` : ''}
             ${locLabel ? `<span>· ${escapeHtml(locLabel)}</span>` : ''}
@@ -1900,11 +1915,22 @@
         <div class="pe-field">
           <label>Eenheid</label>
           <select onchange="window._peUpdateField(${it.id},'perEenheid',this.value)">
-            ${[['stuk','Per plateau'],['gram','Per gram'],['cl','Per cl'],['aantal','Aantal stuks']].map(([v, l]) => `<option value="${v}" ${v===it.perEenheid?'selected':''}>${l}</option>`).join('')}
+            ${[['stuk','Per plateau'],['gram','Per gram'],['cl','Per cl'],['aantal','Aantal stuks'],['container','Per etiket (inhoud)']].map(([v, l]) => `<option value="${v}" ${v===it.perEenheid?'selected':''}>${l}</option>`).join('')}
+          </select>
+        </div>` : ''}
+        ${it.perEenheid === 'container' ? `
+        <div class="pe-field">
+          <label>Inhoud per etiket (${escapeHtml(it.inhoudUnit || 'L')})</label>
+          <input type="number" min="0.1" step="any" value="${it.inhoud || ''}" onchange="window._peUpdateField(${it.id},'inhoud',this.value)">
+        </div>
+        <div class="pe-field">
+          <label>Inhoud-eenheid</label>
+          <select onchange="window._peUpdateField(${it.id},'inhoudUnit',this.value)">
+            ${['L', 'kg', 'st'].map(u => `<option value="${u}" ${(it.inhoudUnit || 'L') === u ? 'selected' : ''}>${u}</option>`).join('')}
           </select>
         </div>` : ''}
         <div class="pe-field">
-          <label>${it.perEenheid ? ({ stuk: 'Personen per plateau', gram: 'Gram per persoon', cl: 'cl per persoon', aantal: 'Stuks per persoon' }[it.perEenheid] || 'Hoeveelheid') : 'Per hoeveel personen 1 etiket'}</label>
+          <label>${it.perEenheid ? ({ stuk: 'Personen per plateau', gram: 'Gram per persoon', cl: 'cl per persoon', aantal: 'Stuks per persoon', container: 'Personen per etiket' }[it.perEenheid] || 'Hoeveelheid') : 'Per hoeveel personen 1 etiket'}</label>
           <input type="number" min="${isTotaal(it.perEenheid) ? '0.1' : '1'}" step="${isTotaal(it.perEenheid) ? 'any' : '1'}" value="${it.per}" onchange="window._peUpdateField(${it.id},'per',this.value)">
         </div>
         <div class="pe-field">
@@ -2129,7 +2155,7 @@
       // Bij gram-producten (bv. puree) is er altijd maar 1 etiket met het
       // totaalgewicht — een verdeling over meerdere etiketten is dan niet van toepassing.
       const isGram = isTotaal(it.perEenheid) && it.totaalGewicht != null;
-      const splitNote = isGram ? '' : buildSplitNote(perEmmerAantallen, 'st');
+      const splitNote = isGram ? '' : buildSplitNote(perEmmerAantallen, it.perEenheid === 'container' ? 'p' : 'st');
       for (let k = 1; k <= it.aantalEtiketten; k++) {
         labels.push({ ...it, karNr: k, emmerPersonen: perEmmerAantallen[k - 1], splitNote });
       }
@@ -2148,6 +2174,10 @@
     if (isGram) {
       ({ pieces, unit } = fmtTotaal(label.perEenheid, label.totaalGewicht));
       splitNote = '';
+    } else if (label.perEenheid === 'container') {
+      // Inhoud van DIT etiket (bv. 10 L), met in de notitie voor hoeveel personen
+      ({ pieces, unit } = inhoudInEtiket(label));
+      splitNote = label.aantalEtiketten > 1 ? (label.splitNote || '') : '';
     } else {
       pieces = (label.emmerPersonen !== undefined && label.emmerPersonen !== null)
         ? label.emmerPersonen : label.persons;
@@ -2243,6 +2273,13 @@
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(90, 87, 83);
       doc.text(`${label.persons}p × ${perPersoonTxt(label.perEenheid, label.per)} = ${totaalTxt(label.perEenheid, label.totaalGewicht)}`, tx, cursorY);
+      cursorY += 4.6;
+    } else if (label.perEenheid === 'container') {
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(90, 87, 83);
+      const inh = inhoudInEtiket(label);
+      doc.text(`${inh.pieces} ${inh.unit} · ${inh.persons}p`, tx, cursorY);
       cursorY += 4.6;
     } else if (label.perEenheid) {
       doc.setFontSize(9);

@@ -553,6 +553,15 @@ function renderSamengesteldOnderdelenLijst() {
       <button type="button" class="sgo-remove" onclick="window._sgoRemove(${i})" title="Verwijderen">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
+      ${o.eenheid === 'container' ? `
+      <div class="sgo-cat">
+        <span>Inhoud per etiket:</span>
+        <input type="number" min="0.1" step="any" placeholder="bv. 10" value="${o.inhoud || ''}" style="max-width:90px"
+               onchange="window._sgoUpdate(${i}, 'inhoud', this.value)">
+        <select style="max-width:80px" onchange="window._sgoUpdate(${i}, 'inhoudUnit', this.value)">
+          ${['L', 'kg', 'st'].map(u => `<option value="${u}" ${(o.inhoudUnit || 'L') === u ? 'selected' : ''}>${u}</option>`).join('')}
+        </select>
+      </div>` : ''}
       <div class="sgo-cat">
         <span>Tonen bij:</span>
         <select onchange="window._sgoUpdate(${i}, 'categorie', this.value)">
@@ -564,13 +573,16 @@ function renderSamengesteldOnderdelenLijst() {
 
 // Eenheden: 'stuk' = personen per plateau (meerdere etiketten); gram, cl en
 // aantal = hoeveelheid per persoon (1 etiket met het totaal).
+// 'container' = 1 etiket per N personen met een vaste inhoud (bv. sausbak:
+// 130 personen = 10 L); bij een restant wordt de inhoud naar verhouding berekend.
 const SG_EENHEDEN = [
-  { id: 'stuk',   label: 'Per plateau',  placeholder: 'p/plateau', kort: v => v + 'p/plateau' },
-  { id: 'gram',   label: 'Per gram',     placeholder: 'g/pers',    kort: v => v + 'g/p' },
-  { id: 'cl',     label: 'Per cl',       placeholder: 'cl/pers',   kort: v => v + 'cl/p' },
-  { id: 'aantal', label: 'Aantal stuks', placeholder: 'st/pers',   kort: v => v + ' st/p' },
+  { id: 'stuk',      label: 'Per plateau',         placeholder: 'p/plateau',       kort: v => v + 'p/plateau' },
+  { id: 'gram',      label: 'Per gram',            placeholder: 'g/pers',          kort: v => v + 'g/p' },
+  { id: 'cl',        label: 'Per cl',              placeholder: 'cl/pers',         kort: v => v + 'cl/p' },
+  { id: 'aantal',    label: 'Aantal stuks',        placeholder: 'st/pers',         kort: v => v + ' st/p' },
+  { id: 'container', label: 'Per etiket (inhoud)', placeholder: 'personen/etiket', kort: (v, o) => `${v}p/etiket = ${o.inhoud || '?'} ${o.inhoudUnit || 'L'}` },
 ];
-const sgEenheidKort = o => (SG_EENHEDEN.find(e => e.id === o.eenheid) || SG_EENHEDEN[0]).kort(o.perPlateau);
+const sgEenheidKort = o => (SG_EENHEDEN.find(e => e.id === o.eenheid) || SG_EENHEDEN[0]).kort(o.perPlateau, o);
 
 // Waar een onderdeel in Portie-Etiketten verschijnt ('' = bij het gerecht zelf)
 const SG_CATEGORIEEN = [
@@ -586,7 +598,7 @@ const SG_CATEGORIEEN = [
 
 window._sgoUpdate = function (i, field, value) {
   if (!samengesteldModalOnderdelen[i]) return;
-  samengesteldModalOnderdelen[i][field] = field === 'perPlateau' ? (parseFloat(value) || '') : value;
+  samengesteldModalOnderdelen[i][field] = (field === 'perPlateau' || field === 'inhoud') ? (parseFloat(value) || '') : value;
 };
 
 window._sgoRemove = function (i) {
@@ -628,11 +640,12 @@ function saveSamengesteldForm() {
   const productNaam = document.getElementById('samengesteld-productnaam').value.trim();
   const onderdelen = samengesteldModalOnderdelen
     .map(o => ({ id: o.id, naam: (o.naam || '').trim(), eenheid: SG_EENHEDEN.some(e => e.id === o.eenheid) ? o.eenheid : 'stuk', perPlateau: parseFloat(o.perPlateau),
-                 categorie: SG_CATEGORIEEN.some(c => c.id && c.id === o.categorie) ? o.categorie : '' }))
-    .filter(o => o.naam && o.perPlateau > 0);
+                 categorie: SG_CATEGORIEEN.some(c => c.id && c.id === o.categorie) ? o.categorie : '',
+                 ...(o.eenheid === 'container' ? { inhoud: parseFloat(o.inhoud), inhoudUnit: ['L', 'kg', 'st'].includes(o.inhoudUnit) ? o.inhoudUnit : 'L' } : {}) }))
+    .filter(o => o.naam && o.perPlateau > 0 && (o.eenheid !== 'container' || o.inhoud > 0));
 
   if (!productNaam) { alert('Vul de exacte productnaam in.'); return; }
-  if (!onderdelen.length) { alert('Vul minstens één geldig onderdeel in (naam + aantal).'); return; }
+  if (!onderdelen.length) { alert('Vul minstens één geldig onderdeel in (naam + aantal, en bij "Per etiket" ook de inhoud).'); return; }
 
   if (id) {
     const g = samengesteldeGerechten.find(g => g.id === id);
