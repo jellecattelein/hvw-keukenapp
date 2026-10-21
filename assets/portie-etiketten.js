@@ -942,10 +942,40 @@
     return r.tabId;
   }
 
+  // Samengestelde gerechten: elk onderdeel kan bij een andere categorie
+  // getoond worden (bv. kabeljauw bij Vis, saus bij Sausen). Zonder keuze
+  // blijft het onderdeel bij de categorie van het gerecht zelf.
+  function gerechtVan(r) {
+    const n = (r.name || r.base || '').trim().toLowerCase();
+    const g = getSamengesteldeGerechten().find(x => (x.productNaam || '').trim().toLowerCase() === n);
+    return g && Array.isArray(g.onderdelen) && g.onderdelen.length ? g : null;
+  }
+  const effCat = (o, ownCat) => o.categorie || ownCat;
+
+  // In welke categorie(ën) komt deze Excel-rij voor?
+  function categoriesOfRow(r) {
+    const own = categoryOf(r);
+    const g = gerechtVan(r);
+    if (!g) return [own];
+    return [...new Set(g.onderdelen.map(o => effCat(o, own)))];
+  }
+
+  // VG / HG-verwijzing uit de CCM-subcategorie
+  function courseOf(sub) {
+    return /^vg/i.test(sub || '') ? 'VG' : /^hg/i.test(sub || '') ? 'HG' : '';
+  }
+
+  // Onderdelen van het gerecht van deze entry die in categorie catId horen
+  function onderdelenIn(entry, catId) {
+    const all = getSamengesteldOnderdelen(entry.base);
+    if (!all) return null;
+    return all.filter(o => effCat(o, entry.ownCat) === catId);
+  }
+
   function categoryRowCounts() {
     const counts = {};
     if (!hasData()) return counts;
-    allRows.forEach(r => { const c = categoryOf(r); counts[c] = (counts[c]||0) + 1; });
+    allRows.forEach(r => { categoriesOfRow(r).forEach(c => { counts[c] = (counts[c]||0) + 1; }); });
     return counts;
   }
 
@@ -1015,7 +1045,7 @@
   function buildCategoryEntries(catId) {
     const merged = new Map();
     allRows.forEach(r => {
-      if (categoryOf(r) !== catId || r.persons <= 0) return;
+      if (r.persons <= 0 || !categoriesOfRow(r).includes(catId)) return;
       const base = groupNameOf(r);
       const locCode = resolveLocCode(r);
       const room = r.room || '';
@@ -1024,6 +1054,7 @@
       if (!merged.has(key)) {
         merged.set(key, {
           key, tabId: catId, base, room, dateStr, locCode,
+          ownCat: categoryOf(r), course: courseOf(r.sub),
           persons: 0,
           event: (r.event && r.event !== r.room) ? r.event : '',
         });
@@ -1252,9 +1283,11 @@
         assortiment.forEach(g => pills.push({ id: 'g::' + base + '::' + g.id, kind: 'groente', base, label: g.naam, item: g, entries: list, section: base }));
         return;
       }
-      const onderdelen = getSamengesteldOnderdelen(base);
+      const onderdelen = onderdelenIn(list[0], activeCatId);
       if (onderdelen) {
-        onderdelen.forEach(o => pills.push({ id: 'o::' + base + '::' + o.id, kind: 'onderdeel', base, label: o.naam, item: o, entries: list, section: base }));
+        // Verwijzing naar het gerecht en of het een voor- (VG) of hoofdgerecht (HG) is
+        const sectionLabel = (list[0].course ? list[0].course + ' · ' : '') + base;
+        onderdelen.forEach(o => pills.push({ id: 'o::' + base + '::' + o.id, kind: 'onderdeel', base, label: o.naam, item: o, entries: list, section: base, sectionLabel }));
         return;
       }
       pills.push({ id: 'p::' + base, kind: 'normaal', base, label: base, item: null, entries: list, section: null });
@@ -1323,7 +1356,7 @@
         const k = sectionKeys().indexOf(p.section || '');
         const groep = currentPills.filter(x => (x.section || '') === (p.section || ''));
         const alles = groep.every(x => x.entries.every(e => pillChecked(x, e)));
-        html += `<div class="pe2-section"><span>${escapeHtml(sectie)}</span><span class="pe2-link" onclick="window._peSectieAlles(${k})">${alles ? 'Alles uitvinken' : 'Alles selecteren (alle zalen)'}</span></div>`;
+        html += `<div class="pe2-section"><span>${escapeHtml(p.sectionLabel || sectie)}</span><span class="pe2-link" onclick="window._peSectieAlles(${k})">${alles ? 'Alles uitvinken' : 'Alles selecteren (alle zalen)'}</span></div>`;
       }
       laatsteSectie = sectie;
       const n = pillCount(p);
@@ -1358,7 +1391,7 @@
         return assortiment.length > 0 && assortiment.every(g => sel[g.id]);
       }
       if (isSamengesteldHoofdproduct(e.base)) {
-        const onderdelen = getSamengesteldOnderdelen(e.base) || [];
+        const onderdelen = onderdelenIn(e, catId) || [];
         const sel = rowSamengesteldSelectie[e.key] || {};
         return onderdelen.length > 0 && onderdelen.every(o => sel[o.id]);
       }
@@ -1535,7 +1568,7 @@
         if (!rowGroenteSelectie[e.key]) rowGroenteSelectie[e.key] = {};
         assortimentCache[variant].forEach(g => { rowGroenteSelectie[e.key][g.id] = setTo; });
       } else if (isSamengesteldHoofdproduct(e.base)) {
-        const onderdelen = getSamengesteldOnderdelen(e.base) || [];
+        const onderdelen = onderdelenIn(e, activeCatId) || [];
         if (!rowSamengesteldSelectie[e.key]) rowSamengesteldSelectie[e.key] = {};
         onderdelen.forEach(o => { rowSamengesteldSelectie[e.key][o.id] = setTo; });
       } else {
@@ -1619,7 +1652,8 @@
         const isGram = o.eenheid === 'gram';
         queue.push({
           id: idCounter++,
-          product: o.naam,
+          // Verwijzing naar voor- (VG) of hoofdgerecht (HG), ook op het etiket
+          product: o.naam + (entry.course ? ` (${entry.course})` : ''),
           persons: entry.persons,
           per: o.perPlateau,
           perEenheid: o.eenheid,

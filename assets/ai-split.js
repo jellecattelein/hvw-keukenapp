@@ -46,12 +46,29 @@
 
   function nieuwId() { return Date.now().toString() + Math.random().toString(36).slice(2, 6); }
 
-  function maakOnderdeel(naam, soort) {
-    const lijktOpSaus = /\b(saus|jus|espuma|dressing|vinaigrette|mayonaise|emulsie|olie|dip|puree|coulis|beurre blanc|fond|bouillon)\b/i.test(naam);
+  // Categorieën zoals in Portie-Etiketten; '' = bij het gerecht zelf laten
+  const CATEGORIEEN = ['vis', 'vlees', 'groenten', 'aardappelen', 'sausen'];
+  const RE_SAUS = /\b(saus|jus|espuma|dressing|vinaigrette|mayonaise|emulsie|olie|dip|coulis|beurre blanc|fond|bouillon)/i;
+  const RE_AARDAPPEL = /aardappel|friet|kroket|r[öo]sti|pommes|gnocchi/i;
+  const RE_VIS = /\b(vis|zeebaars|kabeljauw|zalm|tong|tarbot|griet|schol|rog|heilbot|zeeduivel|coquille|scampi|garnaal|garnalen|kreeft|oester|mossel|inktvis|tonijn|forel|paling|steur)/i;
+  const RE_VLEES = /\b(vlees|rund|kalf|varken|kip|kalkoen|eend|lam|ree|hert|wild|ham|spek|worst|haas|filet|entrecote|biefstuk|ribbetje)/i;
+
+  function raadCategorie(naam, soort) {
+    if (soort === 'saus' || RE_SAUS.test(naam)) return 'sausen';
+    if (RE_AARDAPPEL.test(naam)) return 'aardappelen';
+    if (RE_VIS.test(naam)) return 'vis';
+    if (RE_VLEES.test(naam)) return 'vlees';
+    if (soort === 'garnituur') return 'groenten';
+    return '';
+  }
+
+  function maakOnderdeel(naam, soort, categorie) {
+    const lijktOpSaus = RE_SAUS.test(naam) || /puree/i.test(naam);
     const saus = soort === 'saus' || (lijktOpSaus && soort !== 'hoofd');
+    const cat = CATEGORIEEN.includes(categorie) ? categorie : raadCategorie(naam, soort);
     return saus
-      ? { id: nieuwId(), naam, eenheid: 'gram', perPlateau: STANDAARD_SAUS_GRAM }
-      : { id: nieuwId(), naam, eenheid: 'stuk', perPlateau: STANDAARD_STUK };
+      ? { id: nieuwId(), naam, eenheid: 'gram', perPlateau: STANDAARD_SAUS_GRAM, categorie: cat }
+      : { id: nieuwId(), naam, eenheid: 'stuk', perPlateau: STANDAARD_STUK, categorie: cat };
   }
 
   // Eenvoudige opdeling: komma's, en "met" enkel in het eerste stuk
@@ -69,7 +86,7 @@
       const k = x.toLowerCase();
       if (gezien.has(k)) return false;
       gezien.add(k); return true;
-    }).map((n, i) => maakOnderdeel(n.charAt(0).toUpperCase() + n.slice(1), i === 0 ? 'hoofd' : ''));
+    }).map((n, i) => maakOnderdeel(n.charAt(0).toUpperCase() + n.slice(1), i === 0 ? 'hoofd' : 'garnituur'));
   }
 
   function prompt(naam) {
@@ -81,8 +98,9 @@ Regels:
 - Een onderdeel dat zelf uit "met ..." bestaat (bv. "Tartelette met crème van erwtjes en jonge kruidensalade") blijft één onderdeel.
 - Behoud de naam van elk onderdeel zoals in de tekst (bv. "Gebakken zeebaars").
 - Geef elk onderdeel een soort: "hoofd", "garnituur" of "saus".
+- Geef elk onderdeel ook de categorie waar het in de keuken bij hoort: "vis", "vlees", "groenten", "aardappelen" of "sausen". Gebruik "" als geen daarvan past.
 
-Antwoord enkel met JSON in dit formaat: [{"naam": "...", "soort": "hoofd"}]
+Antwoord enkel met JSON in dit formaat: [{"naam": "...", "soort": "hoofd", "categorie": "vis"}]
 
 Gerecht: ${naam}`;
   }
@@ -98,7 +116,7 @@ Gerecht: ${naam}`;
     if (!Array.isArray(lijst) || !lijst.length) throw new Error('leeg antwoord');
     const uit = lijst
       .filter(x => x && typeof x.naam === 'string' && x.naam.trim())
-      .map(x => maakOnderdeel(x.naam.trim(), x.soort));
+      .map(x => maakOnderdeel(x.naam.trim(), x.soort, x.categorie));
     if (!uit.length) throw new Error('geen onderdelen');
     return uit;
   }

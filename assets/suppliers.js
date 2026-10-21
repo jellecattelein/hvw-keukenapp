@@ -505,7 +505,7 @@ function renderSamengesteldLijst() {
     <div class="groente-card">
       <div class="groente-info">
         <div class="groente-naam">${escapeHtmlSuppliers(g.productNaam)}</div>
-        <div class="groente-meta">${g.onderdelen.map(o => `${escapeHtmlSuppliers(o.naam)} (${o.eenheid === 'gram' ? o.perPlateau + 'g/p' : o.perPlateau + 'p/plateau'})`).join(' · ')}</div>
+        <div class="groente-meta">${g.onderdelen.map(o => `${escapeHtmlSuppliers(o.naam)} (${o.eenheid === 'gram' ? o.perPlateau + 'g/p' : o.perPlateau + 'p/plateau'}${o.categorie ? ' → ' + (SG_CATEGORIEEN.find(c => c.id === o.categorie) || {}).label : ''})`).join(' · ')}</div>
       </div>
       <div class="groente-actions">
         <button class="btn-icon" onclick="editSamengesteld('${g.id}')" title="Bewerken">
@@ -554,8 +554,26 @@ function renderSamengesteldOnderdelenLijst() {
       <button type="button" class="sgo-remove" onclick="window._sgoRemove(${i})" title="Verwijderen">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
+      <div class="sgo-cat">
+        <span>Tonen bij:</span>
+        <select onchange="window._sgoUpdate(${i}, 'categorie', this.value)">
+          ${SG_CATEGORIEEN.map(c => `<option value="${c.id}" ${(o.categorie || '') === c.id ? 'selected' : ''}>${c.label}</option>`).join('')}
+        </select>
+      </div>
     </div>`).join('');
 }
+
+// Waar een onderdeel in Portie-Etiketten verschijnt ('' = bij het gerecht zelf)
+const SG_CATEGORIEEN = [
+  { id: '',            label: 'Bij het gerecht zelf' },
+  { id: 'vis',         label: 'Vis' },
+  { id: 'vlees',       label: 'Vlees' },
+  { id: 'groenten',    label: 'Groenten' },
+  { id: 'aardappelen', label: 'Aardappelen' },
+  { id: 'sausen',      label: 'Sausen' },
+  { id: 'hapjes',      label: 'Hapjes' },
+  { id: 'dessert',     label: 'Dessert' },
+];
 
 window._sgoUpdate = function (i, field, value) {
   if (!samengesteldModalOnderdelen[i]) return;
@@ -600,7 +618,8 @@ function saveSamengesteldForm() {
   const id = document.getElementById('samengesteld-id').value;
   const productNaam = document.getElementById('samengesteld-productnaam').value.trim();
   const onderdelen = samengesteldModalOnderdelen
-    .map(o => ({ id: o.id, naam: (o.naam || '').trim(), eenheid: o.eenheid === 'gram' ? 'gram' : 'stuk', perPlateau: parseFloat(o.perPlateau) }))
+    .map(o => ({ id: o.id, naam: (o.naam || '').trim(), eenheid: o.eenheid === 'gram' ? 'gram' : 'stuk', perPlateau: parseFloat(o.perPlateau),
+                 categorie: SG_CATEGORIEEN.some(c => c.id && c.id === o.categorie) ? o.categorie : '' }))
     .filter(o => o.naam && o.perPlateau > 0);
 
   if (!productNaam) { alert('Vul de exacte productnaam in.'); return; }
