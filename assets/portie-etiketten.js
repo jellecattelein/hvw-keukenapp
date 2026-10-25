@@ -462,24 +462,24 @@
   }
 
   /* ── UI skelet ── */
-  let currentModus = 'los'; // 'los' | 'categorie' | 'zaal'
+  let currentModus = 'categorie'; // 'categorie' (hoofdpagina) | 'zaal' | 'los'
 
   function injectUI() {
     const wrap = document.createElement('div');
     wrap.id = 'portie-etiketten-content';
     wrap.innerHTML = `
       <div class="pe-mode-tabs">
-        <button class="pe-mode-tab active" id="pe-mode-los" onclick="window._peSwitchModus('los')">Los toevoegen</button>
-        <button class="pe-mode-tab" id="pe-mode-cat" onclick="window._peSwitchModus('categorie')">Per categorie</button>
-        <button class="pe-mode-tab" id="pe-mode-zaal" onclick="window._peSwitchModus('zaal')">Per zaal</button>
+        <button class="pe-mode-tab active" id="pe-mode-cat" onclick="window._peSwitchModus('categorie')">Per categorie</button>
+        <button class="pe-mode-tab pe-mode-minor" id="pe-mode-zaal" onclick="window._peSwitchModus('zaal')">Per zaal</button>
+        <button class="pe-mode-tab pe-mode-minor" id="pe-mode-los" onclick="window._peSwitchModus('los')">Los toevoegen</button>
       </div>
-      <div id="pe-modus-los">
+      <div id="pe-modus-los" style="display:none">
         <div class="pe-layout">
           <div id="pe-left-col"></div>
           <div id="pe-right-col"></div>
         </div>
       </div>
-      <div id="pe-modus-categorie" style="display:none">
+      <div id="pe-modus-categorie">
         <div id="pe-cat-picker-wrap"></div>
         <div id="pe-cat-groups-wrap"></div>
       </div>
@@ -494,6 +494,7 @@
 
     renderLeftColumn();
     renderList();
+    window._peSwitchModus('categorie');   // "Per categorie" is de hoofdpagina
 
     document.addEventListener('dataLoaded', () => {
       renderLeftColumn();
