@@ -37,8 +37,8 @@
     broodjes: { page: 'broodjes',                            label: 'Broodjes',         icon: ICO.bread },
     recepten: { page: 'recepten',                            label: 'Recepten',         icon: ICO.book },
   };
-  const MAIN = ['cat', 'snel', 'karren'];
-  const MORE = ['zaal', 'los', 'broodjes', 'recepten'];
+  const MAIN = ['cat', 'snel', 'karren', 'broodjes', 'recepten'];
+  const MORE = ['zaal', 'los'];
   const svg = inner => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
 
   function peModus() {
