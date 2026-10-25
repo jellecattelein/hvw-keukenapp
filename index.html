@@ -18,7 +18,16 @@
   <meta name="theme-color" content="#111110">
 
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/style.css?v=723df86eb2">
+  <!-- Ontwerp-keuze vroeg toepassen (voorkomt flikkeren) -->
+  <script>
+    try {
+      var d = document.documentElement;
+      if (localStorage.getItem('hvw-ui') !== 'klassiek') d.classList.add('ui-modern');
+      if (localStorage.getItem('hvw-ui-calm') === 'on') d.classList.add('m-calm');
+    } catch (e) { document.documentElement.classList.add('ui-modern'); }
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css?v=2227ee1b04">
   <style>
     :root {
       --sb-w: 224px;
@@ -433,6 +442,7 @@
       .dash-row { grid-template-columns: 1fr; }
     }
   </style>
+  <link rel="stylesheet" href="assets/modern.css?v=2227ee1b04">
 </head>
 <body>
 
@@ -446,71 +456,71 @@
     <nav class="sb-nav">
       <div class="sb-section">Overzicht</div>
       <button class="sb-item active" data-page="dashboard" onclick="sbShow('dashboard')">
-        <span class="sb-icon">⊞</span> Dashboard
+        <span class="sb-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg></span> Dashboard
       </button>
 
       <div class="sb-section">Feesten</div>
       <button class="sb-item" data-page="feesten" onclick="sbShow('feesten')">
-        <span class="sb-icon">📅</span> Feestenoverzicht
+        <span class="sb-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M8 2.5v4M16 2.5v4M3 10h18"/></svg></span> Feestenoverzicht
       </button>
       <button class="sb-item" data-page="tijdstool" onclick="sbShow('tijdstool')">
-        <span class="sb-icon">⏱️</span> Tijdstool
+        <span class="sb-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13.5" r="8"/><path d="M12 9.5v4l2.5 1.5M9.5 2.5h5"/></svg></span> Tijdstool
       </button>
 
       <div class="sb-section">Recepten</div>
       <button class="sb-item" data-page="recepten" onclick="sbShow('recepten')">
-        <span class="sb-icon">📖</span> Recepten
+        <span class="sb-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6.5C10.5 5 8 4.5 4 4.5v13c4 0 6.5.5 8 2 1.5-1.5 4-2 8-2v-13c-4 0-6.5.5-8 2zM12 6.5v13"/></svg></span> Recepten
       </button>
 
       <div class="sb-section">Calculator</div>
       <button class="sb-item" data-page="overzicht" onclick="sbShow('overzicht')">
-        <span class="sb-icon">📊</span> Productoverzicht
+        <span class="sb-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></span> Productoverzicht
       </button>
       <button class="sb-item" data-page="calculator" onclick="sbShow('calculator')">
-        <span class="sb-icon">🍽️</span> Bestelcalculator
+        <span class="sb-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="2.5" width="14" height="19" rx="2.5"/><path d="M8.5 7h7M8.5 12h.01M12 12h.01M15.5 12h.01M8.5 16h.01M12 16h.01M15.5 16h.01"/></svg></span> Bestelcalculator
       </button>
       <button class="sb-item" data-page="ijs" onclick="sbShow('ijs')">
-        <span class="sb-icon">🍦</span> IJsdesserts
+        <span class="sb-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 11a5 5 0 1 1 10 0M6.5 11h11L12 21.5z"/></svg></span> IJsdesserts
       </button>
       <button class="sb-item" data-page="bakker" onclick="sbShow('bakker')">
-        <span class="sb-icon">🥐</span> Bakker Bestelformulier
+        <span class="sb-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21V8M12 8c0-2 1.2-4 3-5 .3 2.2-.7 4-3 5zM12 8c0-2-1.2-4-3-5-.3 2.2.7 4 3 5zM12 13c0-2 1.5-3.5 3.5-4 .2 2-.9 3.7-3.5 4zM12 13c0-2-1.5-3.5-3.5-4-.2 2 .9 3.7 3.5 4zM12 18c0-2 1.5-3.5 3.5-4 .2 2-.9 3.7-3.5 4zM12 18c0-2-1.5-3.5-3.5-4-.2 2 .9 3.7 3.5 4z"/></svg></span> Bakker Bestelformulier
       </button>
 
       <div class="sb-section">Productie</div>
       <button class="sb-item" data-page="functionsheets" onclick="sbShow('functionsheets')">
-        <span class="sb-icon">📘</span> Functionsheet Boekconverter
+        <span class="sb-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2.5H7a2 2 0 0 0-2 2v15a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7.5zM14 2.5v5h5M9 13h6M9 17h6"/></svg></span> Functionsheet Boekconverter
       </button>
       <button class="sb-item" data-page="broodjes" onclick="sbShow('broodjes')">
-        <span class="sb-icon">🥖</span> Broodjes
+        <span class="sb-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5zM3 13l9 5 9-5"/></svg></span> Broodjes
       </button>
       <button class="sb-item" data-page="etiketten" onclick="sbShow('etiketten')">
-        <span class="sb-icon">🏷️</span> Karren-Etiketten
+        <span class="sb-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12.5V4a1 1 0 0 1 1-1h8.5a1 1 0 0 1 .7.3l8 8a1 1 0 0 1 0 1.4l-8.5 8.5a1 1 0 0 1-1.4 0l-8-8a1 1 0 0 1-.3-.7z"/><circle cx="7.5" cy="7.5" r="1.2"/></svg></span> Karren-Etiketten
       </button>
       <button class="sb-item" data-page="snel-etiketten" onclick="sbShow('snel-etiketten')">
-        <span class="sb-icon">✏️</span> Snelle Etiketten
+        <span class="sb-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16.5 3.5l4 4L8 20l-5 1 1-5z"/></svg></span> Snelle Etiketten
       </button>
       <button class="sb-item" data-page="portie-etiketten" onclick="sbShow('portie-etiketten')">
-        <span class="sb-icon">🍽️</span> Portie-Etiketten
+        <span class="sb-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3v8M4 3v5a3 3 0 0 0 6 0V3M7 11v10M17 21V3c-2.5 1.5-4 4.5-4 8h4"/></svg></span> Portie-Etiketten
       </button>
       <button class="sb-item" data-page="weekmap" onclick="sbShow('weekmap')">
-        <span class="sb-icon">📑</span> Weekmap Voorpagina's
+        <span class="sb-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 2.5H8a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V6.5zM15 2.5v4h4M3 7v13a2 2 0 0 0 2 2h9"/></svg></span> Weekmap Voorpagina's
       </button>
 
       <div class="sb-section">Beheer</div>
       <button class="sb-item" data-page="settings" onclick="sbShow('settings')">
-        <span class="sb-icon">⚙️</span> Instellingen
+        <span class="sb-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h2M10 12h10M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg></span> Instellingen
       </button>
     </nav>
     <div class="sb-bottom">
       <button class="sb-item" onclick="document.getElementById('xl-input').click()">
-        <span class="sb-icon">↑</span> Excel uploaden
+        <span class="sb-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3M7 8l5-5 5 5M4 17v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg></span> Excel uploaden
       </button>
       <button class="sb-item" id="btn-reset-sidebar" style="display:none;color:#c0392b" onclick="resetData()">
-        <span class="sb-icon">✕</span> Verwijder Excel
+        <span class="sb-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg></span> Verwijder Excel
       </button>
       <button class="sb-item" id="pwa-install-btn" style="display:none;color:#B8965A"
         onclick="deferredPrompt && deferredPrompt.prompt()">
-        <span class="sb-icon">⬇</span> Installeer app
+        <span class="sb-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M4 17v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg></span> Installeer app
       </button>
     </div>
   </aside>
@@ -702,6 +712,32 @@
         <div class="settings-card-body"><div id="car-settings-list"></div></div>
       </div>
 
+      <!-- Weergave -->
+      <div class="settings-card" id="settings-card-ui" style="margin-top:18px">
+        <div class="settings-card-header">
+          <span class="settings-card-title">🎨 Weergave</span>
+        </div>
+        <div class="settings-card-body">
+          <p style="font-size:13px;color:#6B655E;margin:0 0 14px;line-height:1.5;">
+            Kies hoe de app eruitziet. Deze instelling geldt enkel voor dit toestel/browser.
+          </p>
+          <label style="display:flex;align-items:flex-start;gap:10px;font-size:14px;cursor:pointer;margin-bottom:12px;">
+            <input type="radio" name="ui-modus" value="modern" onchange="window._uiSet(this.value)" style="margin-top:3px;width:16px;height:16px;cursor:pointer;">
+            <span><strong>Modern</strong> (aanbevolen)<br>
+            <span style="font-size:12px;color:#9A9590;">Lichte zijbalk met pictogrammen, zachte kaarten en vloeiende bewegingen.</span></span>
+          </label>
+          <label style="display:flex;align-items:flex-start;gap:10px;font-size:14px;cursor:pointer;margin-bottom:16px;">
+            <input type="radio" name="ui-modus" value="klassiek" onchange="window._uiSet(this.value)" style="margin-top:3px;width:16px;height:16px;cursor:pointer;">
+            <span><strong>Klassiek</strong><br>
+            <span style="font-size:12px;color:#9A9590;">Het vorige uiterlijk met de donkere zijbalk.</span></span>
+          </label>
+          <label style="display:flex;align-items:center;gap:10px;font-size:14px;cursor:pointer;">
+            <input type="checkbox" id="ui-calm" onchange="window._uiCalmSet(this.checked)" style="width:16px;height:16px;cursor:pointer;">
+            <span>Animaties uitzetten <span style="font-size:12px;color:#9A9590;">(rustiger, handig op een traag toestel)</span></span>
+          </label>
+        </div>
+      </div>
+
       <!-- Etikettenprinter -->
       <div class="settings-card" id="settings-card-printer" style="margin-top:18px">
         <div class="settings-card-header">
@@ -859,25 +895,26 @@
     </div>
   </div>
 
-  <script src="assets/firebase-config.js?v=723df86eb2"></script>
-  <script src="assets/sync.js?v=723df86eb2"></script>
-  <script src="assets/ai-split.js?v=723df86eb2"></script>
-  <script src="assets/app.js?v=723df86eb2"></script>
-  <script src="assets/bestelling_pdf.js?v=723df86eb2"></script>
-  <script src="assets/suppliers.js?v=723df86eb2"></script>
-  <script src="assets/ijsdesserts.js?v=723df86eb2"></script>
-  <script src="assets/cars.js?v=723df86eb2"></script>
-  <script src="assets/tijdstool.js?v=723df86eb2"></script>
-  <script src="assets/functionsheets.js?v=723df86eb2"></script>
-  <script src="assets/dymo-print.js?v=723df86eb2"></script>
-  <script src="assets/snelle-etiketten.js?v=723df86eb2"></script>
-  <script src="assets/portie-etiketten.js?v=723df86eb2"></script>
-  <script src="assets/weekmap.js?v=723df86eb2"></script>
-  <script src="assets/kiosk.js?v=723df86eb2"></script>
-  <script src="assets/bakker.js?v=723df86eb2"></script>
-  <script src="assets/broodjes.js?v=723df86eb2"></script>
-  <script src="assets/recepten.js?v=723df86eb2"></script>
-  <script src="assets/etiketten.js?v=723df86eb2"></script>
+  <script src="assets/modern.js?v=2227ee1b04"></script>
+  <script src="assets/firebase-config.js?v=2227ee1b04"></script>
+  <script src="assets/sync.js?v=2227ee1b04"></script>
+  <script src="assets/ai-split.js?v=2227ee1b04"></script>
+  <script src="assets/app.js?v=2227ee1b04"></script>
+  <script src="assets/bestelling_pdf.js?v=2227ee1b04"></script>
+  <script src="assets/suppliers.js?v=2227ee1b04"></script>
+  <script src="assets/ijsdesserts.js?v=2227ee1b04"></script>
+  <script src="assets/cars.js?v=2227ee1b04"></script>
+  <script src="assets/tijdstool.js?v=2227ee1b04"></script>
+  <script src="assets/functionsheets.js?v=2227ee1b04"></script>
+  <script src="assets/dymo-print.js?v=2227ee1b04"></script>
+  <script src="assets/snelle-etiketten.js?v=2227ee1b04"></script>
+  <script src="assets/portie-etiketten.js?v=2227ee1b04"></script>
+  <script src="assets/weekmap.js?v=2227ee1b04"></script>
+  <script src="assets/kiosk.js?v=2227ee1b04"></script>
+  <script src="assets/bakker.js?v=2227ee1b04"></script>
+  <script src="assets/broodjes.js?v=2227ee1b04"></script>
+  <script src="assets/recepten.js?v=2227ee1b04"></script>
+  <script src="assets/etiketten.js?v=2227ee1b04"></script>
 
   <script>
   /* ═══ SIDEBAR ROUTING ═══ */

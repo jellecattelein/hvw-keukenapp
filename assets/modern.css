@@ -1,0 +1,307 @@
+/* ══════════════════════════════════════════
+   modern.css — modern ontwerp van de Keukenapp
+
+   Wordt alleen toegepast als <html> de klasse "ui-modern" heeft (standaard
+   aan; te wisselen in Instellingen → Weergave). Zonder die klasse blijft het
+   klassieke ontwerp volledig ongewijzigd.
+   Animaties zijn uit te zetten met "m-calm" (of via prefers-reduced-motion).
+   ══════════════════════════════════════════ */
+
+html.ui-modern {
+  --m-bg: #F3F4F7;
+  --m-surface: #FFFFFF;
+  --m-ink: #14151A;
+  --m-ink-2: #4A4F5E;
+  --m-ink-3: #8B90A0;
+  --m-line: rgba(20, 21, 26, .08);
+  --m-line-2: rgba(20, 21, 26, .15);
+  --m-accent: #B8965A;
+  --m-accent-ink: #8A6B2F;
+  --m-accent-soft: rgba(184, 150, 90, .14);
+  --m-ok: #1F7A5A;
+  --m-danger: #C0392B;
+  --m-r: 16px;
+  --m-r-sm: 10px;
+  --m-sh-1: 0 1px 2px rgba(20, 21, 26, .05), 0 0 0 1px rgba(20, 21, 26, .04);
+  --m-sh-2: 0 10px 28px -10px rgba(20, 21, 26, .18), 0 2px 8px rgba(20, 21, 26, .05);
+  --m-ease: cubic-bezier(.2, .8, .2, 1);
+  --font-ui: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-title: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --sb-w: 244px;
+}
+
+html.ui-modern body {
+  background: var(--m-bg);
+  color: var(--m-ink);
+  font-family: var(--font-ui);
+  font-feature-settings: 'cv11', 'ss01';
+  letter-spacing: -.003em;
+}
+/* cijfers netjes onder elkaar */
+html.ui-modern .kpi-val, html.ui-modern .stat-val, html.ui-modern .ev-pers, html.ui-modern .feest-persons,
+html.ui-modern .detail-prod-persons, html.ui-modern .weight-val, html.ui-modern td, html.ui-modern .pe2-right,
+html.ui-modern .pe-item-etik, html.ui-modern .pe2-pill-badge { font-variant-numeric: tabular-nums; }
+
+/* Teksten die in de scripts vast op de oude lettertypes staan, mee omzetten */
+html.ui-modern [style*="DM Mono"], html.ui-modern [style*="Cormorant"], html.ui-modern [style*="Playfair"] {
+  font-family: var(--font-ui) !important; font-variant-numeric: tabular-nums;
+}
+html.ui-modern [style*="Cormorant"], html.ui-modern [style*="Playfair"] { letter-spacing: -.02em; }
+
+/* ── Zijbalk ── */
+html.ui-modern #sidebar {
+  background: #fff;
+  border-right: 1px solid var(--m-line);
+  --sb-text: var(--m-ink-2);
+  --sb-text-active: var(--m-ink);
+  --sb-hover: rgba(20, 21, 26, .045);
+}
+/* Logo als app-icoon: het gouden "W"-monogram in een afgeronde tegel */
+html.ui-modern .sb-logo { padding: 20px 18px 10px; border-bottom: 0; display: grid; grid-template-columns: 46px 1fr; column-gap: 12px; align-items: center; }
+html.ui-modern .sb-logo img { grid-row: 1 / span 2; filter: none; opacity: 1; width: 46px; height: 46px; margin: 0; object-fit: cover; object-view-box: inset(3% 34% 30% 34%); border-radius: 13px; box-shadow: 0 6px 14px -6px rgba(20, 21, 26, .5); }
+html.ui-modern .sb-logo-name { color: var(--m-ink); font-size: 13.5px; font-weight: 700; letter-spacing: -.01em; line-height: 1.2; align-self: end; }
+html.ui-modern .sb-logo-sub { color: var(--m-accent-ink); font-size: 10px; letter-spacing: .14em; font-weight: 600; align-self: start; margin-top: 3px; }
+html.ui-modern .sb-nav { position: relative; padding: 4px 0 12px; }
+html.ui-modern .sb-section { color: var(--m-ink-3); font-size: 10.5px; letter-spacing: .1em; padding: 18px 22px 6px; font-weight: 600; }
+html.ui-modern .sb-item {
+  border-radius: 10px; padding: 9px 12px; margin: 1px 10px; width: calc(100% - 20px);
+  color: var(--m-ink-2); font-size: 13.5px; font-weight: 500; position: relative; z-index: 1;
+  transition: color .2s, background .2s, transform .15s var(--m-ease);
+}
+html.ui-modern .sb-item:hover { background: rgba(20, 21, 26, .045); color: var(--m-ink); }
+html.ui-modern .sb-item:active { transform: scale(.98); }
+html.ui-modern .sb-item.active {
+  background: var(--m-accent-soft); color: var(--m-ink); font-weight: 600;
+  border-left: 0; margin-left: 10px; padding-left: 12px;
+  box-shadow: inset 0 0 0 1px rgba(184, 150, 90, .28);
+}
+html.ui-modern.m-ind .sb-item.active { background: transparent; box-shadow: none; }
+html.ui-modern .sb-icon { display: inline-flex; width: 18px; height: 18px; align-items: center; justify-content: center; color: var(--m-ink-3); transition: color .2s, transform .3s var(--m-ease); }
+html.ui-modern .sb-icon svg { width: 18px; height: 18px; stroke-width: 1.75; }
+html.ui-modern .sb-item:hover .sb-icon { color: var(--m-ink); transform: scale(1.08); }
+html.ui-modern .sb-item.active .sb-icon { color: var(--m-accent-ink); }
+html.ui-modern .sb-indicator {
+  position: absolute; left: 10px; right: 10px; top: 0; height: 36px; border-radius: 10px; z-index: 0; pointer-events: none;
+  background: var(--m-accent-soft); box-shadow: inset 0 0 0 1px rgba(184, 150, 90, .3);
+  transition: transform .4s var(--m-ease), height .4s var(--m-ease), opacity .2s;
+}
+html.ui-modern .sb-bottom { border-top: 1px solid var(--m-line); padding: 10px 0; }
+html.ui-modern #hvw-chip { background: rgba(20, 21, 26, .04); color: var(--m-ink-2); }
+html.ui-modern #hvw-chip b { color: var(--m-ink); }
+
+/* ── Bovenbalk ── */
+html.ui-modern #topbar {
+  background: rgba(255, 255, 255, .78); backdrop-filter: saturate(1.5) blur(16px); -webkit-backdrop-filter: saturate(1.5) blur(16px);
+  border-bottom: 1px solid var(--m-line); box-shadow: none; height: 62px; padding: 0 32px;
+}
+html.ui-modern #topbar-title { font-family: var(--font-ui); font-weight: 700; font-size: 19px; letter-spacing: -.02em; }
+html.ui-modern #mob-hamburger { border-color: var(--m-line-2); border-radius: 10px; }
+
+html.ui-modern #app-wrap { min-width: 0; }
+html.ui-modern .page { min-width: 0; }
+html.ui-modern .cat-tabs-wrap { max-width: 100%; min-width: 0; }
+
+/* ── Pagina's: zachte overgang ── */
+html.ui-modern .page { padding: 28px 32px 56px; }
+html.ui-modern .page.active { animation: mPageIn .42s var(--m-ease) both; }
+@keyframes mPageIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes mRise { from { opacity: 0; transform: translateY(14px) scale(.985); } to { opacity: 1; transform: none; } }
+@keyframes mPop { 0% { transform: scale(.7); } 60% { transform: scale(1.12); } 100% { transform: scale(1); } }
+@keyframes mGrow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes mFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes mModal { from { opacity: 0; transform: translateY(18px) scale(.96); } to { opacity: 1; transform: none; } }
+
+/* ── Kaarten ── */
+html.ui-modern .dash-card, html.ui-modern .kpi, html.ui-modern .stat, html.ui-modern .period-card,
+html.ui-modern .feest-card, html.ui-modern .settings-card, html.ui-modern .detail-hero,
+html.ui-modern .detail-cat-block, html.ui-modern .email-card, html.ui-modern .supplier-card {
+  background: var(--m-surface); border: 0; border-radius: var(--m-r); box-shadow: var(--m-sh-1);
+}
+html.ui-modern .dash-card, html.ui-modern .period-card, html.ui-modern .feest-card, html.ui-modern .settings-card { overflow: hidden; }
+html.ui-modern .kpi, html.ui-modern .stat { transition: transform .3s var(--m-ease), box-shadow .3s var(--m-ease); }
+html.ui-modern .kpi:hover, html.ui-modern .stat:hover { transform: translateY(-3px); box-shadow: var(--m-sh-2); }
+html.ui-modern .dash-card-head, html.ui-modern .settings-card-header, html.ui-modern .period-header, html.ui-modern .feest-day-header, html.ui-modern .modal-header {
+  background: transparent; border-bottom: 1px solid var(--m-line);
+}
+html.ui-modern .dash-card-title, html.ui-modern .settings-card-title, html.ui-modern .period-title, html.ui-modern .feest-date, html.ui-modern .modal-title {
+  font-family: var(--font-ui); font-weight: 650; font-size: 15px; letter-spacing: -.01em;
+}
+html.ui-modern .period-header, html.ui-modern .feest-day-header { transition: background .2s; }
+html.ui-modern .period-header:hover { background: rgba(20, 21, 26, .025); }
+html.ui-modern .period-toggle { transition: transform .35s var(--m-ease); color: var(--m-ink-3); }
+
+/* KPI-tegels */
+html.ui-modern .kpi { padding: 24px 22px 18px; }
+html.ui-modern .kpi::before { top: 14px; left: 22px; right: auto; width: 24px; height: 4px; border-radius: 3px; background: var(--c, var(--m-line-2)); }
+html.ui-modern .kpi-lbl { color: var(--m-ink-3); letter-spacing: .08em; font-weight: 600; margin-bottom: 10px; }
+html.ui-modern .kpi-val { font-family: var(--font-ui); font-weight: 700; font-size: 34px; letter-spacing: -.035em; }
+html.ui-modern .kpi-val span { font-size: 15px; font-weight: 500; letter-spacing: 0; color: var(--m-ink-3); }
+html.ui-modern .kpi-sub { color: var(--m-ink-3); }
+html.ui-modern .stat { padding: 16px 20px; }
+html.ui-modern .stat-label { color: var(--m-ink-3); letter-spacing: .08em; }
+html.ui-modern .stat-val { font-family: var(--font-ui); font-weight: 700; font-size: 24px; letter-spacing: -.03em; }
+
+/* Lijstrijen */
+html.ui-modern .ev-row { border-bottom: 1px solid var(--m-line); padding: 12px 20px; transition: background .2s, transform .25s var(--m-ease), padding .25s var(--m-ease); }
+html.ui-modern .ev-row:hover { background: var(--m-accent-soft); padding-left: 26px; }
+html.ui-modern .ev-room { font-weight: 550; }
+html.ui-modern .ev-time, html.ui-modern .ev-date { color: var(--m-ink-3); }
+html.ui-modern .bar-item { border-bottom: 1px solid var(--m-line); padding: 14px 20px; }
+html.ui-modern .bar-track { height: 8px; background: rgba(20, 21, 26, .06); border-radius: 6px; }
+html.ui-modern .bar-fill { border-radius: 6px; transform-origin: left; animation: mGrow 1s var(--m-ease) both; }
+
+/* ── Knoppen ── */
+html.ui-modern .btn {
+  border-radius: var(--m-r-sm); padding: 9px 16px; font-weight: 550; border: 1px solid var(--m-line-2); background: #fff; color: var(--m-ink);
+  box-shadow: 0 1px 1px rgba(20, 21, 26, .04); transition: transform .15s var(--m-ease), box-shadow .2s, background .2s, border-color .2s, opacity .2s;
+}
+html.ui-modern .btn:hover { background: #F7F7F9; box-shadow: 0 4px 12px -4px rgba(20, 21, 26, .18); transform: translateY(-1px); }
+html.ui-modern .btn:active { transform: scale(.97); box-shadow: none; }
+html.ui-modern .btn-primary { background: linear-gradient(180deg, #2A2B33, #14151A); border-color: #14151A; color: #fff; }
+html.ui-modern .btn-primary:hover { background: linear-gradient(180deg, #34353F, #1B1C23); }
+html.ui-modern .btn-gold { background: linear-gradient(180deg, #C6A468, #B8965A); border-color: #A98648; color: #fff; }
+html.ui-modern .btn-gold:hover { background: linear-gradient(180deg, #CDAD74, #BE9C60); }
+html.ui-modern .btn:focus-visible, html.ui-modern .sb-item:focus-visible, html.ui-modern .cat-tab:focus-visible {
+  outline: 0; box-shadow: 0 0 0 3px rgba(184, 150, 90, .45);
+}
+html.ui-modern .btn-icon { border-radius: 9px; border-color: var(--m-line-2); transition: all .2s var(--m-ease); }
+html.ui-modern .btn-icon:hover { transform: translateY(-1px); background: #F7F7F9; }
+
+/* ── Invoer ── */
+html.ui-modern select, html.ui-modern input[type="text"], html.ui-modern input[type="number"], html.ui-modern input[type="search"],
+html.ui-modern input[type="email"], html.ui-modern input[type="password"], html.ui-modern input[type="date"], html.ui-modern textarea {
+  border-radius: var(--m-r-sm); border-color: var(--m-line-2); font-family: var(--font-ui);
+  transition: border-color .2s, box-shadow .2s, background .2s;
+}
+html.ui-modern select:focus, html.ui-modern input:focus, html.ui-modern textarea:focus {
+  outline: 0; border-color: var(--m-accent) !important; box-shadow: 0 0 0 3px rgba(184, 150, 90, .22);
+}
+html.ui-modern input[type="checkbox"], html.ui-modern input[type="radio"] { accent-color: var(--m-accent-ink); }
+
+/* ── Categorie-tabs → pillen ── */
+html.ui-modern .cat-tabs-wrap { background: transparent; border: 0; box-shadow: none; overflow: visible; }
+html.ui-modern #tab-indicator { display: none; }
+html.ui-modern .cat-tabs-scroll { gap: 6px; padding: 4px 2px 8px; }
+html.ui-modern .cat-tab {
+  border: 0; border-radius: 999px; background: #fff; padding: 8px 15px; box-shadow: var(--m-sh-1); color: var(--m-ink-2);
+  transition: all .25s var(--m-ease);
+}
+html.ui-modern .cat-tab:hover:not(.active) { transform: translateY(-2px); box-shadow: var(--m-sh-2); color: var(--m-ink); background: #fff; }
+html.ui-modern .cat-tab.active { background: var(--tab-c, var(--m-ink)); color: #fff; box-shadow: 0 8px 18px -8px var(--tab-c, var(--m-ink)); font-weight: 600; transform: translateY(-1px); }
+html.ui-modern .cat-tab.active::after { display: none; }
+html.ui-modern .cat-tab-badge { background: rgba(20, 21, 26, .07); color: var(--m-ink-2); }
+html.ui-modern .cat-tab.active .cat-tab-badge { background: rgba(255, 255, 255, .25); color: #fff; }
+
+html.ui-modern .view-tabs { background: rgba(20, 21, 26, .06); border: 0; border-radius: 11px; padding: 3px; }
+html.ui-modern .view-tab { border-radius: 8px; transition: all .25s var(--m-ease); font-weight: 550; }
+html.ui-modern .view-tab.active { background: #fff; box-shadow: 0 1px 3px rgba(20, 21, 26, .14); color: var(--m-ink); }
+
+/* ── Tabellen ── */
+html.ui-modern .prod-table th, html.ui-modern .feest-table th, html.ui-modern .detail-table th {
+  background: transparent; color: var(--m-ink-3); letter-spacing: .07em; font-weight: 600; border-bottom: 1px solid var(--m-line);
+}
+html.ui-modern .prod-table td, html.ui-modern .feest-table td, html.ui-modern .detail-table td { border-bottom-color: var(--m-line); }
+html.ui-modern .prod-table tr:hover td, html.ui-modern .feest-table tr:hover td, html.ui-modern .detail-table tr:hover td { background: rgba(184, 150, 90, .06); }
+html.ui-modern .feest-row-clickable { transition: transform .2s var(--m-ease); }
+html.ui-modern .feest-row-clickable:hover td { background: var(--m-accent-soft); }
+html.ui-modern .feest-arrow { transition: transform .25s var(--m-ease); }
+html.ui-modern .feest-row-clickable:hover .feest-arrow { transform: translateX(4px); color: var(--m-accent-ink); }
+html.ui-modern .cat-total-row td, html.ui-modern .group-spacer-body tr td { background: rgba(20, 21, 26, .03); }
+html.ui-modern .cat-block { border-bottom-color: var(--m-line); }
+html.ui-modern .subcat-section-header { background: rgba(20, 21, 26, .025); border-bottom-color: var(--m-line); }
+html.ui-modern .qty-btn, html.ui-modern .qty-input { border-radius: 8px; }
+html.ui-modern .qty-btn { transition: all .15s var(--m-ease); }
+html.ui-modern .qty-btn:active { transform: scale(.88); }
+
+/* ── Badges & pillen ── */
+html.ui-modern .badge, html.ui-modern .loc-pill, html.ui-modern .feest-count, html.ui-modern .feest-total-pers, html.ui-modern .day-tag { border-radius: 999px; }
+html.ui-modern .feest-count, html.ui-modern .feest-total-pers { border: 0; background: rgba(20, 21, 26, .05); }
+
+/* ── Dialogen ── */
+html.ui-modern .modal-overlay { background: rgba(14, 15, 20, .5); backdrop-filter: blur(8px) saturate(1.2); -webkit-backdrop-filter: blur(8px) saturate(1.2); }
+html.ui-modern .modal-overlay[style*="flex"] { animation: mFade .25s ease both; }
+html.ui-modern .modal { border-radius: 22px; box-shadow: 0 30px 80px -20px rgba(14, 15, 20, .45); animation: mModal .38s var(--m-ease) both; }
+html.ui-modern .modal-footer { background: rgba(20, 21, 26, .025); border-top-color: var(--m-line); }
+html.ui-modern .modal-close { border-radius: 10px; transition: all .2s; }
+html.ui-modern .modal-close:hover { background: rgba(20, 21, 26, .07); transform: rotate(90deg); }
+
+/* ── Welkom-scherm ── */
+html.ui-modern .welcome-icon { background: var(--m-accent-soft); border: 0; width: 88px; height: 88px; animation: mPop .7s var(--m-ease) both; }
+html.ui-modern .welcome-title { font-family: var(--font-ui); font-weight: 700; font-size: 28px; letter-spacing: -.03em; }
+html.ui-modern .welcome-sub { color: var(--m-ink-3); }
+
+/* ── Portie-etiketten ── */
+html.ui-modern .pe-card { background: #fff; border: 0; border-radius: var(--m-r); box-shadow: var(--m-sh-1); }
+html.ui-modern .pe-mode-tab { border-radius: 10px; transition: all .25s var(--m-ease); }
+html.ui-modern .pe-cat-btn { border: 0; border-radius: 14px; background: #fff; box-shadow: var(--m-sh-1); transition: transform .25s var(--m-ease), box-shadow .25s var(--m-ease), background .2s, color .2s; }
+html.ui-modern .pe-cat-btn:hover:not(:disabled) { transform: translateY(-3px); box-shadow: var(--m-sh-2); }
+html.ui-modern .pe-cat-btn:active:not(:disabled) { transform: scale(.97); }
+html.ui-modern .pe-cat-btn.active { background: var(--m-ink); color: #fff; box-shadow: 0 10px 22px -10px rgba(20, 21, 26, .6); transform: translateY(-2px); }
+html.ui-modern .pe-cat-btn.active .pe-cat-count { color: rgba(255, 255, 255, .65); }
+html.ui-modern .pe2-pill { border: 0; border-radius: 999px; box-shadow: var(--m-sh-1); transition: transform .2s var(--m-ease), box-shadow .2s, background .2s; }
+html.ui-modern .pe2-pill:hover { transform: translateY(-2px); box-shadow: var(--m-sh-2); }
+html.ui-modern .pe2-pill:active { transform: scale(.96); }
+html.ui-modern .pe2-pill.has { box-shadow: inset 0 0 0 1.5px var(--m-ok), var(--m-sh-1); }
+html.ui-modern .pe2-pill.act { box-shadow: 0 8px 18px -8px rgba(20, 21, 26, .55); }
+html.ui-modern .pe2-row { border-bottom-color: var(--m-line); border-radius: 12px; transition: background .2s, transform .15s var(--m-ease); }
+html.ui-modern .pe2-row:active { transform: scale(.992); }
+html.ui-modern .pe2-box { border-radius: 9px; transition: background .2s, border-color .2s, color .2s; }
+html.ui-modern .pe2-row.on .pe2-box { animation: mPop .35s var(--m-ease) both; }
+html.ui-modern .pe2-sum { box-shadow: 0 -12px 24px -12px rgba(20, 21, 26, .12); border-top: 1px solid var(--m-line); backdrop-filter: blur(10px); background: rgba(255, 255, 255, .92); }
+html.ui-modern .pe2-chip { border-radius: 999px; animation: mPop .3s var(--m-ease) both; }
+html.ui-modern .pe-cat-add-btn { border-radius: 12px; background: linear-gradient(180deg, #2A2B33, #14151A); transition: transform .15s var(--m-ease), box-shadow .2s, opacity .2s; }
+html.ui-modern .pe-cat-add-btn:not(:disabled):hover { transform: translateY(-1px); box-shadow: 0 10px 20px -8px rgba(20, 21, 26, .55); opacity: 1; }
+html.ui-modern .pe-cat-add-btn:not(:disabled):active { transform: scale(.98); }
+html.ui-modern .pe2-added { animation: mPop .45s var(--m-ease) both; border-radius: 10px; }
+html.ui-modern .pe-lgroup { border: 0; border-radius: 14px; box-shadow: var(--m-sh-1); }
+html.ui-modern .pe-lgroup-head { transition: background .2s; }
+html.ui-modern .pe-lgroup-chev { transition: transform .3s var(--m-ease); }
+html.ui-modern .pe-lgroup.open > .pe-lgroup-body { animation: mFade .35s ease both; }
+html.ui-modern .pe-item { border-radius: 12px; }
+html.ui-modern .pe-pdf-btn, html.ui-modern .pe-dymo-btn { border-radius: 12px; transition: transform .15s var(--m-ease), box-shadow .2s; }
+html.ui-modern .pe-pdf-btn:hover, html.ui-modern .pe-dymo-btn:hover { transform: translateY(-1px); }
+
+/* ── Meldingen (synchronisatie) ── */
+html.ui-modern #hvw-toast { border-radius: 14px; animation: mRise .4s var(--m-ease) both; }
+html.ui-modern #hvw-login .box { border-radius: 22px; animation: mModal .45s var(--m-ease) both; }
+
+/* ── Binnenkomende elementen (enkel statische blokken, niet de lijsten die bij elke klik herladen) ── */
+html.ui-modern .kpi, html.ui-modern .dash-card, html.ui-modern .period-card, html.ui-modern .feest-card,
+html.ui-modern .settings-card, html.ui-modern .detail-hero, html.ui-modern .detail-cat-block {
+  animation: mRise .55s var(--m-ease) both; animation-delay: calc(var(--i, 0) * 55ms);
+}
+html.ui-modern .kpi:nth-child(2), html.ui-modern .dash-row > :nth-child(2), html.ui-modern .period-card:nth-child(2), html.ui-modern .feest-card:nth-child(2) { --i: 1; }
+html.ui-modern .kpi:nth-child(3), html.ui-modern .period-card:nth-child(3), html.ui-modern .feest-card:nth-child(3) { --i: 2; }
+html.ui-modern .kpi:nth-child(4), html.ui-modern .period-card:nth-child(4), html.ui-modern .feest-card:nth-child(4) { --i: 3; }
+html.ui-modern .period-card:nth-child(n+5), html.ui-modern .feest-card:nth-child(n+5) { --i: 4; }
+html.ui-modern #dash-ev-list .ev-row { animation: mRise .45s var(--m-ease) both; animation-delay: calc(var(--i, 0) * 30ms); }
+html.ui-modern #dash-ev-list .ev-row:nth-child(1) { --i: 1; } html.ui-modern #dash-ev-list .ev-row:nth-child(2) { --i: 2; }
+html.ui-modern #dash-ev-list .ev-row:nth-child(3) { --i: 3; } html.ui-modern #dash-ev-list .ev-row:nth-child(4) { --i: 4; }
+html.ui-modern #dash-ev-list .ev-row:nth-child(5) { --i: 5; } html.ui-modern #dash-ev-list .ev-row:nth-child(n+6) { --i: 6; }
+
+/* ── Mobiel ── */
+@media (max-width: 768px) {
+  html.ui-modern .page { padding: 18px 14px 40px; }
+  html.ui-modern #topbar { padding: 0 14px; height: 56px; }
+  /* het script zet de zijbalk op mobiel inline op donker; hier overschrijven */
+  html.ui-modern #sidebar {
+    background: #fff !important; border-right: 1px solid var(--m-line) !important; width: 272px !important;
+    box-shadow: 10px 0 50px rgba(14, 15, 20, .28) !important; transition: transform .38s var(--m-ease) !important;
+  }
+  html.ui-modern .modal-overlay { align-items: flex-end; padding: 0; }
+  html.ui-modern .modal { border-radius: 22px 22px 0 0; max-width: 100%; animation-name: mSheet; }
+  @keyframes mSheet { from { transform: translateY(100%); } to { transform: none; } }
+}
+
+/* ── Rustig: animaties uit ── */
+html.m-calm *, html.m-calm *::before, html.m-calm *::after { animation: none !important; transition-duration: .01s !important; }
+@media (prefers-reduced-motion: reduce) {
+  html.ui-modern *, html.ui-modern *::before, html.ui-modern *::after { animation: none !important; transition-duration: .01s !important; scroll-behavior: auto !important; }
+}
+
+/* ── Afdrukken: nooit animaties of de lichte achtergrond ── */
+@media print {
+  html.ui-modern body { background: #fff; }
+  html.ui-modern * { animation: none !important; }
+}

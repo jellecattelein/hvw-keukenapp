@@ -2,10 +2,12 @@
    sw.js — HVW Keukenapp Service Worker
    ══════════════════════════════════════════ */
 
-const CACHE_NAME = 'hvw-keuken-v90';
+const CACHE_NAME = 'hvw-keuken-v91';
 const ASSETS = [
   '/hvw-keukenapp/',
   '/hvw-keukenapp/index.html',
+  '/hvw-keukenapp/assets/modern.css',
+  '/hvw-keukenapp/assets/modern.js',
   '/hvw-keukenapp/assets/firebase-config.js',
   '/hvw-keukenapp/assets/sync.js',
   '/hvw-keukenapp/assets/ai-split.js',
