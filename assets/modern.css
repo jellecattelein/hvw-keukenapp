@@ -350,7 +350,8 @@ html.m-etiket body.hvw-viewer .et-banner-viewer { display: inline; }
 html.m-etiket body.hvw-viewer button.et-banner-viewer { display: inline-flex; }
 /* de melding bovenaan vervangt de "upload eerst Excel"-kaarten van de schermen zelf */
 html.m-etiket .pe-no-data, html.m-etiket .pe-empty-no-excel { display: none; }
-@media (max-width: 1100px) { .et-brand div, .et-week { display: none; } }
+@media (max-width: 1320px) { .et-week { display: none; } }
+@media (max-width: 1100px) { .et-brand div { display: none; } }
 @media (max-width: 760px) {
   html.m-etiket #et-nav { gap: 10px; padding: 0 12px; height: 58px; }
   .et-brand div { display: none; }

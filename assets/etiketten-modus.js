@@ -22,6 +22,10 @@
       icon: '<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>' },
     { page: 'etiketten', label: 'Karren-Etiketten',
       icon: '<path d="M3 12.5V4a1 1 0 0 1 1-1h8.5a1 1 0 0 1 .7.3l8 8a1 1 0 0 1 0 1.4l-8.5 8.5a1 1 0 0 1-1.4 0l-8-8a1 1 0 0 1-.3-.7z"/><circle cx="7.5" cy="7.5" r="1.2"/>' },
+    { page: 'broodjes', label: 'Broodjes',
+      icon: '<path d="M12 3l9 5-9 5-9-5zM3 13l9 5 9-5"/>' },
+    { page: 'recepten', label: 'Recepten',
+      icon: '<path d="M12 6.5C10.5 5 8 4.5 4 4.5v13c4 0 6.5.5 8 2 1.5-1.5 4-2 8-2v-13c-4 0-6.5.5-8 2zM12 6.5v13"/>' },
   ];
   const svg = inner => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
 
