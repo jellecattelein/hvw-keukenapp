@@ -294,6 +294,74 @@ html.ui-modern #dash-ev-list .ev-row:nth-child(5) { --i: 5; } html.ui-modern #da
   @keyframes mSheet { from { transform: translateY(100%); } to { transform: none; } }
 }
 
+/* ══════════════════════════════════════════
+   ETIKETTEN-MODUS (html.m-etiket): bovenmenu i.p.v. zijbalk
+   ══════════════════════════════════════════ */
+#et-nav, #et-banner { display: none; }
+html.m-etiket #sidebar, html.m-etiket #topbar, html.m-etiket #mob-overlay, html.m-etiket #mob-hamburger { display: none !important; }
+html.m-etiket body { display: block; }
+html.m-etiket #app-wrap { margin-left: 0 !important; }
+html.m-etiket .page { max-width: 1560px; margin: 0 auto; width: 100%; padding: 24px 28px 64px; }
+html.m-etiket #et-nav {
+  display: flex; align-items: center; gap: 28px; position: sticky; top: 0; z-index: 80; height: 64px; padding: 0 28px;
+  background: rgba(255, 255, 255, .86); backdrop-filter: saturate(1.5) blur(16px); -webkit-backdrop-filter: saturate(1.5) blur(16px);
+  border-top: 3px solid var(--m-accent); border-bottom: 1px solid var(--m-line);
+}
+.et-brand { display: flex; align-items: center; gap: 12px; flex: none; }
+.et-brand img { width: 38px; height: 38px; border-radius: 11px; object-fit: cover; object-view-box: inset(3% 34% 30% 34%); box-shadow: 0 6px 14px -6px rgba(20, 21, 26, .5); }
+.et-brand b { display: block; font-size: 15px; font-weight: 700; letter-spacing: -.015em; line-height: 1.15; color: var(--m-ink); }
+.et-brand span { display: block; font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--m-accent-ink); font-weight: 600; }
+.et-tabs { position: relative; display: flex; align-items: stretch; gap: 4px; height: 100%; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.et-tabs::-webkit-scrollbar { display: none; }
+.et-tab {
+  display: inline-flex; align-items: center; gap: 9px; padding: 0 18px; border: 0; background: transparent; cursor: pointer;
+  font: 600 14.5px var(--font-ui); letter-spacing: -.005em; color: var(--m-ink-2); white-space: nowrap; border-radius: 10px; margin: 9px 0;
+  transition: color .2s, background .2s, transform .15s var(--m-ease);
+}
+.et-tab svg { width: 19px; height: 19px; color: var(--m-ink-3); transition: color .2s, transform .3s var(--m-ease); }
+.et-tab:hover { color: var(--m-ink); background: rgba(20, 21, 26, .045); }
+.et-tab:hover svg { transform: scale(1.1); }
+.et-tab:active { transform: scale(.97); }
+.et-tab.active { color: var(--m-ink); }
+.et-tab.active svg { color: var(--m-accent-ink); }
+.et-tab-ind { position: absolute; left: 0; bottom: 0; height: 3px; width: 0; background: var(--m-accent); border-radius: 3px 3px 0 0; transition: transform .4s var(--m-ease), width .4s var(--m-ease), opacity .2s; opacity: 0; pointer-events: none; }
+.et-right { display: flex; align-items: center; gap: 10px; flex: none; }
+.et-week { font-size: 12.5px; font-weight: 600; color: var(--m-ink-2); background: rgba(20, 21, 26, .05); padding: 7px 12px; border-radius: 999px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.et-sync { width: 38px; height: 38px; border-radius: 11px; border: 1px solid var(--m-line-2); background: #fff; color: var(--m-ink-2); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: all .2s var(--m-ease); }
+.et-sync svg { width: 18px; height: 18px; transition: transform .6s var(--m-ease); }
+.et-sync:hover { background: #F7F7F9; transform: translateY(-1px); }
+.et-sync:hover svg { transform: rotate(180deg); }
+.et-full { font-size: 12.5px; font-weight: 600; color: var(--m-ink-3); text-decoration: none; padding: 7px 4px; }
+.et-full:hover { color: var(--m-ink); text-decoration: underline; }
+html.m-etiket body.hvw-viewer .et-full { display: none; }
+
+/* melding als er (nog) geen week is */
+html.m-etiket.et-leeg #et-banner { display: block; padding: 20px 28px 0; max-width: 1560px; margin: 0 auto; width: 100%; }
+.et-banner-box { display: flex; align-items: center; gap: 16px; background: #fff; border-radius: var(--m-r); box-shadow: var(--m-sh-1); padding: 16px 20px; animation: mRise .5s var(--m-ease) both; }
+.et-banner-ico { width: 44px; height: 44px; border-radius: 13px; background: var(--m-accent-soft); color: var(--m-accent-ink); display: flex; align-items: center; justify-content: center; flex: none; }
+.et-banner-ico svg { width: 22px; height: 22px; }
+.et-banner-txt { flex: 1; font-size: 13.5px; color: var(--m-ink-2); line-height: 1.45; }
+.et-banner-txt b { display: block; color: var(--m-ink); font-size: 15px; margin-bottom: 2px; }
+.et-banner-admin { display: none; }
+html.m-etiket body:not(.hvw-viewer) .et-banner-admin { display: inline; }
+html.m-etiket body:not(.hvw-viewer) .et-banner-viewer { display: none; }
+html.m-etiket body:not(.hvw-viewer) button.et-banner-admin { display: inline-flex; }
+html.m-etiket body.hvw-viewer .et-banner-viewer { display: inline; }
+html.m-etiket body.hvw-viewer button.et-banner-viewer { display: inline-flex; }
+/* de melding bovenaan vervangt de "upload eerst Excel"-kaarten van de schermen zelf */
+html.m-etiket .pe-no-data, html.m-etiket .pe-empty-no-excel { display: none; }
+@media (max-width: 1100px) { .et-brand div, .et-week { display: none; } }
+@media (max-width: 760px) {
+  html.m-etiket #et-nav { gap: 10px; padding: 0 12px; height: 58px; }
+  .et-brand div { display: none; }
+  .et-tab { padding: 0 12px; font-size: 13px; gap: 6px; }
+  .et-tab svg { width: 17px; height: 17px; }
+  .et-week, .et-full { display: none; }
+  html.m-etiket .page { padding: 16px 12px 48px; }
+  html.m-etiket.et-leeg #et-banner { padding: 14px 12px 0; }
+  .et-banner-box { flex-wrap: wrap; }
+}
+
 /* ── Rustig: animaties uit ── */
 html.m-calm *, html.m-calm *::before, html.m-calm *::after { animation: none !important; transition-duration: .01s !important; }
 @media (prefers-reduced-motion: reduce) {

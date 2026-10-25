@@ -22,12 +22,22 @@
   <script>
     try {
       var d = document.documentElement;
-      if (localStorage.getItem('hvw-ui') !== 'klassiek') d.classList.add('ui-modern');
+      // Etiketten-modus: link ?modus=etiketten zet dit toestel om; ?modus=volledig zet terug
+      var q = new URLSearchParams(location.search).get('modus');
+      if (q === 'etiketten') localStorage.setItem('hvw-modus', 'etiketten');
+      else if (q === 'volledig') localStorage.removeItem('hvw-modus');
+      var et = localStorage.getItem('hvw-modus') === 'etiketten';
+      if (et) {
+        d.classList.add('m-etiket');
+        var mf = document.querySelector('link[rel="manifest"]');
+        if (mf) mf.setAttribute('href', 'manifest-etiketten.json');
+      }
+      if (et || localStorage.getItem('hvw-ui') !== 'klassiek') d.classList.add('ui-modern');
       if (localStorage.getItem('hvw-ui-calm') === 'on') d.classList.add('m-calm');
     } catch (e) { document.documentElement.classList.add('ui-modern'); }
   </script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/style.css?v=2227ee1b04">
+  <link rel="stylesheet" href="assets/style.css?v=e08e522b89">
   <style>
     :root {
       --sb-w: 224px;
@@ -442,7 +452,7 @@
       .dash-row { grid-template-columns: 1fr; }
     }
   </style>
-  <link rel="stylesheet" href="assets/modern.css?v=2227ee1b04">
+  <link rel="stylesheet" href="assets/modern.css?v=e08e522b89">
 </head>
 <body>
 
@@ -731,6 +741,16 @@
             <span><strong>Klassiek</strong><br>
             <span style="font-size:12px;color:#9A9590;">Het vorige uiterlijk met de donkere zijbalk.</span></span>
           </label>
+          <div style="border-top:1px solid rgba(20,21,26,.08);padding:14px 0;margin:2px 0 14px;">
+            <div style="font-size:14px;font-weight:600;margin-bottom:4px;">Etiketten-modus voor de keuken</div>
+            <p style="font-size:12.5px;color:#6B655E;margin:0 0 10px;line-height:1.5;">
+              Een aparte werkruimte met enkel de etiketten (Portie, Snel, Karren) en een bovenmenu — zonder de rest van de app. Zet dit toestel om met de knop hieronder; je kunt dezelfde link ook als snelkoppeling of favoriet bewaren.
+            </p>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <a class="btn btn-gold" href="?modus=etiketten">Dit toestel omzetten naar Etiketten-modus</a>
+              <button type="button" class="btn" onclick="navigator.clipboard && navigator.clipboard.writeText(location.origin + location.pathname + '?modus=etiketten').then(()=>this.textContent='Gekopieerd ✓')">Link kopiëren</button>
+            </div>
+          </div>
           <label style="display:flex;align-items:center;gap:10px;font-size:14px;cursor:pointer;">
             <input type="checkbox" id="ui-calm" onchange="window._uiCalmSet(this.checked)" style="width:16px;height:16px;cursor:pointer;">
             <span>Animaties uitzetten <span style="font-size:12px;color:#9A9590;">(rustiger, handig op een traag toestel)</span></span>
@@ -895,26 +915,27 @@
     </div>
   </div>
 
-  <script src="assets/modern.js?v=2227ee1b04"></script>
-  <script src="assets/firebase-config.js?v=2227ee1b04"></script>
-  <script src="assets/sync.js?v=2227ee1b04"></script>
-  <script src="assets/ai-split.js?v=2227ee1b04"></script>
-  <script src="assets/app.js?v=2227ee1b04"></script>
-  <script src="assets/bestelling_pdf.js?v=2227ee1b04"></script>
-  <script src="assets/suppliers.js?v=2227ee1b04"></script>
-  <script src="assets/ijsdesserts.js?v=2227ee1b04"></script>
-  <script src="assets/cars.js?v=2227ee1b04"></script>
-  <script src="assets/tijdstool.js?v=2227ee1b04"></script>
-  <script src="assets/functionsheets.js?v=2227ee1b04"></script>
-  <script src="assets/dymo-print.js?v=2227ee1b04"></script>
-  <script src="assets/snelle-etiketten.js?v=2227ee1b04"></script>
-  <script src="assets/portie-etiketten.js?v=2227ee1b04"></script>
-  <script src="assets/weekmap.js?v=2227ee1b04"></script>
-  <script src="assets/kiosk.js?v=2227ee1b04"></script>
-  <script src="assets/bakker.js?v=2227ee1b04"></script>
-  <script src="assets/broodjes.js?v=2227ee1b04"></script>
-  <script src="assets/recepten.js?v=2227ee1b04"></script>
-  <script src="assets/etiketten.js?v=2227ee1b04"></script>
+  <script src="assets/modern.js?v=e08e522b89"></script>
+  <script src="assets/etiketten-modus.js?v=e08e522b89"></script>
+  <script src="assets/firebase-config.js?v=e08e522b89"></script>
+  <script src="assets/sync.js?v=e08e522b89"></script>
+  <script src="assets/ai-split.js?v=e08e522b89"></script>
+  <script src="assets/app.js?v=e08e522b89"></script>
+  <script src="assets/bestelling_pdf.js?v=e08e522b89"></script>
+  <script src="assets/suppliers.js?v=e08e522b89"></script>
+  <script src="assets/ijsdesserts.js?v=e08e522b89"></script>
+  <script src="assets/cars.js?v=e08e522b89"></script>
+  <script src="assets/tijdstool.js?v=e08e522b89"></script>
+  <script src="assets/functionsheets.js?v=e08e522b89"></script>
+  <script src="assets/dymo-print.js?v=e08e522b89"></script>
+  <script src="assets/snelle-etiketten.js?v=e08e522b89"></script>
+  <script src="assets/portie-etiketten.js?v=e08e522b89"></script>
+  <script src="assets/weekmap.js?v=e08e522b89"></script>
+  <script src="assets/kiosk.js?v=e08e522b89"></script>
+  <script src="assets/bakker.js?v=e08e522b89"></script>
+  <script src="assets/broodjes.js?v=e08e522b89"></script>
+  <script src="assets/recepten.js?v=e08e522b89"></script>
+  <script src="assets/etiketten.js?v=e08e522b89"></script>
 
   <script>
   /* ═══ SIDEBAR ROUTING ═══ */

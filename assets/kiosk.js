@@ -308,7 +308,8 @@
     initToggleCheckbox();
 
     // Automatisch opstarten in kioskmodus indien dit toestel zo is ingesteld.
-    if (localStorage.getItem(STORAGE_KEY) === 'on') {
+    // (de aparte Etiketten-modus vervangt het kiosk-startscherm)
+    if (localStorage.getItem(STORAGE_KEY) === 'on' && !document.documentElement.classList.contains('m-etiket')) {
       window._kioskEnter();
     }
 

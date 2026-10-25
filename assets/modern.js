@@ -17,7 +17,8 @@
   const set = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
 
   function applyClasses() {
-    root.classList.toggle('ui-modern', get(UI_KEY) !== 'klassiek');
+    // de Etiketten-modus (m-etiket) bestaat enkel in het moderne ontwerp
+    root.classList.toggle('ui-modern', get(UI_KEY) !== 'klassiek' || root.classList.contains('m-etiket'));
     root.classList.toggle('m-calm', get(CALM_KEY) === 'on');
     syncIndicator();
   }
