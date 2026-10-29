@@ -355,10 +355,18 @@
     try { await db.enablePersistence({ synchronizeTabs: true }); } catch (e) {}
 
     auth.onAuthStateChanged(u => {
-      if (!u) { signedIn = false; showLogin(); setChip('uit'); return; }
+      if (!u) {
+        signedIn = false; showLogin(); setChip('uit');
+        window.hvwFirebase = null;
+        document.dispatchEvent(new CustomEvent('hvw-auth', { detail: { admin: false, signedIn: false } }));
+        return;
+      }
       const mail = (u.email || '').toLowerCase();
       isAdmin = mail === String(CFG.adminEmail || '').toLowerCase();
       signedIn = true;
+      // voor modules die enkel voor de beheerder zijn (bv. Offertes)
+      window.hvwFirebase = { db, isAdmin, email: mail, FieldValue: firebase.firestore.FieldValue };
+      document.dispatchEvent(new CustomEvent('hvw-auth', { detail: { admin: isAdmin, signedIn: true } }));
       document.body.classList.toggle('hvw-viewer', !isAdmin);
       hideLogin();
       setChip('ok');
@@ -381,6 +389,7 @@
     const s = document.createElement('style');
     s.textContent = `
       body.hvw-viewer #samengesteld-onopgedeeld,
+      body.hvw-viewer .sb-item[data-page="offertes"],
       body.hvw-viewer #btn-reset-sidebar,
       body.hvw-viewer .sb-bottom .sb-item[onclick*="xl-input"] { display: none !important; }
       #hvw-login { position: fixed; inset: 0; z-index: 99999; background: rgba(26,25,23,.92); display: none; align-items: center; justify-content: center; padding: 20px; }

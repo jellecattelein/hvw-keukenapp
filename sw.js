@@ -2,7 +2,7 @@
    sw.js — HVW Keukenapp Service Worker
    ══════════════════════════════════════════ */
 
-const CACHE_NAME = 'hvw-keuken-v97';
+const CACHE_NAME = 'hvw-keuken-v98';
 const ASSETS = [
   '/hvw-keukenapp/',
   '/hvw-keukenapp/index.html',
@@ -12,6 +12,7 @@ const ASSETS = [
   '/hvw-keukenapp/assets/firebase-config.js',
   '/hvw-keukenapp/assets/sync.js',
   '/hvw-keukenapp/assets/ai-split.js',
+  '/hvw-keukenapp/assets/offertes.js',
   '/hvw-keukenapp/assets/app.js',
   '/hvw-keukenapp/assets/bestelling_pdf.js',
   '/hvw-keukenapp/assets/suppliers.js',

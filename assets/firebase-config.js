@@ -21,4 +21,7 @@ window.HVW_FIREBASE = {
   adminEmail: 'jelle@hvw.be',
   // Overige toegelaten e-mailadressen (enkel uitvoeren en afdrukken).
   viewerEmails: ['lise@hvw.be'],
+  // Offertes → "Opslaan in Drive": OAuth-client-ID (Google Cloud). Leeg = bestand wordt enkel gedownload.
+  // Zie OFFERTES_DRIVE.md voor de stappen.
+  driveClientId: '',
 };
