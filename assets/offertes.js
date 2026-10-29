@@ -14,7 +14,7 @@
 
   const KEY = 'hvw-offertes';
   const PAR_KEY = 'hvw-offerte-par';
-  const PAR_DEF = { margeFood: 2.5, btwFood: 1.12, verlies: 1.10, margeDrank: 6.7, btwDrank: 1.21 };
+  const PAR_DEF = { margeFood: 2.5, btwFood: 1.12, verlies: 1.10 };
   const SECTIES_DEF = ['Amuses', 'Voorgerecht', 'Hoofdgerecht', 'Dessert'];
   const STATUSSEN = [
     { id: 'concept', label: 'Concept' },
@@ -55,7 +55,6 @@
       naam: '', klant: '', ccmId: '', verkoper: '', datum: '', pax: 100, apicbase: '', extra: '',
       par,
       secties: SECTIES_DEF.map(n => ({ id: uid(), naam: n, items: [newItem()] })),
-      dranken: [newItem()], marketing: [newItem()], loonkost: 0, vraagprijs: 0,
     };
   }
 
@@ -68,7 +67,7 @@
   }
   function calc(o) {
     const p = o.par, pax = num(o.pax);
-    const r = { items: {}, secs: {}, drinks: {} };
+    const r = { items: {}, secs: {} };
     const leeg = () => ({ akp: 0, verl: 0, vex: 0, vin: 0, kaart: 0 });
     const food = leeg();
     o.secties.forEach(s => {
@@ -82,22 +81,14 @@
       r.secs[s.id] = t;
       Object.keys(food).forEach(k => { food[k] += t[k]; });
     });
-    const dr = { akp: 0, vex: 0, vin: 0, kaart: 0 };
-    o.dranken.forEach(d => {
-      const akp = num(d.akp), vex = akp * p.margeDrank, vin = vex * p.btwDrank;
-      r.drinks[d.id] = { akp, vex, vin };
-      dr.akp += akp; dr.vex += vex; dr.vin += vin;
-    });
-    dr.kaart = Math.round(dr.vin);
-    const mkt = o.marketing.reduce((s, m) => s + num(m.akp), 0);
-    const pers = pax ? num(o.loonkost) / pax : 0;
-    const kost = food.verl + dr.akp + mkt + pers;
-    const vraag = num(o.vraagprijs);
-    const marge = vraag - kost;
-    r.food = food; r.dr = dr; r.mkt = mkt; r.pers = pers; r.kost = kost; r.vraag = vraag;
-    r.marge = marge; r.margePct = vraag ? marge / vraag : 0;
-    r.omzet = vraag * pax; r.kostTot = kost * pax; r.margeTot = r.omzet - r.kostTot;
-    r.hint = food.kaart + dr.kaart;
+    // Enkel food: kostprijs = AKP incl. verliesmarge; de kaartprijs is de prijs die je aan de klant geeft
+    const kost = food.verl;
+    const kaart = food.kaart;
+    const kaartEx = p.btwFood ? kaart / p.btwFood : kaart;          // kaartprijs zonder btw
+    r.food = food; r.kost = kost; r.kaart = kaart;
+    r.marge = kaart ? kaartEx - kost : 0;                           // marge op de kaartprijs, excl. btw
+    r.margePct = kaart ? r.marge / kaartEx : 0;
+    r.kostTot = kost * pax; r.kaartTot = kaart * pax;               // totaal voor het hele event
     return r;
   }
   const geldigItem = it => (it.naam || '').trim() || num(it.akp) || it.detail;
@@ -107,7 +98,7 @@
     try { offertes = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) { offertes = []; }
     if (!Array.isArray(offertes)) offertes = [];
     // oudere/onvolledige records aanvullen
-    offertes.forEach(o => { o.par = Object.assign({}, PAR_DEF, o.par || {}); o.secties = o.secties || []; o.dranken = o.dranken || []; o.marketing = o.marketing || []; });
+    offertes.forEach(o => { o.par = Object.assign({}, PAR_DEF, o.par || {}); o.secties = o.secties || []; });
   }
   function saveLocal() { try { localStorage.setItem(KEY, JSON.stringify(offertes)); } catch (e) { console.warn('[offertes] lokaal opslaan mislukt', e); } }
 
@@ -326,7 +317,7 @@
             ${o.apicbase ? `<span class="of-chip">Apicbase ${esc(isUrl(o.apicbase) ? 'link' : o.apicbase)}</span>` : ''}
           </div>
         </div>
-        <div class="of-num"><b>${r.vraag ? eur(r.vraag) : '—'}</b><span>${num(o.pax)} pax${r.vraag ? ' · marge ' + pct(r.margePct) : ''}</span></div>
+        <div class="of-num"><b>${r.kaart ? eur(r.kaart) : '—'}</b><span>${num(o.pax)} pax · kost ${eur(r.kost)}${r.kaart ? ' · marge ' + pct(r.margePct) : ''}</span></div>
         <div class="of-actions" onclick="event.stopPropagation()">
           <span class="of-status ${st.id}" style="align-self:center;margin-right:6px">${st.label}</span>
           <button class="of-ib" title="Dupliceren" onclick="window._ofDup('${o.id}')">${svg(IC.copy)}</button>
@@ -381,16 +372,6 @@
       </div>`).join('');
   }
 
-  function simpleRows(list, kind, extraCols) {
-    return list.map(d => `
-      <tr>
-        <td><input data-${kind}="${d.id}" data-f="naam" value="${esc(d.naam)}" placeholder="${kind === 'd' ? 'Drank (bv. Cava, 2 pp)' : 'Omschrijving'}" oninput="window._ofIn(this)"></td>
-        <td><input class="n" type="number" step="0.01" min="0" inputmode="decimal" data-${kind}="${d.id}" data-f="akp" value="${d.akp || ''}" placeholder="0,00" oninput="window._ofIn(this)"></td>
-        ${extraCols ? `<td class="c" data-k="d:${d.id}:vex"></td><td class="c" data-k="d:${d.id}:vin"></td>` : ''}
-        <td style="width:34px"><button class="of-ib of-row-x" onclick="window._ofSimpleDel('${kind}','${d.id}')" title="Rij verwijderen">${svg(IC.x, 15)}</button></td>
-      </tr>`).join('');
-  }
-
   function renderEditor() {
     const o = cur;
     const st = STATUSSEN;
@@ -401,8 +382,8 @@
         ${cloudHtml()}
         <div class="of-sum">
           <div><span>Kostprijs / pax</span><b data-k="sum:kost"></b></div>
-          <div><span>Vraagprijs / pax</span><b data-k="sum:vraag"></b></div>
-          <div><span>Marge</span><b data-k="sum:marge"></b></div>
+          <div><span>Kaartprijs / pax</span><b data-k="sum:kaart"></b></div>
+          <div><span>Marge (excl. btw)</span><b data-k="sum:marge"></b></div>
         </div>
       </div>
 
@@ -425,7 +406,7 @@
       <div class="of-sec">
         <div class="of-sec-h"><h3>Rekenfactoren</h3><span class="of-hint" style="margin:0">De waarden worden bij een nieuwe offerte overgenomen</span></div>
         <div class="of-sec-b of-par">
-          ${[['margeFood', 'Margefactor food'], ['btwFood', 'BTW-factor food (12%)'], ['verlies', 'Verliesmarge food'], ['margeDrank', 'Margefactor dranken'], ['btwDrank', 'BTW-factor dranken (21%)']]
+          ${[['margeFood', 'Margefactor food'], ['btwFood', 'BTW-factor food (12%)'], ['verlies', 'Verliesmarge food']]
             .map(([k, l]) => `<div class="of-f"><label>${l}</label><input type="number" step="0.01" inputmode="decimal" data-par="${k}" value="${o.par[k]}" oninput="window._ofIn(this)"></div>`).join('')}
         </div>
       </div>
@@ -439,54 +420,21 @@
       </div>
 
       <div class="of-sec">
-        <div class="of-sec-h"><h3>Dranken · all-in pakket</h3></div>
-        <div class="of-sec-b of-t-wrap" style="padding-top:6px">
-          <table class="of-t"><thead><tr><th>Omschrijving</th><th>AKP / pax</th><th>VKP excl. btw</th><th>VKP incl. btw</th><th></th></tr></thead>
-            <tbody>${simpleRows(o.dranken, 'd', true)}
-              <tr class="tot"><td>BEVERAGE TOTAAL</td><td data-k="dr:akp"></td><td data-k="dr:vex"></td><td data-k="dr:vin"></td><td></td></tr></tbody></table>
-          <button class="of-add" onclick="window._ofSimpleAdd('d')">${svg(IC.plus, 14)} Drank toevoegen</button>
-          <div class="of-hint">Kaartprijs dranken (afgerond): <b data-k="dr:kaart"></b></div>
-        </div>
-      </div>
-
-      <div class="of-sec">
-        <div class="of-sec-h"><h3>Marketing</h3></div>
-        <div class="of-sec-b of-t-wrap" style="padding-top:6px">
-          <table class="of-t" style="min-width:420px"><thead><tr><th>Omschrijving</th><th>Kost / pax</th><th></th></tr></thead>
-            <tbody>${simpleRows(o.marketing, 'm', false)}<tr class="tot"><td>MARKETING TOTAAL</td><td data-k="mkt"></td><td></td></tr></tbody></table>
-          <button class="of-add" onclick="window._ofSimpleAdd('m')">${svg(IC.plus, 14)} Post toevoegen</button>
-        </div>
-      </div>
-
-      <div class="of-sec">
-        <div class="of-sec-h"><h3>Personeelskost</h3></div>
-        <div class="of-sec-b of-grid">
-          <div class="of-f"><label>Totale loonkost event (bediening + keuken, €)</label><input type="number" step="1" min="0" inputmode="decimal" data-h="loonkost" value="${o.loonkost || ''}" oninput="window._ofIn(this)"></div>
-          <div class="of-f"><label>Personeelskost / pax</label><div style="padding:9px 0;font-weight:700" data-k="pers"></div></div>
-        </div>
-      </div>
-
-      <div class="of-sec">
-        <div class="of-sec-h"><h3>Totaaloverzicht &amp; vraagprijs</h3></div>
+        <div class="of-sec-h"><h3>Overzicht</h3></div>
         <div class="of-sec-b">
           <div class="of-over">
-            <div>Werkelijke kostprijs food / pax (incl. verliesmarge, excl. btw)</div><div data-k="kost:food"></div>
-            <div>Kostprijs dranken / pax</div><div data-k="kost:drink"></div>
-            <div>Marketingkost / pax</div><div data-k="kost:mkt"></div>
-            <div>Personeelskost / pax</div><div data-k="kost:pers"></div>
-            <div class="big">TOTAAL KOSTPRIJS / PAX</div><div class="big" data-k="kost:tot"></div>
-          </div>
-          <div class="of-grid" style="margin-top:16px;max-width:560px">
-            <div class="of-f"><label>Voorgestelde vraagprijs / pax (incl. btw, all-in)</label><input type="number" step="0.5" min="0" inputmode="decimal" data-h="vraagprijs" value="${o.vraagprijs || ''}" oninput="window._ofIn(this)"></div>
-            <div class="of-f"><label>&nbsp;</label><button class="btn" onclick="window._ofHint()" title="Som van de kaartprijzen food + dranken">Neem kaartprijzen over: <b data-k="hint" style="margin-left:4px"></b></button></div>
+            <div>Kostprijs food / pax (incl. verliesmarge, excl. btw)</div><div data-k="kost"></div>
+            <div>Verkoopprijs food / pax (excl. btw)</div><div data-k="food:vex"></div>
+            <div>Verkoopprijs food / pax (incl. btw)</div><div data-k="food:vin"></div>
+            <div class="big">Kaartprijs food / pax (incl. btw)</div><div class="big" data-k="kaart"></div>
           </div>
           <div class="of-over" style="margin-top:14px">
-            <div>Marge / pax</div><div data-k="marge"></div>
+            <div>Marge op de kaartprijs / pax (excl. btw)</div><div data-k="marge"></div>
             <div>Marge %</div><div data-k="margepct"></div>
-            <div>Verwachte omzet (totaal event)</div><div data-k="omzet"></div>
-            <div>Verwachte kostprijs (totaal event)</div><div data-k="kosttot"></div>
-            <div class="big">Verwachte marge (totaal event)</div><div class="big" data-k="margetot"></div>
+            <div>Totale kostprijs (hele event)</div><div data-k="kosttot"></div>
+            <div class="big">Totale kaartprijs (hele event, incl. btw)</div><div class="big" data-k="kaarttot"></div>
           </div>
+          <div class="of-hint">Marge = kaartprijs zonder btw min kostprijs. Vul bij de gerechten de kaartprijs in die je aan de klant geeft.</div>
         </div>
       </div>
 
@@ -511,13 +459,11 @@
     const f = (p, o) => Object.keys(o).forEach(k => { m[p + k] = eur(o[k]); });
     Object.entries(r.items).forEach(([id, v]) => { m[`i:${id}:verl`] = eur(v.verl); m[`i:${id}:vex`] = eur(v.vex); m[`i:${id}:vin`] = eur(v.vin); });
     Object.entries(r.secs).forEach(([id, v]) => f(`s:${id}:`, v));
-    Object.entries(r.drinks).forEach(([id, v]) => { m[`d:${id}:vex`] = eur(v.vex); m[`d:${id}:vin`] = eur(v.vin); });
-    f('food:', r.food); f('dr:', r.dr);
-    m.mkt = eur(r.mkt); m.pers = eur(r.pers);
-    m['kost:food'] = eur(r.food.verl); m['kost:drink'] = eur(r.dr.akp); m['kost:mkt'] = eur(r.mkt); m['kost:pers'] = eur(r.pers); m['kost:tot'] = eur(r.kost);
-    m.marge = eur(r.marge); m.margepct = pct(r.margePct); m.omzet = eur(r.omzet); m.kosttot = eur(r.kostTot); m.margetot = eur(r.margeTot);
-    m.hint = eur(r.hint);
-    m['sum:kost'] = eur(r.kost); m['sum:vraag'] = r.vraag ? eur(r.vraag) : '—'; m['sum:marge'] = r.vraag ? `${eur(r.marge)} · ${pct(r.margePct)}` : '—';
+    f('food:', r.food);
+    m.kost = eur(r.kost); m.kaart = r.kaart ? eur(r.kaart) : '—';
+    m.marge = r.kaart ? eur(r.marge) : '—'; m.margepct = r.kaart ? pct(r.margePct) : '—';
+    m.kosttot = eur(r.kostTot); m.kaarttot = eur(r.kaartTot);
+    m['sum:kost'] = eur(r.kost); m['sum:kaart'] = r.kaart ? eur(r.kaart) : '—'; m['sum:marge'] = r.kaart ? `${eur(r.marge)} · ${pct(r.margePct)}` : '—';
     document.querySelectorAll('#page-offertes [data-k]').forEach(el => {
       const k = el.dataset.k;
       if (k in m) el.textContent = m[k];
@@ -539,7 +485,7 @@
     if (!cur) return;
     const d = el.dataset, v = el.value;
     if (d.h) {
-      const num_ = ['pax', 'loonkost', 'vraagprijs'].includes(d.h);
+      const num_ = d.h === 'pax';
       cur[d.h] = num_ ? num(v) : v;
       if (d.h === 'apicbase') {
         const a = document.getElementById('of-apic-link');
@@ -552,19 +498,9 @@
     } else if (d.i) {
       const it = findItem(d.s, d.i); if (!it) return;
       it[d.f] = ['akp', 'kaart'].includes(d.f) ? num(v) : v;
-    } else if (d.d || d.m) {
-      const list = d.d ? cur.dranken : cur.marketing, it = list.find(x => x.id === (d.d || d.m)); if (!it) return;
-      it[d.f] = d.f === 'akp' ? num(v) : v;
     }
     updateComputed();
     scheduleSave();
-  };
-
-  window._ofHint = function () {
-    if (!cur) return;
-    cur.vraagprijs = calc(cur).hint;
-    const inp = document.querySelector('[data-h="vraagprijs"]'); if (inp) inp.value = cur.vraagprijs;
-    updateComputed(); scheduleSave();
   };
 
   window._ofRijAdd = function (sid) { const s = cur.secties.find(x => x.id === sid); if (s) { s.items.push(newItem()); scheduleSave(); renderEditor(); } };
@@ -579,13 +515,6 @@
     if (s && s.items.some(geldigItem) && !confirm(`Sectie "${s.naam}" met alle gerechten verwijderen?`)) return;
     cur.secties = cur.secties.filter(x => x.id !== sid); scheduleSave(); renderEditor();
   };
-  window._ofSimpleAdd = function (kind) { (kind === 'd' ? cur.dranken : cur.marketing).push(newItem()); scheduleSave(); renderEditor(); };
-  window._ofSimpleDel = function (kind, id) {
-    const key = kind === 'd' ? 'dranken' : 'marketing';
-    cur[key] = cur[key].filter(x => x.id !== id); if (!cur[key].length) cur[key] = [newItem()];
-    scheduleSave(); renderEditor();
-  };
-
   /* ══════════════════════════════
      DETAILBEREKENING (bv. buffet-hoofdgerecht met keuzes)
      Gemiddelde AKP / pax = Σ (AKP van het onderdeel × aantal pax dat het kiest) / basis-pax.
@@ -662,7 +591,7 @@
     clearTimeout(saveTimer);
     if (cur) {
       // volledig lege, nooit ingevulde offertes niet bewaren
-      const leeg = !cur.naam && !cur.klant && !cur.ccmId && !cur.verkoper && !cur.extra && !num(cur.vraagprijs) && !cur.secties.some(s => s.items.some(geldigItem));
+      const leeg = !cur.naam && !cur.klant && !cur.ccmId && !cur.verkoper && !cur.extra && !cur.secties.some(s => s.items.some(geldigItem));
       const i = offertes.findIndex(o => o.id === cur.id);
       if (leeg) { if (i >= 0) offertes.splice(i, 1); } else { cur.updatedAt = Date.now(); if (i >= 0) offertes[i] = cur; pushCloud(cur); }
       saveLocal();
@@ -708,7 +637,7 @@
      ['Apicbase', o.apicbase], ['Extra vermeldingen', o.extra]].forEach(([k, v]) => { put('A' + row, k); put('B' + row, v || ''); row++; });
     row++; T('PARAMETERS');
     const R = {};
-    [['pax', 'Aantal pax (couverts)', num(o.pax)], ['margeFood', 'Margefactor food', p.margeFood], ['btwFood', 'BTW-factor food (12%)', p.btwFood], ['verlies', 'Verliesmarge food', p.verlies], ['margeDrank', 'Margefactor dranken', p.margeDrank], ['btwDrank', 'BTW-factor dranken (21%)', p.btwDrank]]
+    [['pax', 'Aantal pax (couverts)', num(o.pax)], ['margeFood', 'Margefactor food', p.margeFood], ['btwFood', 'BTW-factor food (12%)', p.btwFood], ['verlies', 'Verliesmarge food', p.verlies]]
       .forEach(([k, l, v]) => { put('A' + row, l); put('B' + row, v); R[k] = '$B$' + row; row++; });
     row++;
     ['Omschrijving', 'AKP / pax', 'Verliesmarge', 'VKP excl. btw / pax', 'VKP incl. btw / pax', 'Kaartprijs incl. btw'].forEach((h, i) => put('ABCDEF'[i] + row, h)); row++;
@@ -729,37 +658,14 @@
     put('A' + row, 'FOOD TOTAAL');
     ['B', 'C', 'D', 'E', 'F'].forEach(c => put(c + row, { B: r.food.akp, C: r.food.verl, D: r.food.vex, E: r.food.vin, F: r.food.kaart }[c], `SUM(${c}${foodStart}:${c}${foodEnd})`));
     const rFood = row; row += 2;
-    T('DRANKEN · ALL-IN PAKKET');
-    const dStart = row;
-    o.dranken.filter(geldigItem).forEach(d => {
-      const v = r.drinks[d.id];
-      put('A' + row, d.naam || ''); put('B' + row, v.akp); put('D' + row, v.vex, `B${row}*${R.margeDrank}`); put('E' + row, v.vin, `D${row}*${R.btwDrank}`); row++;
-    });
-    const dEnd = Math.max(dStart, row - 1);
-    put('A' + row, 'BEVERAGE TOTAAL');
-    put('B' + row, r.dr.akp, `SUM(B${dStart}:B${dEnd})`); put('D' + row, r.dr.vex, `SUM(D${dStart}:D${dEnd})`); put('E' + row, r.dr.vin, `SUM(E${dStart}:E${dEnd})`); put('F' + row, r.dr.kaart, `ROUND(E${row},0)`);
-    const rDr = row; row += 2;
-    T('MARKETING (kost / pax)');
-    const mStart = row;
-    o.marketing.filter(geldigItem).forEach(m => { put('A' + row, m.naam || ''); put('B' + row, num(m.akp)); row++; });
-    const mEnd = Math.max(mStart, row - 1);
-    put('A' + row, 'MARKETING TOTAAL'); put('B' + row, r.mkt, `SUM(B${mStart}:B${mEnd})`); const rMkt = row; row += 2;
-    T('PERSONEELSKOST');
-    put('A' + row, 'Totale loonkost event (bediening + keuken, €)'); put('B' + row, num(o.loonkost)); const rLoon = row; row++;
-    put('A' + row, '→ Personeelskost / pax'); put('F' + row, r.pers, `IF(${R.pax}=0,0,B${rLoon}/${R.pax})`); const rPers = row; row += 2;
-    T('TOTAALOVERZICHT & VRAAGPRIJS');
-    put('A' + row, 'Werkelijke kostprijs food / pax (incl. verliesmarge, excl. btw)'); put('F' + row, r.food.verl, `C${rFood}`); const k1 = row; row++;
-    put('A' + row, 'Kostprijs dranken / pax'); put('F' + row, r.dr.akp, `B${rDr}`); row++;
-    put('A' + row, 'Marketingkost / pax'); put('F' + row, r.mkt, `B${rMkt}`); row++;
-    put('A' + row, 'Personeelskost / pax'); put('F' + row, r.pers, `F${rPers}`); const k4 = row; row++;
-    put('A' + row, 'TOTAAL KOSTPRIJS / PAX'); put('F' + row, r.kost, `SUM(F${k1}:F${k4})`); const rKost = row; row += 2;
-    put('A' + row, 'Voorgestelde vraagprijs / pax (incl. btw, all-in)'); put('F' + row, r.vraag); const rVraag = row; row++;
-    put('A' + row, 'Marge / pax'); put('F' + row, r.marge, `F${rVraag}-F${rKost}`); const rMarge = row; row++;
-    put('A' + row, 'Marge %'); put('F' + row, r.margePct, `IF(F${rVraag}=0,0,F${rMarge}/F${rVraag})`); row += 2;
-    T('TOTAALOVERZICHT EVENT');
-    put('A' + row, 'Verwachte omzet (totaal event)'); put('F' + row, r.omzet, `F${rVraag}*${R.pax}`); const rOm = row; row++;
-    put('A' + row, 'Verwachte kostprijs (totaal event)'); put('F' + row, r.kostTot, `F${rKost}*${R.pax}`); const rKt = row; row++;
-    put('A' + row, 'Verwachte marge (totaal event)'); put('F' + row, r.margeTot, `F${rOm}-F${rKt}`);
+    T('OVERZICHT');
+    put('A' + row, 'Kostprijs food / pax (incl. verliesmarge, excl. btw)'); put('F' + row, r.kost, `C${rFood}`); const rKost = row; row++;
+    put('A' + row, 'Kaartprijs food / pax (incl. btw)'); put('F' + row, r.kaart, `F${rFood}`); const rKaart = row; row++;
+    put('A' + row, 'Kaartprijs food / pax (excl. btw)'); put('F' + row, r.kaart / p.btwFood, `F${rKaart}/${R.btwFood}`); const rEx = row; row++;
+    put('A' + row, 'Marge op de kaartprijs / pax (excl. btw)'); put('F' + row, r.marge, `IF(F${rKaart}=0,0,F${rEx}-F${rKost})`); const rMarge = row; row++;
+    put('A' + row, 'Marge %'); put('F' + row, r.margePct, `IF(F${rEx}=0,0,F${rMarge}/F${rEx})`); row += 2;
+    put('A' + row, 'Totale kostprijs (hele event)'); put('F' + row, r.kostTot, `F${rKost}*${R.pax}`); row++;
+    put('A' + row, 'Totale kaartprijs (hele event, incl. btw)'); put('F' + row, r.kaartTot, `F${rKaart}*${R.pax}`);
 
     const ws = {}; Object.assign(ws, cells); ws['!ref'] = `A1:F${row}`;
     ws['!cols'] = [{ wch: 62 }, { wch: 14 }, { wch: 14 }, { wch: 20 }, { wch: 20 }, { wch: 20 }];
@@ -819,22 +725,14 @@
     });
     line(['FOOD TOTAAL', E(r.food.akp), E(r.food.verl), E(r.food.vex), E(r.food.vin), r.food.kaart ? E(r.food.kaart) : ''], true);
 
-    const dr = o.dranken.filter(geldigItem);
-    if (dr.length) { sectionTitle('Dranken · all-in pakket'); head(['Omschrijving', 'AKP / pax', '', 'VKP excl.', 'VKP incl.', 'Kaartprijs']);
-      dr.forEach(d => { const v = r.drinks[d.id]; line([d.naam, E(v.akp), '', E(v.vex), E(v.vin), '']); });
-      line(['BEVERAGE TOTAAL', E(r.dr.akp), '', E(r.dr.vex), E(r.dr.vin), E(r.dr.kaart)], true); }
-    const mk = o.marketing.filter(geldigItem);
-    if (mk.length) { sectionTitle('Marketing (kost / pax)'); mk.forEach(m => line([m.naam, E(num(m.akp))])); line(['MARKETING TOTAAL', E(r.mkt)], true); }
-
-    sectionTitle('Totaaloverzicht & vraagprijs');
+    sectionTitle('Overzicht');
     const kv = (k, v, b) => { need(6); doc.setFont('helvetica', b ? 'bold' : 'normal'); doc.setFontSize(9); doc.setTextColor(20, 21, 26); doc.text(k, M, y); doc.text(v, colX[5], y, { align: 'right' }); y += 5.2; };
-    kv('Werkelijke kostprijs food / pax (incl. verliesmarge, excl. btw)', E(r.food.verl));
-    kv('Kostprijs dranken / pax', E(r.dr.akp)); kv('Marketingkost / pax', E(r.mkt));
-    kv(`Personeelskost / pax  (loonkost ${E(num(o.loonkost))} ÷ ${num(o.pax)} pax)`, E(r.pers));
-    kv('TOTAAL KOSTPRIJS / PAX', E(r.kost), true); y += 2;
-    kv('Voorgestelde vraagprijs / pax (incl. btw, all-in)', E(r.vraag), true);
-    kv('Marge / pax', E(r.marge)); kv('Marge %', pct(r.margePct)); y += 2;
-    kv('Verwachte omzet (totaal event)', E(r.omzet)); kv('Verwachte kostprijs (totaal event)', E(r.kostTot)); kv('Verwachte marge (totaal event)', E(r.margeTot), true);
+    kv('Kostprijs food / pax (incl. verliesmarge, excl. btw)', E(r.kost));
+    kv('Verkoopprijs food / pax (excl. btw)', E(r.food.vex));
+    kv('Verkoopprijs food / pax (incl. btw)', E(r.food.vin));
+    kv('Kaartprijs food / pax (incl. btw)', r.kaart ? E(r.kaart) : '—', true); y += 2;
+    kv('Marge op de kaartprijs / pax (excl. btw)', r.kaart ? E(r.marge) : '—'); kv('Marge %', r.kaart ? pct(r.margePct) : '—'); y += 2;
+    kv('Totale kostprijs (hele event)', E(r.kostTot)); kv('Totale kaartprijs (hele event, incl. btw)', E(r.kaartTot), true);
 
     // detailberekeningen op een eigen pagina
     o.secties.forEach(s => s.items.filter(i => i.detail).forEach(it => {
@@ -921,7 +819,7 @@
     const o = cur, r = calc(o);
     const onderwerp = `Offerte ${o.naam || ''}${o.ccmId ? ' — CCM ' + o.ccmId : ''}${o.datum ? ' — ' + datumNl(o.datum) : ''}`.trim();
     const tekst = [`Hallo ${o.verkoper || ''},`.replace(' ,', ','), '', `Hierbij de kalkulatie voor ${o.naam || 'het event'}${o.datum ? ' op ' + datumNl(o.datum) : ''} (${num(o.pax)} pax).`,
-      o.ccmId ? `CCM-boeking: ${o.ccmId}` : '', `Voorgestelde vraagprijs: ${r.vraag ? eur(r.vraag) + ' per persoon (incl. btw, all-in)' : 'nog in te vullen'}`,
+      o.ccmId ? `CCM-boeking: ${o.ccmId}` : '', `Kaartprijs food: ${r.kaart ? eur(r.kaart) + ' per persoon (incl. btw)' : 'nog in te vullen'}`,
       o.extra ? '\n' + o.extra : '', '', 'Groeten'].filter(x => x !== '').join('\n');
     try {
       const f = await maakBestand('pdf');
