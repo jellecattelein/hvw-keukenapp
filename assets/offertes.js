@@ -38,6 +38,8 @@
   const eur = n => (isFinite(n) ? n : 0).toLocaleString('nl-BE', { style: 'currency', currency: 'EUR' });
   const pct = n => ((isFinite(n) ? n : 0) * 100).toLocaleString('nl-BE', { maximumFractionDigits: 1 }) + ' %';
   const todayISO = () => new Date().toISOString().slice(0, 10);
+  const ZALEN = ['Maelstede', 'Huis van Wonterghem', 'Traiteur'];
+  const plaatsTekst = o => [o.zaal, o.locatie].filter(Boolean).join(' · ');
   const MAANDEN = ['jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
   const isUrl = s => /^https?:\/\//i.test(String(s || '').trim());
   function datumDeel(iso) {
@@ -52,7 +54,7 @@
     try { par = Object.assign(par, JSON.parse(localStorage.getItem(PAR_KEY) || '{}')); } catch (e) {}
     return {
       id: uid(), createdAt: Date.now(), updatedAt: Date.now(), status: 'concept',
-      naam: '', klant: '', ccmId: '', verkoper: '', datum: '', pax: 100, apicbase: '', extra: '',
+      naam: '', klant: '', ccmId: '', verkoper: '', datum: '', zaal: '', locatie: '', pax: 100, apicbase: '', extra: '',
       par,
       secties: SECTIES_DEF.map(n => ({ id: uid(), naam: n, items: [newItem()] })),
     };
@@ -278,7 +280,7 @@
       if (filters.status && o.status !== filters.status) return false;
       if (filters.verkoper && o.verkoper !== filters.verkoper) return false;
       if (!q) return true;
-      return [o.naam, o.klant, o.ccmId, o.verkoper, o.apicbase, o.extra, o.datum].join(' ').toLowerCase().includes(q);
+      return [o.naam, o.klant, o.ccmId, o.verkoper, o.apicbase, o.extra, o.datum, o.zaal, o.locatie].join(' ').toLowerCase().includes(q);
     }).sort((a, b) => (b.datum || '').localeCompare(a.datum || '') || (b.updatedAt || 0) - (a.updatedAt || 0));
   }
 
@@ -314,6 +316,7 @@
           <div class="of-card-sub">
             ${o.ccmId ? `<span class="of-chip ccm">CCM ${esc(o.ccmId)}</span>` : ''}
             ${o.verkoper ? `<span class="of-chip vk">${esc(o.verkoper)}</span>` : ''}
+            ${plaatsTekst(o) ? `<span class="of-chip">${esc(plaatsTekst(o))}</span>` : ''}
             ${o.apicbase ? `<span class="of-chip">Apicbase ${esc(isUrl(o.apicbase) ? 'link' : o.apicbase)}</span>` : ''}
           </div>
         </div>
@@ -396,6 +399,8 @@
           <div class="of-f"><label>Klant</label><input data-h="klant" value="${esc(o.klant)}" oninput="window._ofIn(this)"></div>
           <div class="of-f"><label>CCM-boekingsnummer</label><input data-h="ccmId" value="${esc(o.ccmId)}" placeholder="ID in CCM" oninput="window._ofIn(this)"></div>
           <div class="of-f"><label>Verkoper</label><input data-h="verkoper" list="of-verkopers" value="${esc(o.verkoper)}" placeholder="Wie vroeg dit aan?" oninput="window._ofIn(this)"><datalist id="of-verkopers">${verkopers().map(v => `<option value="${esc(v)}">`).join('')}</datalist></div>
+          <div class="of-f"><label>Zaal</label><select data-h="zaal" onchange="window._ofIn(this)"><option value="">— kies een zaal —</option>${ZALEN.concat(o.zaal && !ZALEN.includes(o.zaal) ? [o.zaal] : []).map(z => `<option ${o.zaal === z ? 'selected' : ''}>${esc(z)}</option>`).join('')}</select></div>
+          <div class="of-f"><label>Locatie van het feest</label><input data-h="locatie" value="${esc(o.locatie)}" placeholder="bv. adres of plaats (zeker bij Traiteur)" oninput="window._ofIn(this)"></div>
           <div class="of-f"><label>Datum van het feest</label><input type="date" data-h="datum" value="${esc(o.datum)}" oninput="window._ofIn(this)"></div>
           <div class="of-f"><label>Aantal pax (couverts)</label><input type="number" min="0" inputmode="numeric" data-h="pax" value="${o.pax || ''}" oninput="window._ofIn(this)"></div>
           <div class="of-f"><label>Apicbase-code of link</label><div class="of-apic"><input data-h="apicbase" value="${esc(o.apicbase)}" placeholder="code of https://…" oninput="window._ofIn(this)"><a id="of-apic-link" href="${isUrl(o.apicbase) ? esc(o.apicbase) : '#'}" target="_blank" rel="noopener" style="${isUrl(o.apicbase) ? '' : 'display:none'}">Open ↗</a></div></div>
@@ -632,8 +637,8 @@
     const put = (addr, v, f) => { cells[addr] = f ? { t: 'n', v, f } : (typeof v === 'number' ? { t: 'n', v } : { t: 's', v: String(v == null ? '' : v) }); };
     let row = 1;
     const T = (txt) => { put('A' + row, txt); row++; };
-    T(`Offerte — ${o.naam || ''}`); row++;
-    [['Klant', o.klant], ['CCM-boekingsnummer', o.ccmId], ['Verkoper', o.verkoper], ['Datum feest', datumNl(o.datum)], ['Status', (STATUSSEN.find(s => s.id === o.status) || {}).label],
+    T(o.naam || 'Offerte'); row++;
+    [['Klant', o.klant], ['CCM-boekingsnummer', o.ccmId], ['Verkoper', o.verkoper], ['Zaal', o.zaal], ['Locatie', o.locatie], ['Datum feest', datumNl(o.datum)], ['Status', (STATUSSEN.find(s => s.id === o.status) || {}).label],
      ['Apicbase', o.apicbase], ['Extra vermeldingen', o.extra]].forEach(([k, v]) => { put('A' + row, k); put('B' + row, v || ''); row++; });
     row++; T('PARAMETERS');
     const R = {};
@@ -696,11 +701,11 @@
     const newPage = () => { doc.addPage(); y = 16; };
     const need = h => { if (y + h > 282) newPage(); };
     doc.setFillColor(20, 21, 26); doc.rect(0, 0, W, 22, 'F');
-    doc.setTextColor(255); doc.setFont('helvetica', 'bold'); doc.setFontSize(15); doc.text('Offerte — menukalkulatie', M, 10);
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(212, 180, 131); doc.text('Huis van Wonterghem', M, 16.5);
+    doc.setTextColor(255); doc.setFont('helvetica', 'bold'); doc.setFontSize(o.naam && o.naam.length > 34 ? 12 : 15); doc.text(o.naam || 'Menukalkulatie', M, 10, { maxWidth: W - 2 * M });
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(212, 180, 131); doc.text(plaatsTekst(o) || 'Menukalkulatie', M, 16.5, { maxWidth: W - 2 * M });
     y = 31;
-    doc.setTextColor(20, 21, 26); doc.setFont('helvetica', 'bold'); doc.setFontSize(14); doc.text(o.naam || 'Zonder naam', M, y); y += 7;
-    const meta = [['Klant', o.klant], ['CCM-boekingsnr.', o.ccmId], ['Verkoper', o.verkoper], ['Datum feest', datumNl(o.datum)], ['Aantal pax', String(num(o.pax))],
+    
+    const meta = [['Klant', o.klant], ['CCM-boekingsnr.', o.ccmId], ['Verkoper', o.verkoper], ['Zaal', o.zaal], ['Locatie', o.locatie], ['Datum feest', datumNl(o.datum)], ['Aantal pax', String(num(o.pax))],
       ['Status', (STATUSSEN.find(s => s.id === o.status) || {}).label], ['Apicbase', o.apicbase]].filter(x => x[1]);
     doc.setFontSize(9);
     meta.forEach(([k, v]) => { need(5); doc.setFont('helvetica', 'bold'); doc.setTextColor(139, 144, 160); doc.text(k.toUpperCase(), M, y); doc.setFont('helvetica', 'normal'); doc.setTextColor(20, 21, 26);
@@ -818,7 +823,7 @@
   window._ofMail = async function () {
     const o = cur, r = calc(o);
     const onderwerp = `Offerte ${o.naam || ''}${o.ccmId ? ' — CCM ' + o.ccmId : ''}${o.datum ? ' — ' + datumNl(o.datum) : ''}`.trim();
-    const tekst = [`Hallo ${o.verkoper || ''},`.replace(' ,', ','), '', `Hierbij de kalkulatie voor ${o.naam || 'het event'}${o.datum ? ' op ' + datumNl(o.datum) : ''} (${num(o.pax)} pax).`,
+    const tekst = [`Hallo ${o.verkoper || ''},`.replace(' ,', ','), '', `Hierbij de kalkulatie voor ${o.naam || 'het event'}${o.datum ? ' op ' + datumNl(o.datum) : ''}${plaatsTekst(o) ? ' (' + plaatsTekst(o) + ')' : ''} (${num(o.pax)} pax).`,
       o.ccmId ? `CCM-boeking: ${o.ccmId}` : '', `Kaartprijs food: ${r.kaart ? eur(r.kaart) + ' per persoon (incl. btw)' : 'nog in te vullen'}`,
       o.extra ? '\n' + o.extra : '', '', 'Groeten'].filter(x => x !== '').join('\n');
     try {
