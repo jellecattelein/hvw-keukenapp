@@ -751,7 +751,7 @@
               doc.setFont('helvetica', 'bold');
               doc.setFontSize(9.5);
               doc.setTextColor(26, 25, 23);
-              const naamTxt = r.naam + (r.isManual ? ' (handmatig)' : '');
+              const naamTxt = r.naam;
               const naamTrunc = naamTxt.length > 38 ? naamTxt.slice(0,37)+'…' : naamTxt;
               doc.text(naamTrunc, col.naam, y);
 
