@@ -20,6 +20,7 @@
     'hvw-groenten-assortiment-rouwmaaltijd',
     'hvw-samengestelde-gerechten',
     'hvw-weekmap-secties',
+    'hvw-bakker-regels',
     'mmm-suppliers',
     'mmm-assignments',
     'mmm-settings',

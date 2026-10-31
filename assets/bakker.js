@@ -35,12 +35,16 @@
     dessertbuffet_taart:  'Dessertbuffet — taarten',
     to_share_mini:        'Mini-gebak (to share)',
     mini_gebak:            'Mini-gebak',
+    dessert:               'Dessert',
+    desserthapje:          'Desserthapje',
   };
   const SUB_COLORS = {
     dessertbuffet_mini:   '#C2185B',
     dessertbuffet_taart:  '#C2185B',
     to_share_mini:        '#6B3A7D',
     mini_gebak:            '#B8965A',
+    dessert:               '#8B2D5E',
+    desserthapje:          '#2D7A6A',
   };
 
   // Herkent producten met "mini gebak", "minigebak" of "petit four(s)" in de
@@ -76,8 +80,32 @@
     });
   }
 
-  let manualRows = []; // handmatig toegevoegde regels/uitzonderingen: [{ id, naam, sub, dateStr, room, aantal }]
+  const STORE_KEY = 'hvw-bakker-regels';
+  let manualRows = []; // regels voor de bakker (handmatig of uit de Excel verschoven): [{ id, naam, sub, dateStr, room, aantal, bron? }]
   let idCounter = 1;
+  let aanbodOpen = true;
+  let lastAanbod = [];
+
+  function loadManual() {
+    try { const d = JSON.parse(localStorage.getItem(STORE_KEY) || '[]'); manualRows = Array.isArray(d) ? d : []; } catch (e) { manualRows = []; }
+    idCounter = 1 + manualRows.reduce((m, r) => Math.max(m, parseInt(String(r.id).replace(/\D/g, ''), 10) || 0), 0);
+  }
+  function saveManual() { try { localStorage.setItem(STORE_KEY, JSON.stringify(manualRows)); } catch (e) {} }
+
+  // Desserts en desserthapjes uit de Excel: dit is het aanbod waaruit je kiest wat naar de bakker gaat
+  const AANBOD_SUBS = { dessert: 'dessert', dessert_kids: 'dessert', desserthapjes: 'desserthapje' };
+  function getAanbod() {
+    if (typeof allRows === 'undefined' || !allRows.length) return [];
+    const map = new Map();
+    allRows.forEach(r => {
+      const sub = AANBOD_SUBS[r.sub];
+      if (!sub || r.persons <= 0 || !r.name) return;
+      const key = [sub, r.name, r.room || '', r.dateStr].join('||');
+      if (!map.has(key)) map.set(key, { key, sub, naam: r.name, persons: 0, room: r.room || '', dateStr: r.dateStr, weekKey: r.weekKey, weekLabel: r.weekLabel });
+      map.get(key).persons += r.persons;
+    });
+    return [...map.values()];
+  }
 
   function hexToRgb(hex) {
     const h = hex.replace('#', '');
@@ -198,6 +226,33 @@
       .bak-empty svg { margin-bottom: 12px; color: #C8C2B8; }
       .bak-empty-title { font-size: 14px; font-weight: 600; color: #1A1917; margin-bottom: 4px; }
 
+      .bak-aanbod-head { display:flex; align-items:center; gap:12px; cursor:pointer; user-select:none; }
+      .bak-aanbod-head h3 { margin:0; }
+      .bak-aanbod-head .bak-aanbod-sub { font-size:12px; color:#9A9590; margin-left:auto; }
+      .bak-aanbod-head .bak-chev { transition:transform .25s; color:#9A9590; }
+      .bak-aanbod.dicht .bak-chev { transform:rotate(-90deg); }
+      .bak-aanbod.dicht .bak-aanbod-body { display:none; }
+      .bak-aanbod-body { margin-top:14px; display:flex; flex-direction:column; gap:12px; max-height:560px; overflow-y:auto; }
+      .bak-a-dag { border:1px solid #EFEAE3; border-radius:12px; overflow:hidden; }
+      .bak-a-dag-h { display:flex; align-items:center; justify-content:space-between; padding:9px 14px; background:#FAF8F5; font-size:13px; font-weight:700; }
+      .bak-a-all { border:0; background:${BAKKER_BG}; color:${BAKKER_COLOR}; font-size:12px; font-weight:700; padding:6px 12px; border-radius:8px; cursor:pointer; }
+      .bak-a-all:hover { filter:brightness(.95); }
+      .bak-a-zaal { padding:8px 14px 2px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:#9A9590; }
+      .bak-a-row { display:grid; grid-template-columns:auto 1fr auto auto; gap:12px; align-items:center; padding:7px 14px; font-size:13px; border-top:1px solid #F4F1EC; }
+      .bak-a-row.moved { background:#F4FAF6; }
+      .bak-a-tag { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.3px; padding:2px 7px; border-radius:5px; white-space:nowrap; }
+      .bak-a-naam { color:#1A1917; font-weight:550; }
+      .bak-a-aant { font-family:'DM Mono',monospace; font-weight:700; color:#1A1917; }
+      .bak-a-btn { border:1.5px solid #DEDAD4; background:#fff; border-radius:8px; padding:5px 11px; font-size:12px; font-weight:700; cursor:pointer; white-space:nowrap; transition:all .15s; }
+      .bak-a-btn:hover { border-color:${BAKKER_COLOR}; color:${BAKKER_COLOR}; }
+      .bak-a-row.moved .bak-a-btn { background:#2D6A4F; border-color:#2D6A4F; color:#fff; }
+      .bak-manual-head { display:flex; align-items:center; justify-content:space-between; margin:16px 0 6px; font-size:12px; font-weight:700; color:#6B655E; text-transform:uppercase; letter-spacing:.4px; }
+      .bak-manual-head button { border:0; background:transparent; color:#B03A2E; font-size:12px; font-weight:600; cursor:pointer; }
+      .bak-manual-item input { font-family:'Outfit',sans-serif; font-size:12.5px; padding:4px 7px; border:1.5px solid #E5DACB; border-radius:7px; background:#fff; }
+      .bak-manual-item input[type=number] { width:70px; text-align:right; }
+      @media (max-width: 768px) {
+        .bak-a-row { grid-template-columns:1fr auto; } .bak-a-row .bak-a-tag { grid-column:1 / -1; justify-self:start; }
+      }
       @media (max-width: 768px) {
         #bakker-content { padding: 14px !important; }
         .bak-add-row { grid-template-columns: 1fr; }
@@ -340,7 +395,8 @@
   /* ── Render ── */
   function renderBakker() {
     const rows = getBakkerRows();
-    populateFilters(rows);
+    lastAanbod = getAanbod();
+    populateFilters(rows.concat(lastAanbod));
 
     const week = document.getElementById('bak-f-week')?.value || '';
     const date = document.getElementById('bak-f-date')?.value || '';
@@ -355,6 +411,7 @@
 
     const wrap = document.getElementById('bak-days-wrap');
     if (!wrap) return;
+    renderAanbod(week, date);
 
     if (!filtered.length) {
       wrap.innerHTML = `
@@ -449,15 +506,93 @@
     renderManualList();
   }
 
+  /* ── Aanbod: desserts & desserthapjes uit de Excel → naar de bakker verschuiven ── */
+  const isMoved = key => manualRows.some(m => m.bron === key);
+
+  function renderAanbod(week, date) {
+    const el = document.getElementById('bak-aanbod');
+    if (!el) return;
+    const lijst = lastAanbod.filter(a => (!week || a.weekKey === week) && (!date || a.dateStr === date));
+    const nMoved = lijst.filter(a => isMoved(a.key)).length;
+    if (!lastAanbod.length) {
+      el.className = 'bak-add-card bak-aanbod';
+      el.innerHTML = `<div class="bak-aanbod-head"><h3>Desserts &amp; desserthapjes uit de Excel</h3></div>
+        <div style="font-size:13px;color:#9A9590;margin-top:8px">Upload eerst een Excel-bestand. Daarna staan hier alle desserts en desserthapjes, zodat je ze naar de bakker kunt verschuiven.</div>`;
+      return;
+    }
+    const perDag = {};
+    lijst.forEach(a => { (perDag[a.dateStr || 'onbekend'] = perDag[a.dateStr || 'onbekend'] || []).push(a); });
+    const dagen = Object.keys(perDag).sort();
+    el.className = 'bak-add-card bak-aanbod' + (aanbodOpen ? '' : ' dicht');
+    el.innerHTML = `
+      <div class="bak-aanbod-head" onclick="window._bakToggleAanbod()">
+        <svg class="bak-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        <h3>Desserts &amp; desserthapjes uit de Excel</h3>
+        <span class="bak-aanbod-sub">${lijst.length} items · ${nMoved} bij de bakker</span>
+      </div>
+      <div class="bak-aanbod-body">
+        ${dagen.length ? dagen.map(d => {
+          const items = perDag[d].sort((a, b) => (a.room || '').localeCompare(b.room || '') || a.naam.localeCompare(b.naam));
+          const open = items.filter(a => !isMoved(a.key)).length;
+          let laatsteZaal = null;
+          return `<div class="bak-a-dag">
+            <div class="bak-a-dag-h"><span>${d === 'onbekend' ? 'Geen datum' : formatDate(d)}</span>
+              ${open ? `<button class="bak-a-all" onclick="window._bakMoveDag('${d}')">Alles van deze dag naar de bakker (${open}) →</button>` : '<span style="font-size:12px;color:#2D6A4F;font-weight:700">Alles staat bij de bakker ✓</span>'}</div>
+            ${items.map(a => {
+              const i = lastAanbod.indexOf(a), moved = isMoved(a.key);
+              const zaalKop = a.room !== laatsteZaal ? `<div class="bak-a-zaal">${escapeHtml(a.room || 'Geen zaal')}</div>` : ''; laatsteZaal = a.room;
+              return `${zaalKop}<div class="bak-a-row ${moved ? 'moved' : ''}">
+                <span class="bak-a-tag" style="background:${SUB_COLORS[a.sub]}22;color:${SUB_COLORS[a.sub]}">${SUB_LABELS[a.sub]}</span>
+                <span class="bak-a-naam">${escapeHtml(a.naam)}</span>
+                <span class="bak-a-aant">${a.persons}</span>
+                <button class="bak-a-btn" onclick="window._bakMove(${i})">${moved ? '✓ Bij bakker' : 'Naar bakker →'}</button>
+              </div>`;
+            }).join('')}
+          </div>`;
+        }).join('') : '<div style="font-size:13px;color:#9A9590">Geen desserts voor deze selectie.</div>'}
+      </div>`;
+  }
+
+  window._bakToggleAanbod = function () { aanbodOpen = !aanbodOpen; const el = document.getElementById('bak-aanbod'); if (el) el.classList.toggle('dicht', !aanbodOpen); };
+
+  function naarBakker(a) {
+    if (isMoved(a.key)) return;
+    manualRows.push({ id: 'm' + idCounter++, naam: a.naam, sub: a.sub, dateStr: a.dateStr || '', room: a.room || '', aantal: a.persons, bron: a.key });
+  }
+  // klik 1x = verschuiven, nog eens = terugzetten
+  window._bakMove = function (i) {
+    const a = lastAanbod[i]; if (!a) return;
+    if (isMoved(a.key)) manualRows = manualRows.filter(m => m.bron !== a.key); else naarBakker(a);
+    saveManual(); renderBakker();
+  };
+  window._bakMoveDag = function (d) {
+    lastAanbod.filter(a => (a.dateStr || 'onbekend') === d).forEach(naarBakker);
+    saveManual(); renderBakker();
+  };
+  // datum, zaal of aantal van een regel aanpassen: je sorteert zelf per dag
+  window._bakEdit = function (id, field, value) {
+    const m = manualRows.find(x => x.id === id); if (!m) return;
+    if (field === 'aantal') m.aantal = Math.max(0, parseInt(value, 10) || 0);
+    else m[field] = value;
+    saveManual(); renderBakker();
+  };
+  window._bakClearAll = function () {
+    if (!manualRows.length || !confirm('Alle regels voor de bakker verwijderen?')) return;
+    manualRows = []; saveManual(); renderBakker();
+  };
+
   function renderManualList() {
     const el = document.getElementById('bak-manual-list');
     if (!el) return;
     if (!manualRows.length) { el.innerHTML = ''; return; }
-    el.innerHTML = manualRows.map(m => `
+    const gesorteerd = [...manualRows].sort((a, b) => (a.dateStr || '9999').localeCompare(b.dateStr || '9999') || (a.room || '').localeCompare(b.room || '') || a.naam.localeCompare(b.naam));
+    el.innerHTML = `<div class="bak-manual-head"><span>Regels voor de bakker (${manualRows.length})</span><button onclick="window._bakClearAll()">Alles wissen</button></div>` + gesorteerd.map(m => `
       <div class="bak-manual-item">
         <span class="bak-manual-tag">${SUB_LABELS[m.sub] || m.sub}</span>
         <span class="bak-manual-naam">${escapeHtml(m.naam)}</span>
-        <span class="bak-manual-meta">${m.dateStr ? formatDate(m.dateStr) : ''}${m.room ? ' · ' + escapeHtml(m.room) : ''} · ${m.aantal}</span>
+        <input type="date" value="${escapeHtml(m.dateStr || '')}" title="Op welke dag bestel je dit?" onchange="window._bakEdit('${m.id}','dateStr',this.value)">
+        <span class="bak-manual-meta">${m.room ? escapeHtml(m.room) : ''}</span>
+        <input type="number" min="0" value="${m.aantal}" title="Aantal" onchange="window._bakEdit('${m.id}','aantal',this.value)">
         <button class="bak-manual-del" onclick="window._bakRemoveManual('${m.id}')" title="Verwijderen">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
@@ -482,6 +617,7 @@
     if (!aantal || aantal <= 0) { document.getElementById('bak-add-aantal')?.focus(); return; }
 
     manualRows.push({ id: 'm' + idCounter++, naam, sub, dateStr, room, aantal });
+    saveManual();
 
     document.getElementById('bak-add-naam').value = '';
     document.getElementById('bak-add-room').value = '';
@@ -492,6 +628,7 @@
 
   window._bakRemoveManual = function (id) {
     manualRows = manualRows.filter(m => m.id !== id);
+    saveManual();
     renderBakker();
   };
 
@@ -701,6 +838,7 @@
 
   /* ── UI injecteren ── */
   function injectUI() {
+    loadManual();
     const wrap = document.createElement('div');
     wrap.id = 'bakker-content';
     wrap.innerHTML = `
@@ -713,12 +851,16 @@
           <option value="dessertbuffet_taart">Dessertbuffet — taarten</option>
           <option value="to_share_mini">Mini-gebak (to share)</option>
           <option value="mini_gebak">Mini-gebak (los)</option>
+          <option value="dessert">Dessert (verschoven)</option>
+          <option value="desserthapje">Desserthapje (verschoven)</option>
         </select>
         <button class="bak-export-btn no-print" id="bak-export-pdf-btn" onclick="window._exportBakkerPDF()">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
           Exporteer PDF voor bakker
         </button>
       </div>
+
+      <div class="bak-add-card bak-aanbod" id="bak-aanbod"></div>
 
       <div class="bak-add-card">
         <h3>Regel toevoegen</h3>
@@ -733,6 +875,8 @@
               <option value="mini_gebak">Mini-gebak</option>
               <option value="dessertbuffet_taart">Taart</option>
               <option value="dessertbuffet_mini">Dessertbuffet — mini gebak</option>
+              <option value="dessert">Dessert</option>
+              <option value="desserthapje">Desserthapje</option>
             </select>
           </div>
           <div class="bak-add-field">
