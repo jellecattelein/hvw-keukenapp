@@ -229,8 +229,11 @@
       .bak-aanbod h3 { display:flex; align-items:baseline; gap:10px; }
       .bak-aanbod h3 span { font-size:12px; font-weight:500; color:#9A9590; }
       .bak-aanbod-body { margin-top:4px; max-height:620px; overflow-y:auto; }
-      .bak-a-row { display:grid; grid-template-columns:auto 1fr auto auto; gap:12px; align-items:center; padding:9px 4px; font-size:13px; border-top:1px solid #F4F1EC; }
+      .bak-a-row { display:grid; grid-template-columns:1fr auto auto; gap:12px; align-items:center; padding:9px 4px; font-size:13px; border-top:1px solid #F4F1EC; }
       .bak-a-row:first-child { border-top:0; }
+      .bak-a-cat { margin:14px 0 2px; padding:6px 4px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.6px; border-bottom:2px solid currentColor; display:flex; justify-content:space-between; }
+      .bak-a-cat:first-child { margin-top:4px; }
+      .bak-a-cat span { font-weight:600; opacity:.7; }
       .bak-a-row.moved { background:#F4FAF6; }
       .bak-a-tag { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.3px; padding:2px 7px; border-radius:5px; white-space:nowrap; }
       .bak-a-naam { color:#1A1917; font-weight:600; }
@@ -240,7 +243,7 @@
       .bak-a-btn:hover { border-color:${BAKKER_COLOR}; color:${BAKKER_COLOR}; }
       .bak-a-row.moved .bak-a-btn { background:#2D6A4F; border-color:#2D6A4F; color:#fff; }
       @media (max-width: 768px) {
-        .bak-a-row { grid-template-columns:1fr auto; } .bak-a-row .bak-a-tag { grid-column:1 / -1; justify-self:start; }
+        .bak-a-row { grid-template-columns:1fr auto; } .bak-a-row .bak-a-btn { grid-column:1 / -1; }
       }
       @media (max-width: 768px) {
         #bakker-content { padding: 14px !important; }
@@ -501,30 +504,34 @@
   function renderAanbod(week, date) {
     const el = document.getElementById('bak-aanbod');
     if (!el) return;
-    if (!lastAanbod.length) { el.style.display = 'none'; return; }
-    el.style.display = '';
-    const lijst = lastAanbod.filter(a => (!week || a.weekKey === week) && (!date || a.dateStr === date))
+    // wat al bij de bakker staat, verdwijnt uit deze lijst (en komt terug als je de regel bij de bakker weghaalt)
+    const lijst = lastAanbod.filter(a => !isMoved(a.key) && (!week || a.weekKey === week) && (!date || a.dateStr === date))
       .sort((a, b) => (a.dateStr || '').localeCompare(b.dateStr || '') || (a.room || '').localeCompare(b.room || '') || a.naam.localeCompare(b.naam));
-    el.innerHTML = `
-      <h3>Desserts &amp; desserthapjes <span>${lijst.length} uit de Excel · kies wat naar de bakker gaat</span></h3>
-      <div class="bak-aanbod-body">
-        ${lijst.length ? lijst.map(a => {
-          const i = lastAanbod.indexOf(a), moved = isMoved(a.key);
-          return `<div class="bak-a-row ${moved ? 'moved' : ''}">
-            <span class="bak-a-tag" style="background:${SUB_COLORS[a.sub]}22;color:${SUB_COLORS[a.sub]}">${SUB_LABELS[a.sub]}</span>
-            <span class="bak-a-naam">${escapeHtml(a.naam)}<small>${a.dateStr ? formatDate(a.dateStr) : 'Geen datum'}${a.room ? ' · ' + escapeHtml(a.room) : ''}</small></span>
-            <span class="bak-a-aant">${a.persons}</span>
-            <button class="bak-a-btn" onclick="window._bakMove(${i})">${moved ? '✓ Toegevoegd' : 'Voeg toe aan bakker'}</button>
-          </div>`;
-        }).join('') : '<div style="font-size:13px;color:#9A9590;padding:8px 0">Geen desserts voor deze selectie.</div>'}
+    if (!lastAanbod.length || (!lijst.length && !lastAanbod.some(a => isMoved(a.key)))) { el.style.display = 'none'; return; }
+    el.style.display = '';
+    // eerst de desserthapjes, daaronder de desserts
+    const categorieen = [['desserthapje', 'Desserthapjes'], ['dessert', 'Desserts']];
+    const rij = a => {
+      const i = lastAanbod.indexOf(a);
+      return `<div class="bak-a-row">
+        <span class="bak-a-naam">${escapeHtml(a.naam)}<small>${a.dateStr ? formatDate(a.dateStr) : 'Geen datum'}${a.room ? ' · ' + escapeHtml(a.room) : ''}</small></span>
+        <span class="bak-a-aant">${a.persons}</span>
+        <button class="bak-a-btn" onclick="window._bakMove(${i})">Voeg toe aan bakker</button>
       </div>`;
+    };
+    const blokken = categorieen.map(([sub, titel]) => {
+      const items = lijst.filter(a => a.sub === sub);
+      return items.length ? `<div class="bak-a-cat" style="color:${SUB_COLORS[sub]}">${titel}<span>${items.length}</span></div>${items.map(rij).join('')}` : '';
+    }).join('');
+    el.innerHTML = `
+      <h3>Desserts &amp; desserthapjes <span>${lijst.length} nog over uit de Excel</span></h3>
+      <div class="bak-aanbod-body">${blokken || '<div style="font-size:13px;color:#2D6A4F;font-weight:600;padding:10px 0">Alles staat bij de bakker ✓</div>'}</div>`;
   }
 
-  // klik = toevoegen aan de bakker; nog eens klikken = terug weg
+  // toevoegen aan de bakker; weghalen kan met het kruisje bij de regels van de bakker
   window._bakMove = function (i) {
-    const a = lastAanbod[i]; if (!a) return;
-    if (isMoved(a.key)) manualRows = manualRows.filter(m => m.bron !== a.key);
-    else manualRows.push({ id: 'm' + idCounter++, naam: a.naam, sub: a.sub, dateStr: a.dateStr || '', room: a.room || '', aantal: a.persons, bron: a.key });
+    const a = lastAanbod[i]; if (!a || isMoved(a.key)) return;
+    manualRows.push({ id: 'm' + idCounter++, naam: a.naam, sub: a.sub, dateStr: a.dateStr || '', room: a.room || '', aantal: a.persons, bron: a.key });
     saveManual(); renderBakker();
   };
 
