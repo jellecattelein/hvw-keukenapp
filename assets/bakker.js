@@ -99,6 +99,9 @@
     allRows.forEach(r => {
       const sub = AANBOD_SUBS[r.sub];
       if (!sub || r.persons <= 0 || !r.name) return;
+      // Wat de app al automatisch voor de bakker neemt (de mini-gebakjes bij een dessert "to share",
+      // en producten met "mini gebak"/"petit four" in de naam) staat hierboven al; niet nog eens aanbieden.
+      if (isToShareDessert(r.name, r.sub === 'dessert_kids' ? 'dessert' : r.sub) || isMiniGebakProduct(r.name)) return;
       const key = [sub, r.name, r.room || '', r.dateStr].join('||');
       if (!map.has(key)) map.set(key, { key, sub, naam: r.name, persons: 0, room: r.room || '', dateStr: r.dateStr, weekKey: r.weekKey, weekLabel: r.weekLabel });
       map.get(key).persons += r.persons;
