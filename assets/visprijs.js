@@ -195,7 +195,7 @@
     const regels = [];
     rijen.forEach(r => { regels.push(`- ${r.naam}${inst.metHoeveelheid && r.kg ? ` — ± ${fmtHoev(r)}` : ''}`); regels.push(...dagRegel(r)); });
     return [
-      `Beste ${levNaam() || 'leverancier'},`,
+      'Goedendag,',
       '',
       `Kunnen jullie ons de prijzen bezorgen voor ${wk || 'volgende week'}?`,
       '',
@@ -323,7 +323,7 @@
           <button class="${inst.tab === 'prijzen' ? 'act' : ''}" onclick="window._vpTab('prijzen')">2 · Prijzen &amp; bestellen</button>
         </div>
         <div class="vp-sup">
-          ${inst.tab === 'prijzen' ? '' : inst.leveranciers.map(l => `<button class="vp-chip ${l.id === inst.gekozen ? 'act' : ''}" onclick="window._vpLev('${l.id}')">${esc(l.naam)}</button>`).join('')}
+          ${inst.leveranciers.map(l => `<span class="vp-chip" style="cursor:default;transform:none">${esc(l.naam)}</span>`).join('')}
           <button class="vp-chip add" onclick="window._vpLevAdd()">+ leverancier</button>
         </div>
       </div>
@@ -349,7 +349,7 @@
 
         <div>
           <div class="vp-card">
-            <h3>Aanvraag voor ${esc(levNaam())} <span>${lijst().length} producten</span></h3>
+            <h3>Prijsaanvraag <span>${lijst().length} producten · één mail voor alle leveranciers</span></h3>
             <div class="vp-opt">
               <label><input type="checkbox" ${inst.metHoeveelheid ? 'checked' : ''} onchange="window._vpOpt('metHoeveelheid',this.checked)"> Hoeveelheden vermelden</label>
               <label><input type="checkbox" ${inst.metDagen ? 'checked' : ''} onchange="window._vpOpt('metDagen',this.checked)"> Dagen vermelden</label>
@@ -362,6 +362,7 @@
               <button class="btn" onclick="window._vpMail()">E-mail openen</button>
               <span id="vp-ok" class="vp-ok">Gekopieerd ✓</span>
             </div>
+            <div class="vp-opt" style="font-size:12px;color:#8B90A0">E-mail naar: ${inst.leveranciers.map(l => `<button class="vp-linkbtn" onclick="window._vpLevMail('${l.id}')">${esc(l.naam)}: ${l.email ? esc(l.email) : 'adres instellen'}</button>`).join(' · ')}</div>
           </div>
         </div>
       </div>`}`;
@@ -533,7 +534,7 @@
   window._vpLevMail = function (id) {
     const l = inst.leveranciers.find(x => x.id === id); if (!l) return;
     const e = prompt(`E-mailadres van ${l.naam}?`, l.email || ''); if (e == null) return;
-    l.email = e.trim(); save(); prijzenUpdate();
+    l.email = e.trim(); save(); render();
   };
   window._vpBestelKopieer = async function (id) {
     const t = document.getElementById('vp-bt-' + id); if (!t) return;
@@ -583,13 +584,13 @@
     const ok = document.getElementById('vp-ok'); if (ok) { ok.classList.add('on'); setTimeout(() => ok.classList.remove('on'), 2200); }
   };
   window._vpMail = function () {
-    const l = inst.leveranciers.find(x => x.id === inst.gekozen) || {};
+    const aan = inst.leveranciers.map(x => (x.email || '').trim()).filter(Boolean).map(encodeURIComponent).join(',');
     const onderwerp = `Prijsaanvraag vis ${weekLabel() ? '— ' + weekLabel() : ''}`.trim();
     const tekst = document.getElementById('vp-tekst')?.value || maakTekst();
-    location.href = `mailto:${encodeURIComponent(l.email || '')}?subject=${encodeURIComponent(onderwerp)}&body=${encodeURIComponent(tekst)}`;
+    location.href = `mailto:${aan}?subject=${encodeURIComponent(onderwerp)}&body=${encodeURIComponent(tekst)}`;
   };
   window._vpPdf = function () {
-    pdfMaak({ titel: 'Prijsaanvraag vis', lev: levNaam(), rijen: lijst(), bestelling: false });
+    pdfMaak({ titel: 'Prijsaanvraag vis', lev: '', rijen: lijst(), bestelling: false });
   };
   // Eén PDF-opmaak voor de prijsaanvraag (met lege prijsvakjes) én de bestelling (met prijs)
   async function pdfMaak(o) {
@@ -599,7 +600,7 @@
       const M = 16, W = 210; let y = 20;
       doc.setFont('helvetica', 'bold'); doc.setFontSize(17); doc.setTextColor(20, 21, 26); doc.text(o.titel, M, y); y += 7;
       doc.setFont('helvetica', 'normal'); doc.setFontSize(10.5); doc.setTextColor(110, 115, 130);
-      doc.text(`${o.lev}${weekLabel() ? '  ·  ' + weekLabel() : ''}`, M, y); y += 4;
+      doc.text([o.lev, weekLabel()].filter(Boolean).join('  ·  '), M, y); y += 4;
       doc.setDrawColor(26, 63, 111); doc.setLineWidth(0.6); doc.line(M, y, W - M, y); y += 9;
       doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(139, 144, 160);
       doc.text('PRODUCT', M, y);
@@ -623,7 +624,7 @@
       y += 4; doc.text(inst.handtekening || '', M, y);
       const n = doc.getNumberOfPages();
       for (let i = 1; i <= n; i++) { doc.setPage(i); doc.setFontSize(7.5); doc.setTextColor(150); doc.text(`Huis van Wonterghem · ${new Date().toLocaleDateString('nl-BE')}`, M, 290); doc.text(`${i} / ${n}`, W - M, 290, { align: 'right' }); }
-      doc.save(`HVW_${o.bestelling ? 'Bestelling' : 'Prijsaanvraag'}-vis_${String(o.lev).replace(/\W+/g, '')}_${new Date().toISOString().slice(0, 10)}.pdf`);
+      doc.save(`HVW_${o.bestelling ? 'Bestelling' : 'Prijsaanvraag'}-vis_${String(o.lev || 'alle-leveranciers').replace(/\W+/g, '')}_${new Date().toISOString().slice(0, 10)}.pdf`);
     } catch (e) { alert('PDF maken mislukt: ' + (e.message || e)); console.error(e); }
   }
   window._renderVisprijs = render;
