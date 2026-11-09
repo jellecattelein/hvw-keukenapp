@@ -363,7 +363,7 @@
               <button class="btn" onclick="window._vpMail()">E-mail openen in Gmail</button>
               <span id="vp-ok" class="vp-ok">Gekopieerd ✓</span>
             </div>
-            <div class="vp-opt" style="font-size:12px;color:#8B90A0">E-mail naar: ${inst.leveranciers.map(l => `<button class="vp-linkbtn" onclick="window._vpLevMail('${l.id}')">${esc(l.naam)}: ${l.email ? esc(l.email) : 'adres instellen'}</button>`).join(' · ')} · <button class="vp-linkbtn" onclick="window._vpGmail()">Gmail-account: ${inst.gmail ? esc(inst.gmail) : 'standaard'}</button></div>
+            <div class="vp-opt" style="font-size:12px;color:#8B90A0">E-mail naar: ${inst.leveranciers.map(l => `<button class="vp-linkbtn" onclick="window._vpLevMail('${l.id}')">${esc(l.naam)}: ${adressenVan(l.email).length ? esc(adressenVan(l.email).join(', ')) : 'adres instellen'}</button>`).join(' · ')} · <button class="vp-linkbtn" onclick="window._vpGmail()">Gmail-account: ${inst.gmail ? esc(inst.gmail) : 'standaard'}</button></div>
           </div>
         </div>
       </div>`}`;
@@ -494,7 +494,7 @@
       const regels = [];
       for (const lev of inst.leveranciers) {
         toonMelding(`Antwoorden van ${esc(lev.naam)} ophalen…` + (regels.length ? '<br>' + regels.join('<br>') : ''));
-        const qs = [lev.email && `from:${lev.email.trim()}`, `from:${lev.naam.trim().split(/\s+/)[0]}`].filter(Boolean);
+        const qs = [...adressenVan(lev.email).map(a => `from:${a}`), `from:${lev.naam.trim().split(/\s+/)[0]}`].filter(Boolean);
         const ids = new Map();
         for (const q of qs) {
           const r = await gmailGet(token, 'messages?maxResults=6&q=' + encodeURIComponent(q + ' newer_than:14d'));
@@ -597,7 +597,7 @@
             <button class="btn btn-gold" onclick="window._vpBestelKopieer('${l.id}')">Kopieer tekst</button>
             <button class="btn btn-primary" onclick="window._vpBestelPdf('${l.id}')">PDF downloaden</button>
             <button class="btn" onclick="window._vpBestelMail('${l.id}')">E-mail openen in Gmail</button>
-            <button class="vp-linkbtn" onclick="window._vpLevMail('${l.id}')">${l.email ? esc(l.email) + ' · wijzigen' : 'e-mailadres instellen'}</button>
+            <button class="vp-linkbtn" onclick="window._vpLevMail('${l.id}')">${adressenVan(l.email).length ? esc(adressenVan(l.email).join(', ')) + ' · wijzigen' : 'e-mailadres instellen'}</button>
             <span id="vp-ok-${l.id}" class="vp-ok">Gekopieerd ✓</span>
           </div></div>`;
       }).join('') || `<div class="vp-card"><div class="vp-leeg">Vul prijzen in en de bestellingen per leverancier verschijnen hier.</div></div>`;
@@ -635,7 +635,7 @@
   window._vpLevMail = function (id) {
     const l = inst.leveranciers.find(x => x.id === id); if (!l) return;
     const e = prompt(`E-mailadres van ${l.naam}?`, l.email || ''); if (e == null) return;
-    l.email = e.trim(); save(); render();
+    l.email = adressenVan(e).join(', '); save(); render();
   };
   window._vpBestelKopieer = async function (id) {
     const t = document.getElementById('vp-bt-' + id); if (!t) return;
@@ -644,8 +644,10 @@
   };
   // Opent een nieuw bericht in Gmail (in een nieuw tabblad), met de adressen in bcc, onderwerp en tekst al ingevuld.
   // Is de tekst te lang voor een link, dan wordt ze gekopieerd en plak je ze zelf (Ctrl+V).
+  // uit "Naam <adres@x.be>" (zoals Gmail het kopieert) enkel de adressen halen
+  const adressenVan = s => String(s || '').match(/[^\s<>,;"']+@[^\s<>,;"']+\.[^\s<>,;"']+/g) || [];
   function openMail(adressen, onderwerp, tekst) {
-    const aan = (adressen || []).map(x => (x || '').trim()).filter(Boolean).join(',');
+    const aan = (adressen || []).flatMap(adressenVan).join(',');
     const q = p => Object.entries(p).filter(([, v]) => v).map(([k, v]) => k + '=' + encodeURIComponent(v)).join('&');
     const basis = { view: 'cm', fs: '1', bcc: aan, su: onderwerp, authuser: inst.gmail || '' };
     let url = 'https://mail.google.com/mail/?' + q({ ...basis, body: tekst });
@@ -672,7 +674,7 @@
   window._vpLev = function (id) { inst.gekozen = id; save(); render(); };
   window._vpLevAdd = function () {
     const naam = (prompt('Naam van de leverancier?') || '').trim(); if (!naam) return;
-    const email = (prompt('E-mailadres (optioneel, voor de knop "E-mail openen")?') || '').trim();
+    const email = adressenVan(prompt('E-mailadres (optioneel, voor de knop "E-mail openen")?') || '').join(', ');
     const l = { id: uid(), naam, email }; inst.leveranciers.push(l); inst.gekozen = l.id; save(); render();
   };
   window._vpAan = function (id, aan) { inst.aan[weekKey + '|' + id] = !!aan; save(); render(); };
