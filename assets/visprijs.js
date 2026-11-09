@@ -44,6 +44,7 @@
   ];
 
   const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const num = (v, def) => { const n = parseFloat(String(v).replace(',', '.')); return isFinite(n) && n > 0 ? n : def; };
   const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
   let inst = null;
@@ -56,6 +57,8 @@
       gekozen: 'lobsterfish',
       handtekening: 'Huis van Wonterghem',
       metHoeveelheid: true,
+      gVG: 110,         // gram vis per portie bij een voorgerecht (VG)
+      gSP: 55,          // gram vis per portie bij small plates
       uit: {},          // { visId: true } = niet meenemen
       namen: {},        // { visId: 'aangepaste naam' }
       kg: {},           // { 'weekKey|visId': aantal } handmatig aangepast
@@ -84,7 +87,12 @@
         if (r.persons <= 0 || !r.name) return;
         if (r.tabId !== 'vis' && r.tabId !== 'small_plates') return;
         if (weekKey && r.weekKey !== weekKey) return;
-        const g = typeof getGrams === 'function' ? getGrams(r) : (r.defaultGrams || 0);
+        // Portiegrootte voor de visaanvraag: staat er een gewicht in de naam, dan geldt dat;
+        // anders voorgerecht (VG) en small plates volgens de instelling op deze pagina
+        const g = r.nameGrams ? r.nameGrams
+          : r.sub === 'vg_warm' ? num(inst.gVG, 110)
+          : r.tabId === 'small_plates' ? num(inst.gSP, 55)
+          : (typeof getGrams === 'function' ? getGrams(r) : (r.defaultGrams || 0));
         const kg = r.persons * g / 1000;
         const hit = VIS.find(v => v.re.test(r.name));
         if (hit) {
@@ -217,6 +225,11 @@
         <div>
           <div class="vp-card">
             <h3>Vis uit de Excel <span>vink aan wat je wil vragen · pas de hoeveelheid zelf aan</span></h3>
+            <div class="vp-opt" style="margin:6px 0 8px">
+              <label>Gram per portie · VG <input type="number" min="1" step="5" value="${inst.gVG}" style="width:64px;text-align:right" onchange="window._vpGram('gVG',this.value)"></label>
+              <label>Small plates <input type="number" min="1" step="5" value="${inst.gSP}" style="width:64px;text-align:right" onchange="window._vpGram('gSP',this.value)"></label>
+              <span style="font-size:11.5px;color:#8B90A0">Staat er een gewicht in de gerechtnaam, dan geldt dat.</span>
+            </div>
             ${items.map(it => rij(it, false)).join('')}
             ${lastBerekend.extras.length ? `<div style="margin:14px 0 2px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#8B90A0">Ook in de Excel gevonden (niet in je vaste lijst)</div>${lastBerekend.extras.map(it => rij(it, true)).join('')}` : ''}
           </div>
@@ -276,6 +289,7 @@
     save(); render();
   };
   window._vpOpt = function (k, v) { inst[k] = v; save(); herteken(); };
+  window._vpGram = function (k, v) { inst[k] = num(v, k === 'gVG' ? 110 : 55); save(); render(); };
   window._vpEigenAdd = function () {
     const naam = (document.getElementById('vp-nieuw-naam')?.value || '').trim(); if (!naam) { document.getElementById('vp-nieuw-naam')?.focus(); return; }
     const kg = parseFloat(String(document.getElementById('vp-nieuw-kg')?.value || '').replace(',', '.')) || 0;
