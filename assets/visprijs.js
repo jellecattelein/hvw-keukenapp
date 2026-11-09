@@ -60,10 +60,9 @@
       gVG: 110,         // gram vis per portie bij een voorgerecht (VG)
       gSP: 55,          // gram vis per portie bij small plates
       eenheid: {},      // { visId: 'kg' | 'stuk' } eigen keuze per soort
-      uit: {},          // { visId: true } = niet meenemen
+      aan: {},          // { 'weekKey|visId': true/false } eigen keuze; zonder keuze: mee als de vis die week in de Excel staat
       namen: {},        // { visId: 'aangepaste naam' }
       kg: {},           // { 'weekKey|visId': aantal } handmatig aangepast
-      extraAan: {},     // { extraId: true }
       eigen: [],        // [{ id, naam, kg }]
     };
   }
@@ -114,6 +113,12 @@
   }
   // standaard afronden naar boven op een halve kilo; handmatig aangepaste waarden winnen
   const afronden = kg => Math.ceil(kg * 2 - 1e-9) / 2;
+  // Standaard komt enkel de vis mee die deze week in de Excel staat; de rest kun je zelf aanvinken
+  function isAan(it, isExtra) {
+    const k = inst.aan[weekKey + '|' + it.id];
+    if (k != null) return !!k;
+    return !isExtra && it.n > 0;
+  }
   const eenheidVan = it => inst.eenheid[it.id] || it.eenheid || 'kg';
   // per stuk = één portie/filet per gast (aantal porties); per kg = gewicht. Handmatige waarde geldt per eenheid.
   function kgVan(it) {
@@ -127,8 +132,8 @@
   // Wat er effectief in de aanvraag komt
   function lijst() {
     const uit = [];
-    lastBerekend.items.forEach(it => { if (!inst.uit[it.id]) uit.push({ naam: naamVan(it), kg: kgVan(it), eenheid: eenheidVan(it) }); });
-    lastBerekend.extras.forEach(it => { if (inst.extraAan[it.id]) uit.push({ naam: naamVan(it), kg: kgVan(it), eenheid: eenheidVan(it) }); });
+    lastBerekend.items.forEach(it => { if (isAan(it, false)) uit.push({ naam: naamVan(it), kg: kgVan(it), eenheid: eenheidVan(it) }); });
+    lastBerekend.extras.forEach(it => { if (isAan(it, true)) uit.push({ naam: naamVan(it), kg: kgVan(it), eenheid: eenheidVan(it) }); });
     inst.eigen.forEach(e => uit.push({ naam: e.naam, kg: e.kg || 0, eenheid: e.eenheid || 'kg' }));
     return uit.filter(x => (x.naam || '').trim());
   }
@@ -216,7 +221,7 @@
       return;
     }
 
-    const items = lastBerekend.items.filter(it => it.n > 0 || !inst.uit[it.id] || true);
+    const items = [...lastBerekend.items].sort((a, b) => (b.n > 0) - (a.n > 0));   // eerst wat deze week nodig is
     root.innerHTML = `
       <div class="vp-head">
         <h2>Vis prijsaanvraag</h2>
@@ -230,7 +235,7 @@
       <div class="vp-grid">
         <div>
           <div class="vp-card">
-            <h3>Vis uit de Excel <span>vink aan wat je wil vragen · pas de hoeveelheid zelf aan</span></h3>
+            <h3>Vis voor deze week <span>enkel wat in de Excel staat is aangevinkt · vink zelf meer aan</span></h3>
             <div class="vp-opt" style="margin:6px 0 8px">
               <label>Gram per portie · VG <input type="number" min="1" step="5" value="${inst.gVG}" style="width:64px;text-align:right" onchange="window._vpGram('gVG',this.value)"></label>
               <label>Small plates <input type="number" min="1" step="5" value="${inst.gSP}" style="width:64px;text-align:right" onchange="window._vpGram('gSP',this.value)"></label>
@@ -266,7 +271,7 @@
   }
 
   function rij(it, isExtra) {
-    const aan = isExtra ? !!inst.extraAan[it.id] : !inst.uit[it.id];
+    const aan = isAan(it, isExtra);
     const kg = kgVan(it);
     const bron = [...it.bronnen];
     return `<div class="vp-row ${aan ? '' : 'uit'}">
@@ -274,7 +279,7 @@
       <input type="text" value="${esc(naamVan(it))}" onchange="window._vpNaam('${it.id}', this.value)">
       <input type="number" step="${eenheidVan(it) === 'stuk' ? 1 : 0.5}" min="0" value="${kg || ''}" placeholder="${eenheidVan(it) === 'stuk' ? 'stuks' : 'kg'}" onchange="window._vpKg('${it.id}', this.value)">
       <select onchange="window._vpEenheid('${it.id}', this.value)"><option value="kg" ${eenheidVan(it) === 'kg' ? 'selected' : ''}>kg</option><option value="stuk" ${eenheidVan(it) === 'stuk' ? 'selected' : ''}>stuks</option></select>
-      ${it.n ? `<div class="vp-bron">${it.p} porties · ${it.n} gerecht${it.n === 1 ? '' : 'en'} · ${esc(bron.slice(0, 2).map(b => b.length > 46 ? b.slice(0, 45) + '…' : b).join(' · '))}${bron.length > 2 ? ' …' : ''}</div>` : `<div class="vp-bron">Niet in de Excel van deze week</div>`}
+      ${it.n ? `<div class="vp-bron">${it.p} porties · ${it.n} gerecht${it.n === 1 ? '' : 'en'} · ${esc(bron.slice(0, 2).map(b => b.length > 46 ? b.slice(0, 45) + '…' : b).join(' · '))}${bron.length > 2 ? ' …' : ''}</div>` : `<div class="vp-bron">Niet nodig deze week — vink aan om toch mee te vragen</div>`}
     </div>`;
   }
 
@@ -287,7 +292,7 @@
     const email = (prompt('E-mailadres (optioneel, voor de knop "E-mail openen")?') || '').trim();
     const l = { id: uid(), naam, email }; inst.leveranciers.push(l); inst.gekozen = l.id; save(); render();
   };
-  window._vpAan = function (id, aan, isExtra) { if (isExtra) inst.extraAan[id] = aan; else inst.uit[id] = !aan; save(); render(); };
+  window._vpAan = function (id, aan) { inst.aan[weekKey + '|' + id] = !!aan; save(); render(); };
   window._vpNaam = function (id, v) { inst.namen[id] = v.trim(); save(); render(); };
   window._vpKg = function (id, v) {
     const n = parseFloat(String(v).replace(',', '.'));
