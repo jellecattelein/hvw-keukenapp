@@ -542,12 +542,12 @@
     try { await navigator.clipboard.writeText(t.value); } catch (e) { t.select(); document.execCommand('copy'); }
     const ok = document.getElementById('vp-ok-' + id); if (ok) { ok.classList.add('on'); setTimeout(() => ok.classList.remove('on'), 2200); }
   };
-  // Opent een nieuw bericht in Gmail (in een nieuw tabblad), met adressen, onderwerp en tekst al ingevuld.
+  // Opent een nieuw bericht in Gmail (in een nieuw tabblad), met de adressen in bcc, onderwerp en tekst al ingevuld.
   // Is de tekst te lang voor een link, dan wordt ze gekopieerd en plak je ze zelf (Ctrl+V).
   function openMail(adressen, onderwerp, tekst) {
     const aan = (adressen || []).map(x => (x || '').trim()).filter(Boolean).join(',');
     const q = p => Object.entries(p).filter(([, v]) => v).map(([k, v]) => k + '=' + encodeURIComponent(v)).join('&');
-    const basis = { view: 'cm', fs: '1', to: aan, su: onderwerp, authuser: inst.gmail || '' };
+    const basis = { view: 'cm', fs: '1', bcc: aan, su: onderwerp, authuser: inst.gmail || '' };
     let url = 'https://mail.google.com/mail/?' + q({ ...basis, body: tekst });
     let gekopieerd = false;
     if (url.length > 7000) { url = 'https://mail.google.com/mail/?' + q(basis); gekopieerd = true; }
