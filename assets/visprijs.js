@@ -404,39 +404,139 @@
     });
     return { gevonden, onbekend };
   }
+  function toonMelding(html) {
+    inleesMelding = html;
+    const el = document.getElementById('vp-melding'); if (el) { el.innerHTML = html; el.style.display = html ? 'block' : 'none'; }
+  }
+  // prijzen opslaan voor één leverancier + samenvatting
+  function pasPrijzenToe(levId, gevonden, onbekend, ps) {
+    const lev = inst.leveranciers.find(l => l.id === levId) || {};
+    const w = (inst.prijzen[weekKey] = inst.prijzen[weekKey] || {}), l = (w[levId] = w[levId] || {});
+    gevonden.forEach(({ pr }, id) => { l[id] = pr; });
+    save();
+    const mist = ps.filter(p => !gevonden.has(p.id));
+    return gevonden.size
+      ? `<b>${gevonden.size === 1 ? '1 prijs' : gevonden.size + ' prijzen'} ingelezen voor ${esc(lev.naam || '')}:</b> ${[...gevonden.values()].map(({ p, pr }) => `${esc(p.naam)} ${eur(pr)}/${unitTxt(p.eenheid)}`).join(' · ')}.`
+        + (mist.length ? `<br>Geen prijs gevonden voor: ${mist.map(p => esc(p.naam)).join(', ')}.` : '')
+        + (onbekend.length ? `<br>Regels met een prijs maar zonder herkende vis: ${onbekend.map(esc).join(' | ')}` : '')
+      : `Geen prijzen herkend voor ${esc(lev.naam || '')}.${onbekend.length ? ' Regels met een prijs maar zonder herkende vis: ' + onbekend.map(esc).join(' | ') : ''}`;
+  }
   window._vpInlezen = function () {
     const tekst = document.getElementById('vp-mail')?.value || '';
     const levId = document.getElementById('vp-mail-lev')?.value || inst.gekozen;
     inleesLev = levId;
-    const lev = inst.leveranciers.find(l => l.id === levId) || {};
     if (!tekst.trim()) { inleesMelding = 'Plak eerst de tekst van de mail.'; render(); return; }
     const ps = lijst();
     const { gevonden, onbekend } = leesPrijzen(tekst, ps);
-    const w = (inst.prijzen[weekKey] = inst.prijzen[weekKey] || {}), l = (w[levId] = w[levId] || {});
-    gevonden.forEach(({ p, pr }, id) => { l[id] = pr; });
-    save();
-    const mist = ps.filter(p => !gevonden.has(p.id));
-    inleesMelding = gevonden.size
-      ? `<b>${gevonden.size === 1 ? '1 prijs' : gevonden.size + ' prijzen'} ingelezen voor ${esc(lev.naam || '')}:</b> ${[...gevonden.values()].map(({ p, pr }) => `${esc(p.naam)} ${eur(pr)}/${unitTxt(p.eenheid)}`).join(' · ')}.`
-        + (mist.length ? `<br>Geen prijs gevonden voor: ${mist.map(p => esc(p.naam)).join(', ')}.` : '')
-        + (onbekend.length ? `<br>Regels met een prijs maar zonder herkende vis: ${onbekend.map(esc).join(' | ')}` : '')
-        + '<br>Controleer de prijzen in de tabel hieronder en pas aan waar nodig.'
-      : `Geen prijzen herkend.${onbekend.length ? ' Regels met een prijs maar zonder herkende vis: ' + onbekend.map(esc).join(' | ') : ' Staat de naam van de vis in de tekst?'}`;
+    inleesMelding = pasPrijzenToe(levId, gevonden, onbekend, ps) + (gevonden.size ? '<br>Controleer de prijzen in de tabel hieronder en pas aan waar nodig.' : '<br>Staat de naam van de vis in de tekst?');
     render();
   };
-  function prijzenHtml() {
+
+  /* ── antwoorden automatisch uit Gmail halen (enkel lezen) ── */
+  const GMAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.readonly';
+  let gmailTok = { t: '', exp: 0 };
+  function loadGis() {
+    if (window.google && window.google.accounts && window.google.accounts.oauth2) return Promise.resolve();
+    return new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'https://accounts.google.com/gsi/client'; s.onload = res; s.onerror = () => rej(new Error('Google-aanmelding niet bereikbaar')); document.head.appendChild(s); });
+  }
+  async function gmailToken(clientId) {
+    if (gmailTok.t && Date.now() < gmailTok.exp) return gmailTok.t;
+    await loadGis();
+    const tok = await new Promise((res, rej) => {
+      window.google.accounts.oauth2.initTokenClient({
+        client_id: clientId, scope: GMAIL_SCOPE, hint: inst.gmail || undefined,
+        callback: t => t.error ? rej(new Error(t.error_description || t.error)) : res(t),
+        error_callback: e => rej(new Error(e && e.type === 'popup_closed' ? 'Aanmelden geannuleerd' : ((e && e.type) || 'Aanmelden mislukt'))),
+      }).requestAccessToken();
+    });
+    gmailTok = { t: tok.access_token, exp: Date.now() + Math.max(60, (tok.expires_in || 3600) - 120) * 1000 };
+    return gmailTok.t;
+  }
+  async function gmailGet(token, pad) {
+    const r = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/' + pad, { headers: { Authorization: 'Bearer ' + token } });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { const e = new Error((j.error && j.error.message) || ('Gmail gaf fout ' + r.status)); e.status = r.status; throw e; }
+    return j;
+  }
+  const b64 = s => { const bin = atob(String(s).replace(/-/g, '+').replace(/_/g, '/')); return new TextDecoder('utf-8').decode(Uint8Array.from(bin, c => c.charCodeAt(0))); };
+  function htmlNaarTekst(h) {
+    h = h.replace(/<(style|script)[\s\S]*?<\/\1>/gi, '').replace(/<br\s*\/?>|<\/(p|div|tr|li|h\d)>/gi, '\n').replace(/<\/t[dh]>/gi, '  ');
+    return new DOMParser().parseFromString(h, 'text/html').body.textContent.replace(/\u00a0/g, ' ');
+  }
+  // alleen wat de leverancier zelf schreef: het geciteerde stuk (onze eigen aanvraag) laten we weg
+  function zonderCitaat(t) {
+    const i = t.search(/^(op|on)\s[\s\S]{0,200}?(schreef|wrote)/im);
+    if (i > 0) t = t.slice(0, i);
+    const j = t.search(/^\s*-{2,}\s*(original|oorspronkelijk|doorgestuurd|forwarded)/im);
+    if (j > 0) t = t.slice(0, j);
+    return t.split(/\r?\n/).filter(l => !/^\s*>/.test(l)).join('\n');
+  }
+  function mailInhoud(payload) {
+    let plain = '', html = '', bijlage = false;
+    (function walk(p) {
+      if (!p) return;
+      if (p.filename) bijlage = true;
+      else if (p.mimeType === 'text/plain' && p.body && p.body.data) plain += b64(p.body.data) + '\n';
+      else if (p.mimeType === 'text/html' && p.body && p.body.data) html += b64(p.body.data) + '\n';
+      (p.parts || []).forEach(walk);
+    })(payload);
+    return { tekst: zonderCitaat(plain.trim() ? plain : htmlNaarTekst(html)), bijlage };
+  }
+  window._vpGmailOphalen = async function () {
+    const cfg = window.HVW_FIREBASE || {};
+    const clientId = cfg.googleClientId || cfg.driveClientId;
+    if (!clientId) { toonMelding('De Gmail-koppeling is nog niet ingesteld. Volg de stappen in <b>OFFERTES_DRIVE.md</b> (deel 5) en geef de Client ID door; tot dan kun je de tekst van de mail hieronder plakken.'); return; }
+    const ps = lijst();
+    if (!ps.length) { toonMelding('Er is nog geen vis geselecteerd voor deze week.'); return; }
+    try {
+      toonMelding('Bezig met aanmelden bij Google…');
+      const token = await gmailToken(clientId);
+      const regels = [];
+      for (const lev of inst.leveranciers) {
+        toonMelding(`Antwoorden van ${esc(lev.naam)} ophalen…` + (regels.length ? '<br>' + regels.join('<br>') : ''));
+        const qs = [lev.email && `from:${lev.email.trim()}`, `from:${lev.naam.trim().split(/\s+/)[0]}`].filter(Boolean);
+        const ids = new Map();
+        for (const q of qs) {
+          const r = await gmailGet(token, 'messages?maxResults=6&q=' + encodeURIComponent(q + ' newer_than:14d'));
+          (r.messages || []).forEach(m => ids.set(m.id, m));
+        }
+        const msgs = [];
+        for (const m of ids.values()) msgs.push(await gmailGet(token, 'messages/' + m.id + '?format=full'));
+        msgs.sort((a, b) => (+b.internalDate || 0) - (+a.internalDate || 0));
+        let gedaan = false, bijlageZonderTekst = false;
+        for (const msg of msgs) {
+          const { tekst, bijlage } = mailInhoud(msg.payload);
+          const { gevonden, onbekend } = leesPrijzen(tekst, ps);
+          if (!gevonden.size) { if (bijlage) bijlageZonderTekst = true; continue; }
+          const onderwerp = ((msg.payload.headers || []).find(h => /^subject$/i.test(h.name)) || {}).value || '';
+          const dat = msg.internalDate ? new Date(+msg.internalDate).toLocaleDateString('nl-BE') : '';
+          regels.push(pasPrijzenToe(lev.id, gevonden, onbekend, ps) + `<br><span style="opacity:.75">uit de mail van ${esc(dat)}: ${esc(onderwerp)}</span>`);
+          gedaan = true; break;
+        }
+        if (!gedaan) regels.push(`<b>${esc(lev.naam)}</b>: ` + (msgs.length ? `geen prijzen herkend in ${msgs.length === 1 ? 'de mail' : 'de ' + msgs.length + ' mails'} van de laatste 14 dagen${bijlageZonderTekst ? ' (er hangt een bijlage aan die de app niet kan lezen, kopieer de tekst eruit)' : ''}.` : 'geen mail gevonden van de laatste 14 dagen' + (lev.email ? '.' : '. Tip: stel het e-mailadres in zodat de app gericht zoekt.')));
+      }
+      inleesMelding = regels.join('<hr style="border:0;border-top:1px solid rgba(20,21,26,.1);margin:8px 0">') + '<br>Controleer de prijzen in de tabel hieronder en pas aan waar nodig.';
+      render();
+    } catch (e) {
+      gmailTok = { t: '', exp: 0 };
+      const m = String(e.message || e);
+      toonMelding('Ophalen uit Gmail mislukt: ' + esc(m) + (/not been used|disabled|accessNotConfigured/i.test(m) ? '<br>Schakel de <b>Gmail API</b> in (zie OFFERTES_DRIVE.md, deel 5).' : '') + (/access_denied|403/i.test(m) ? '<br>Staat je Gmail-account bij de <b>Test users</b> en heb je de Gmail-toestemming toegevoegd? (zie OFFERTES_DRIVE.md, deel 5)' : ''));
+    }
+  };  function prijzenHtml() {
     const ps = lijst();
     const levs = inst.leveranciers;
     if (!ps.length) return `<div class="vp-card"><div class="vp-leeg">Er is voor deze week nog geen vis geselecteerd. Vink eerst op tab 1 aan wat je nodig hebt.</div></div>`;
     return `
       <div class="vp-card">
-        <h3>Prijzen uit een mail inlezen <span>plak de tekst van het antwoord · de app zoekt de prijs bij elke vis</span></h3>
+        <h3>Prijzen uit de antwoorden halen <span>de app leest de mails van je leveranciers en vult de prijzen in</span></h3>
+        <div class="vp-acts" style="margin:10px 0 4px"><button class="btn btn-gold" onclick="window._vpGmailOphalen()">Prijzen ophalen uit Gmail</button><span style="font-size:12px;color:#8B90A0;align-self:center">zoekt de antwoorden van de laatste 14 dagen</span></div>
+        <div id="vp-melding" class="vp-sum neutraal" style="margin-top:10px;display:${inleesMelding ? 'block' : 'none'}">${inleesMelding}</div>
+        <div style="margin:14px 0 4px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#8B90A0">Of plak de tekst van een mail zelf</div>
         <div class="vp-opt" style="margin:8px 0">
           <label>Van welke leverancier? <select id="vp-mail-lev" style="padding:7px 8px;border:1px solid rgba(20,21,26,.15);border-radius:9px;font:13px Inter,sans-serif">${levs.map(l => `<option value="${l.id}" ${l.id === (inleesLev || inst.gekozen) ? 'selected' : ''}>${esc(l.naam)}</option>`).join('')}</select></label>
         </div>
         <textarea id="vp-mail" class="vp-tekst" style="min-height:110px" placeholder="Plak hier de mail, bv.&#10;Zalmfilet 24,50 €/kg&#10;Kabeljauwhaasje 400+ € 18,90&#10;Zeebaars V-cut 6,80 per stuk"></textarea>
         <div class="vp-acts"><button class="btn btn-primary" onclick="window._vpInlezen()">Prijzen inlezen</button></div>
-        ${inleesMelding ? `<div class="vp-sum neutraal" style="margin-top:10px">${inleesMelding}</div>` : ''}
       </div>
       <div class="vp-card">
         <h3>Prijzen van de leveranciers<span>vul de prijs per kg (of per stuk) in · de goedkoopste wordt automatisch gekozen</span></h3>
