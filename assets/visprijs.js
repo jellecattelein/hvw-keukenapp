@@ -370,13 +370,74 @@
 
   /* ── tab 2: prijzen invoeren, automatisch de goedkoopste kiezen, bestellen ── */
   const unitTxt = e => e === 'stuk' ? 'stuk' : 'kg';
+
+  /* ── prijzen uit de tekst van een mail halen ── */
+  let inleesMelding = '', inleesLev = '';
+  const getalVan = s => { s = String(s).replace(/\s/g, ''); s = (/,/.test(s) && /\./.test(s)) ? s.replace(/\./g, '').replace(',', '.') : s.replace(',', '.'); return parseFloat(s); };
+  // de prijs op één regel: eerst een getal bij een €-teken, anders een los getal dat geen gewicht/aantal/maat is
+  function prijsOpRegel(l) {
+    const m = /(?:€|eur(?:o)?\b)\s*(\d+(?:[.,]\d+)?)|(\d+(?:[.,]\d+)?)\s*(?:€|eur(?:o)?\b)/i.exec(l);
+    if (m) { const n = getalVan(m[1] || m[2]); if (n > 0) return n; }
+    const kand = []; const re = /\d+(?:[.,]\d+)?/g; let x;
+    while ((x = re.exec(l))) {
+      const voor = l.slice(Math.max(0, x.index - 2), x.index), na = l.slice(x.index + x[0].length);
+      if (/^\s*(kg|g\b|gr\b|gram|stuks?\b|st\b|cm|%|\+|x\b|-\s*\d|\/\s*\d)/i.test(na)) continue;   // gewicht, aantal, maat (400+, 300-400 g)
+      if (/\d\s*-\s*$|v-?$/i.test(voor)) continue;
+      const n = getalVan(x[0]); if (n > 0 && n < 1000) kand.push({ n, dec: /[.,]/.test(x[0]) });
+    }
+    const metDec = kand.filter(k => k.dec);
+    return (metDec.length ? metDec : kand).length ? (metDec.length ? metDec : kand).slice(-1)[0].n : 0;
+  }
+  function leesPrijzen(tekst, ps) {
+    const zoek = ps.map(p => { const v = VIS.find(z => z.id === p.id) || EXTRA.find(z => z.id === p.id); const naam = p.naam.toLowerCase(); return { p, test: l => (v && v.re.test(l)) || l.toLowerCase().includes(naam) }; });
+    const gevonden = new Map(), onbekend = [];
+    let wacht = null;
+    String(tekst).split(/\r?\n/).forEach(raw => {
+      const l = raw.replace(/^[\s>\-–•*]+/, '').trim(); if (!l) return;
+      const z = zoek.find(s => s.test(l));
+      const pr = prijsOpRegel(l);
+      if (z) { if (pr) { gevonden.set(z.p.id, { p: z.p, pr }); wacht = null; } else wacht = z.p; }
+      else if (wacht && pr) { gevonden.set(wacht.id, { p: wacht, pr }); wacht = null; }
+      else if (pr && /€|eur/i.test(l) && /[a-z]{4,}/i.test(l)) onbekend.push(l.length > 60 ? l.slice(0, 59) + '…' : l);
+    });
+    return { gevonden, onbekend };
+  }
+  window._vpInlezen = function () {
+    const tekst = document.getElementById('vp-mail')?.value || '';
+    const levId = document.getElementById('vp-mail-lev')?.value || inst.gekozen;
+    inleesLev = levId;
+    const lev = inst.leveranciers.find(l => l.id === levId) || {};
+    if (!tekst.trim()) { inleesMelding = 'Plak eerst de tekst van de mail.'; render(); return; }
+    const ps = lijst();
+    const { gevonden, onbekend } = leesPrijzen(tekst, ps);
+    const w = (inst.prijzen[weekKey] = inst.prijzen[weekKey] || {}), l = (w[levId] = w[levId] || {});
+    gevonden.forEach(({ p, pr }, id) => { l[id] = pr; });
+    save();
+    const mist = ps.filter(p => !gevonden.has(p.id));
+    inleesMelding = gevonden.size
+      ? `<b>${gevonden.size === 1 ? '1 prijs' : gevonden.size + ' prijzen'} ingelezen voor ${esc(lev.naam || '')}:</b> ${[...gevonden.values()].map(({ p, pr }) => `${esc(p.naam)} ${eur(pr)}/${unitTxt(p.eenheid)}`).join(' · ')}.`
+        + (mist.length ? `<br>Geen prijs gevonden voor: ${mist.map(p => esc(p.naam)).join(', ')}.` : '')
+        + (onbekend.length ? `<br>Regels met een prijs maar zonder herkende vis: ${onbekend.map(esc).join(' | ')}` : '')
+        + '<br>Controleer de prijzen in de tabel hieronder en pas aan waar nodig.'
+      : `Geen prijzen herkend.${onbekend.length ? ' Regels met een prijs maar zonder herkende vis: ' + onbekend.map(esc).join(' | ') : ' Staat de naam van de vis in de tekst?'}`;
+    render();
+  };
   function prijzenHtml() {
     const ps = lijst();
     const levs = inst.leveranciers;
     if (!ps.length) return `<div class="vp-card"><div class="vp-leeg">Er is voor deze week nog geen vis geselecteerd. Vink eerst op tab 1 aan wat je nodig hebt.</div></div>`;
     return `
       <div class="vp-card">
-        <h3>Prijzen van de leveranciers <span>vul de prijs per kg (of per stuk) in · de goedkoopste wordt automatisch gekozen</span></h3>
+        <h3>Prijzen uit een mail inlezen <span>plak de tekst van het antwoord · de app zoekt de prijs bij elke vis</span></h3>
+        <div class="vp-opt" style="margin:8px 0">
+          <label>Van welke leverancier? <select id="vp-mail-lev" style="padding:7px 8px;border:1px solid rgba(20,21,26,.15);border-radius:9px;font:13px Inter,sans-serif">${levs.map(l => `<option value="${l.id}" ${l.id === (inleesLev || inst.gekozen) ? 'selected' : ''}>${esc(l.naam)}</option>`).join('')}</select></label>
+        </div>
+        <textarea id="vp-mail" class="vp-tekst" style="min-height:110px" placeholder="Plak hier de mail, bv.&#10;Zalmfilet 24,50 €/kg&#10;Kabeljauwhaasje 400+ € 18,90&#10;Zeebaars V-cut 6,80 per stuk"></textarea>
+        <div class="vp-acts"><button class="btn btn-primary" onclick="window._vpInlezen()">Prijzen inlezen</button></div>
+        ${inleesMelding ? `<div class="vp-sum neutraal" style="margin-top:10px">${inleesMelding}</div>` : ''}
+      </div>
+      <div class="vp-card">
+        <h3>Prijzen van de leveranciers<span>vul de prijs per kg (of per stuk) in · de goedkoopste wordt automatisch gekozen</span></h3>
         <div class="vp-tw"><table class="vp-tb">
           <thead><tr><th>Product</th>${levs.map(l => `<th>${esc(l.naam)}</th>`).join('')}<th>Bestellen bij</th><th style="text-align:right">Kost</th></tr></thead>
           <tbody>
@@ -573,5 +634,5 @@
   document.addEventListener('dataLoaded', () => { weekKey = ''; if (document.getElementById('page-visprijs')?.classList.contains('active')) render(); });
 
   // voor tests
-  window._vpTest = { bereken: () => (lastBerekend = bereken()), maakTekst, lijst, keuzes, maakBestelTekst, dagenVan, get inst() { return inst; }, setWeek(k) { weekKey = k; } };
+  window._vpTest = { bereken: () => (lastBerekend = bereken()), maakTekst, lijst, keuzes, maakBestelTekst, dagenVan, leesPrijzen, prijsOpRegel, get inst() { return inst; }, setWeek(k) { weekKey = k; } };
 })();
