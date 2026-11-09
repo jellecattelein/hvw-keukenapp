@@ -37,7 +37,7 @@
     } catch (e) { document.documentElement.classList.add('ui-modern'); }
   </script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/style.css?v=083889a504">
+  <link rel="stylesheet" href="assets/style.css?v=ce7fd481e7">
   <style>
     :root {
       --sb-w: 224px;
@@ -452,7 +452,7 @@
       .dash-row { grid-template-columns: 1fr; }
     }
   </style>
-  <link rel="stylesheet" href="assets/modern.css?v=083889a504">
+  <link rel="stylesheet" href="assets/modern.css?v=ce7fd481e7">
 </head>
 <body>
 
@@ -494,6 +494,10 @@
       </button>
       <button class="sb-item" data-page="bakker" onclick="sbShow('bakker')">
         <span class="sb-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21V8M12 8c0-2 1.2-4 3-5 .3 2.2-.7 4-3 5zM12 8c0-2-1.2-4-3-5-.3 2.2.7 4 3 5zM12 13c0-2 1.5-3.5 3.5-4 .2 2-.9 3.7-3.5 4zM12 13c0-2-1.5-3.5-3.5-4-.2 2 .9 3.7 3.5 4zM12 18c0-2 1.5-3.5 3.5-4 .2 2-.9 3.7-3.5 4zM12 18c0-2-1.5-3.5-3.5-4-.2 2 .9 3.7 3.5 4z"/></svg></span> Bakker Bestelformulier
+      </button>
+
+      <button class="sb-item" data-page="visprijs" onclick="sbShow('visprijs')">
+        <span class="sb-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12c3-5 8-6.5 12-4.5 2 1 3.5 2.800 4.500 4.500-1 1.700-2.500 3.500-4.500 4.500-4 2-9 .5-12-4.500zM19.500 12l2.500-3v6zM15 11.500h.01"/></svg></span> Vis prijsaanvraag
       </button>
 
       <div class="sb-section">Productie</div>
@@ -609,6 +613,7 @@
 
     <!-- ════ PAGINA: OFFERTES ════ -->
     <div class="page" id="page-offertes"></div>
+    <div class="page" id="page-visprijs"></div>
 
     <!-- ════ PAGINA: FEESTENOVERZICHT ════ -->
     <div class="page" id="page-feesten">
@@ -910,28 +915,29 @@
     </div>
   </div>
 
-  <script src="assets/modern.js?v=083889a504"></script>
-  <script src="assets/etiketten-modus.js?v=083889a504"></script>
-  <script src="assets/firebase-config.js?v=083889a504"></script>
-  <script src="assets/sync.js?v=083889a504"></script>
-  <script src="assets/ai-split.js?v=083889a504"></script>
-  <script src="assets/offertes.js?v=083889a504"></script>
-  <script src="assets/app.js?v=083889a504"></script>
-  <script src="assets/bestelling_pdf.js?v=083889a504"></script>
-  <script src="assets/suppliers.js?v=083889a504"></script>
-  <script src="assets/ijsdesserts.js?v=083889a504"></script>
-  <script src="assets/cars.js?v=083889a504"></script>
-  <script src="assets/tijdstool.js?v=083889a504"></script>
-  <script src="assets/functionsheets.js?v=083889a504"></script>
-  <script src="assets/dymo-print.js?v=083889a504"></script>
-  <script src="assets/snelle-etiketten.js?v=083889a504"></script>
-  <script src="assets/portie-etiketten.js?v=083889a504"></script>
-  <script src="assets/weekmap.js?v=083889a504"></script>
-  <script src="assets/kiosk.js?v=083889a504"></script>
-  <script src="assets/bakker.js?v=083889a504"></script>
-  <script src="assets/broodjes.js?v=083889a504"></script>
-  <script src="assets/recepten.js?v=083889a504"></script>
-  <script src="assets/etiketten.js?v=083889a504"></script>
+  <script src="assets/modern.js?v=ce7fd481e7"></script>
+  <script src="assets/etiketten-modus.js?v=ce7fd481e7"></script>
+  <script src="assets/firebase-config.js?v=ce7fd481e7"></script>
+  <script src="assets/sync.js?v=ce7fd481e7"></script>
+  <script src="assets/ai-split.js?v=ce7fd481e7"></script>
+  <script src="assets/offertes.js?v=ce7fd481e7"></script>
+  <script src="assets/visprijs.js?v=ce7fd481e7"></script>
+  <script src="assets/app.js?v=ce7fd481e7"></script>
+  <script src="assets/bestelling_pdf.js?v=ce7fd481e7"></script>
+  <script src="assets/suppliers.js?v=ce7fd481e7"></script>
+  <script src="assets/ijsdesserts.js?v=ce7fd481e7"></script>
+  <script src="assets/cars.js?v=ce7fd481e7"></script>
+  <script src="assets/tijdstool.js?v=ce7fd481e7"></script>
+  <script src="assets/functionsheets.js?v=ce7fd481e7"></script>
+  <script src="assets/dymo-print.js?v=ce7fd481e7"></script>
+  <script src="assets/snelle-etiketten.js?v=ce7fd481e7"></script>
+  <script src="assets/portie-etiketten.js?v=ce7fd481e7"></script>
+  <script src="assets/weekmap.js?v=ce7fd481e7"></script>
+  <script src="assets/kiosk.js?v=ce7fd481e7"></script>
+  <script src="assets/bakker.js?v=ce7fd481e7"></script>
+  <script src="assets/broodjes.js?v=ce7fd481e7"></script>
+  <script src="assets/recepten.js?v=ce7fd481e7"></script>
+  <script src="assets/etiketten.js?v=ce7fd481e7"></script>
 
   <script>
   /* ═══ SIDEBAR ROUTING ═══ */
@@ -1070,6 +1076,7 @@
     if (pageId === 'feesten')   renderFeesten();
     if (pageId === 'settings')  renderSettings();
     if (pageId === 'offertes' && typeof window._renderOffertes === 'function') window._renderOffertes();
+    if (pageId === 'visprijs' && typeof window._renderVisprijs === 'function') window._renderVisprijs();
   }
 
   /* Compatibiliteitslaag: oude functies die app.js nog gebruikt */

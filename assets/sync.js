@@ -21,6 +21,7 @@
     'hvw-samengestelde-gerechten',
     'hvw-weekmap-secties',
     'hvw-bakker-regels',
+    'hvw-vis-instellingen',
     'mmm-suppliers',
     'mmm-assignments',
     'mmm-settings',
@@ -391,6 +392,7 @@
     s.textContent = `
       body.hvw-viewer #samengesteld-onopgedeeld,
       body.hvw-viewer .sb-item[data-page="offertes"],
+      body.hvw-viewer .sb-item[data-page="visprijs"],
       body.hvw-viewer #btn-reset-sidebar,
       body.hvw-viewer .sb-bottom .sb-item[onclick*="xl-input"] { display: none !important; }
       #hvw-login { position: fixed; inset: 0; z-index: 99999; background: rgba(26,25,23,.92); display: none; align-items: center; justify-content: center; padding: 20px; }
