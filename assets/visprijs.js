@@ -68,6 +68,7 @@
       metDagen: true,   // per product vermelden voor welke dag(en) het nodig is
       tab: 'vraag',     // 'vraag' = prijsaanvraag · 'prijzen' = prijzen invoeren en bestellen
       prijzen: {},      // { weekKey: { leverancierId: { productId: prijs per kg of per stuk } } }
+      gmail: '',        // Gmail-account waarmee de mail geopend wordt (leeg = standaardaccount)
       keuze: {},        // { 'weekKey|productId': leverancierId } eigen keuze; zonder keuze wint de goedkoopste
     };
   }
@@ -359,10 +360,10 @@
             <div class="vp-acts">
               <button class="btn btn-gold" onclick="window._vpKopieer()">Kopieer tekst</button>
               <button class="btn btn-primary" onclick="window._vpPdf()">PDF downloaden</button>
-              <button class="btn" onclick="window._vpMail()">E-mail openen</button>
+              <button class="btn" onclick="window._vpMail()">E-mail openen in Gmail</button>
               <span id="vp-ok" class="vp-ok">Gekopieerd ✓</span>
             </div>
-            <div class="vp-opt" style="font-size:12px;color:#8B90A0">E-mail naar: ${inst.leveranciers.map(l => `<button class="vp-linkbtn" onclick="window._vpLevMail('${l.id}')">${esc(l.naam)}: ${l.email ? esc(l.email) : 'adres instellen'}</button>`).join(' · ')}</div>
+            <div class="vp-opt" style="font-size:12px;color:#8B90A0">E-mail naar: ${inst.leveranciers.map(l => `<button class="vp-linkbtn" onclick="window._vpLevMail('${l.id}')">${esc(l.naam)}: ${l.email ? esc(l.email) : 'adres instellen'}</button>`).join(' · ')} · <button class="vp-linkbtn" onclick="window._vpGmail()">Gmail-account: ${inst.gmail ? esc(inst.gmail) : 'standaard'}</button></div>
           </div>
         </div>
       </div>`}`;
@@ -495,7 +496,7 @@
           <div class="vp-acts">
             <button class="btn btn-gold" onclick="window._vpBestelKopieer('${l.id}')">Kopieer tekst</button>
             <button class="btn btn-primary" onclick="window._vpBestelPdf('${l.id}')">PDF downloaden</button>
-            <button class="btn" onclick="window._vpBestelMail('${l.id}')">E-mail openen</button>
+            <button class="btn" onclick="window._vpBestelMail('${l.id}')">E-mail openen in Gmail</button>
             <button class="vp-linkbtn" onclick="window._vpLevMail('${l.id}')">${l.email ? esc(l.email) + ' · wijzigen' : 'e-mailadres instellen'}</button>
             <span id="vp-ok-${l.id}" class="vp-ok">Gekopieerd ✓</span>
           </div></div>`;
@@ -541,10 +542,28 @@
     try { await navigator.clipboard.writeText(t.value); } catch (e) { t.select(); document.execCommand('copy'); }
     const ok = document.getElementById('vp-ok-' + id); if (ok) { ok.classList.add('on'); setTimeout(() => ok.classList.remove('on'), 2200); }
   };
-  window._vpBestelMail = function (id) {
+  // Opent een nieuw bericht in Gmail (in een nieuw tabblad), met adressen, onderwerp en tekst al ingevuld.
+  // Is de tekst te lang voor een link, dan wordt ze gekopieerd en plak je ze zelf (Ctrl+V).
+  function openMail(adressen, onderwerp, tekst) {
+    const aan = (adressen || []).map(x => (x || '').trim()).filter(Boolean).join(',');
+    const q = p => Object.entries(p).filter(([, v]) => v).map(([k, v]) => k + '=' + encodeURIComponent(v)).join('&');
+    const basis = { view: 'cm', fs: '1', to: aan, su: onderwerp, authuser: inst.gmail || '' };
+    let url = 'https://mail.google.com/mail/?' + q({ ...basis, body: tekst });
+    let gekopieerd = false;
+    if (url.length > 7000) { url = 'https://mail.google.com/mail/?' + q(basis); gekopieerd = true; }
+    window.open(url, '_blank', 'noopener');
+    if (gekopieerd) {
+      try { navigator.clipboard.writeText(tekst); } catch (e) {}
+      alert('De tekst is te lang voor in de link. Ze is gekopieerd: plak ze in de mail met Ctrl+V.');
+    }
+  }
+  window._vpGmail = function () {
+    const v = prompt('Met welk Gmail-adres open je je mail? (laat leeg om het standaardaccount van je browser te gebruiken)', inst.gmail || ''); if (v == null) return;
+    inst.gmail = v.trim(); save(); render();
+  };  window._vpBestelMail = function (id) {
     const l = inst.leveranciers.find(x => x.id === id) || {};
     const t = document.getElementById('vp-bt-' + id)?.value || maakBestelTekst(l);
-    location.href = `mailto:${encodeURIComponent(l.email || '')}?subject=${encodeURIComponent(`Bestelling vis ${weekLabel() ? '— ' + weekLabel() : ''}`.trim())}&body=${encodeURIComponent(t)}`;
+    openMail([l.email], `Bestelling vis ${weekLabel() ? '— ' + weekLabel() : ''}`.trim(), t);
   };
   window._vpBestelPdf = function (id) {
     const l = inst.leveranciers.find(x => x.id === id); if (!l) return;
@@ -584,10 +603,9 @@
     const ok = document.getElementById('vp-ok'); if (ok) { ok.classList.add('on'); setTimeout(() => ok.classList.remove('on'), 2200); }
   };
   window._vpMail = function () {
-    const aan = inst.leveranciers.map(x => (x.email || '').trim()).filter(Boolean).map(encodeURIComponent).join(',');
     const onderwerp = `Prijsaanvraag vis ${weekLabel() ? '— ' + weekLabel() : ''}`.trim();
     const tekst = document.getElementById('vp-tekst')?.value || maakTekst();
-    location.href = `mailto:${aan}?subject=${encodeURIComponent(onderwerp)}&body=${encodeURIComponent(tekst)}`;
+    openMail(inst.leveranciers.map(x => x.email), onderwerp, tekst);
   };
   window._vpPdf = function () {
     pdfMaak({ titel: 'Prijsaanvraag vis', lev: '', rijen: lijst(), bestelling: false });
