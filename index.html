@@ -37,7 +37,7 @@
     } catch (e) { document.documentElement.classList.add('ui-modern'); }
   </script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/style.css?v=6722d80cd7">
+  <link rel="stylesheet" href="assets/style.css?v=144ca882f1">
   <style>
     :root {
       --sb-w: 224px;
@@ -452,7 +452,7 @@
       .dash-row { grid-template-columns: 1fr; }
     }
   </style>
-  <link rel="stylesheet" href="assets/modern.css?v=6722d80cd7">
+  <link rel="stylesheet" href="assets/modern.css?v=144ca882f1">
 </head>
 <body>
 
@@ -502,6 +502,10 @@
 
       <button class="sb-item" data-page="groentenbestel" onclick="sbShow('groentenbestel')">
         <span class="sb-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21V9M12 9c-3 0-5-2.500-5-5.500 3 0 5 2 5 5.500zM12 9c3 0 5-2.500 5-5.500-3 0-5 2-5 5.500zM8 21h8"/></svg></span> Groenten bestellen
+      </button>
+
+      <button class="sb-item" data-page="ingredienten" onclick="sbShow('ingredienten')">
+        <span class="sb-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11M4.500 6h.01M4.500 12h.01M4.500 18h.01"/></svg></span> Ingrediëntenlijst
       </button>
 
       <div class="sb-section">Productie</div>
@@ -619,6 +623,7 @@
     <div class="page" id="page-offertes"></div>
     <div class="page" id="page-visprijs"></div>
     <div class="page" id="page-groentenbestel"></div>
+    <div class="page" id="page-ingredienten"></div>
 
     <!-- ════ PAGINA: FEESTENOVERZICHT ════ -->
     <div class="page" id="page-feesten">
@@ -920,30 +925,31 @@
     </div>
   </div>
 
-  <script src="assets/modern.js?v=6722d80cd7"></script>
-  <script src="assets/etiketten-modus.js?v=6722d80cd7"></script>
-  <script src="assets/firebase-config.js?v=6722d80cd7"></script>
-  <script src="assets/sync.js?v=6722d80cd7"></script>
-  <script src="assets/ai-split.js?v=6722d80cd7"></script>
-  <script src="assets/offertes.js?v=6722d80cd7"></script>
-  <script src="assets/visprijs.js?v=6722d80cd7"></script>
-  <script src="assets/groenten-bestellen.js?v=6722d80cd7"></script>
-  <script src="assets/app.js?v=6722d80cd7"></script>
-  <script src="assets/bestelling_pdf.js?v=6722d80cd7"></script>
-  <script src="assets/suppliers.js?v=6722d80cd7"></script>
-  <script src="assets/ijsdesserts.js?v=6722d80cd7"></script>
-  <script src="assets/cars.js?v=6722d80cd7"></script>
-  <script src="assets/tijdstool.js?v=6722d80cd7"></script>
-  <script src="assets/functionsheets.js?v=6722d80cd7"></script>
-  <script src="assets/dymo-print.js?v=6722d80cd7"></script>
-  <script src="assets/snelle-etiketten.js?v=6722d80cd7"></script>
-  <script src="assets/portie-etiketten.js?v=6722d80cd7"></script>
-  <script src="assets/weekmap.js?v=6722d80cd7"></script>
-  <script src="assets/kiosk.js?v=6722d80cd7"></script>
-  <script src="assets/bakker.js?v=6722d80cd7"></script>
-  <script src="assets/broodjes.js?v=6722d80cd7"></script>
-  <script src="assets/recepten.js?v=6722d80cd7"></script>
-  <script src="assets/etiketten.js?v=6722d80cd7"></script>
+  <script src="assets/modern.js?v=144ca882f1"></script>
+  <script src="assets/etiketten-modus.js?v=144ca882f1"></script>
+  <script src="assets/firebase-config.js?v=144ca882f1"></script>
+  <script src="assets/sync.js?v=144ca882f1"></script>
+  <script src="assets/ai-split.js?v=144ca882f1"></script>
+  <script src="assets/offertes.js?v=144ca882f1"></script>
+  <script src="assets/visprijs.js?v=144ca882f1"></script>
+  <script src="assets/groenten-bestellen.js?v=144ca882f1"></script>
+  <script src="assets/ingredienten.js?v=144ca882f1"></script>
+  <script src="assets/app.js?v=144ca882f1"></script>
+  <script src="assets/bestelling_pdf.js?v=144ca882f1"></script>
+  <script src="assets/suppliers.js?v=144ca882f1"></script>
+  <script src="assets/ijsdesserts.js?v=144ca882f1"></script>
+  <script src="assets/cars.js?v=144ca882f1"></script>
+  <script src="assets/tijdstool.js?v=144ca882f1"></script>
+  <script src="assets/functionsheets.js?v=144ca882f1"></script>
+  <script src="assets/dymo-print.js?v=144ca882f1"></script>
+  <script src="assets/snelle-etiketten.js?v=144ca882f1"></script>
+  <script src="assets/portie-etiketten.js?v=144ca882f1"></script>
+  <script src="assets/weekmap.js?v=144ca882f1"></script>
+  <script src="assets/kiosk.js?v=144ca882f1"></script>
+  <script src="assets/bakker.js?v=144ca882f1"></script>
+  <script src="assets/broodjes.js?v=144ca882f1"></script>
+  <script src="assets/recepten.js?v=144ca882f1"></script>
+  <script src="assets/etiketten.js?v=144ca882f1"></script>
 
   <script>
   /* ═══ SIDEBAR ROUTING ═══ */
@@ -1084,6 +1090,7 @@
     if (pageId === 'offertes' && typeof window._renderOffertes === 'function') window._renderOffertes();
     if (pageId === 'visprijs' && typeof window._renderVisprijs === 'function') window._renderVisprijs();
     if (pageId === 'groentenbestel' && typeof window._renderGroentenBestel === 'function') window._renderGroentenBestel();
+    if (pageId === 'ingredienten' && typeof window._renderIngredienten === 'function') window._renderIngredienten();
   }
 
   /* Compatibiliteitslaag: oude functies die app.js nog gebruikt */
