@@ -237,7 +237,7 @@
             <input type="checkbox" class="etik-row-check" data-idx="${e.idx}" ${e.selected ? 'checked' : ''}
               onchange="window._etikToggle(${e.idx}, this.checked)">
             <div class="etik-row-info">
-              <div class="etik-row-room">${e.room}</div>
+              <div class="etik-row-room">${zaalTekst(e.room)}</div>
               <div class="etik-row-meta">${e.time ? e.time + ' · ' : ''}${e.persons} personen</div>
             </div>
             <span class="etik-row-loc" style="background:${lce.bg};color:${lce.color}">

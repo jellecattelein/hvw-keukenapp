@@ -474,7 +474,7 @@
 
               return `
                 <div class="bak-zaal-block">
-                  <div class="bak-zaal-title">${escapeHtml(room)}</div>
+                  <div class="bak-zaal-title">${escapeHtml(zaalTekst(room))}</div>
                   ${(dbMini || dbTaart) ? `
                     <div class="bak-db-table bak-db-table-inline">
                       <div class="bak-db-row bak-db-head">
@@ -518,7 +518,7 @@
     const rij = a => {
       const i = lastAanbod.indexOf(a);
       return `<div class="bak-a-row">
-        <span class="bak-a-naam">${escapeHtml(a.naam)}<small>${a.dateStr ? formatDate(a.dateStr) : 'Geen datum'}${a.room ? ' · ' + escapeHtml(a.room) : ''}</small></span>
+        <span class="bak-a-naam">${escapeHtml(a.naam)}<small>${a.dateStr ? formatDate(a.dateStr) : 'Geen datum'}${a.room ? ' · ' + escapeHtml(zaalTekst(a.room)) : ''}</small></span>
         <span class="bak-a-aant">${a.persons}</span>
         <button class="bak-a-btn" onclick="window._bakMove(${i})">Voeg toe aan bakker</button>
       </div>`;
@@ -547,7 +547,7 @@
       <div class="bak-manual-item">
         <span class="bak-manual-tag">${SUB_LABELS[m.sub] || m.sub}</span>
         <span class="bak-manual-naam">${escapeHtml(m.naam)}</span>
-        <span class="bak-manual-meta">${m.dateStr ? formatDate(m.dateStr) : ''}${m.room ? ' · ' + escapeHtml(m.room) : ''} · ${m.aantal}</span>
+        <span class="bak-manual-meta">${m.dateStr ? formatDate(m.dateStr) : ''}${m.room ? ' · ' + escapeHtml(zaalTekst(m.room)) : ''} · ${m.aantal}</span>
         <button class="bak-manual-del" onclick="window._bakRemoveManual('${m.id}')" title="Verwijderen">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
@@ -713,7 +713,7 @@
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(9.5);
             doc.setTextColor(26, 25, 23);
-            doc.text(room, MARGIN + 3, y);
+            doc.text(zaalTekst(room), MARGIN + 3, y);
             y += 7.5;
 
             // Dessertbuffet-tabelletje (mini-gebak + taarten) direct onder de zaalnaam

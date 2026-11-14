@@ -37,7 +37,7 @@
     } catch (e) { document.documentElement.classList.add('ui-modern'); }
   </script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/style.css?v=c14dcc4a32">
+  <link rel="stylesheet" href="assets/style.css?v=f032fe3075">
   <style>
     :root {
       --sb-w: 224px;
@@ -452,7 +452,7 @@
       .dash-row { grid-template-columns: 1fr; }
     }
   </style>
-  <link rel="stylesheet" href="assets/modern.css?v=c14dcc4a32">
+  <link rel="stylesheet" href="assets/modern.css?v=f032fe3075">
 </head>
 <body>
 
@@ -574,7 +574,7 @@
         </div>
         <button class="btn btn-primary no-print" onclick="doPrint()">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-          Afdrukken
+          <span>Afdrukken</span>
         </button>
         <input type="file" id="xl-input" accept=".xlsx,.xls" style="display:none" onchange="loadFile(this)">
       </div>
@@ -925,31 +925,31 @@
     </div>
   </div>
 
-  <script src="assets/modern.js?v=c14dcc4a32"></script>
-  <script src="assets/etiketten-modus.js?v=c14dcc4a32"></script>
-  <script src="assets/firebase-config.js?v=c14dcc4a32"></script>
-  <script src="assets/sync.js?v=c14dcc4a32"></script>
-  <script src="assets/ai-split.js?v=c14dcc4a32"></script>
-  <script src="assets/offertes.js?v=c14dcc4a32"></script>
-  <script src="assets/visprijs.js?v=c14dcc4a32"></script>
-  <script src="assets/groenten-bestellen.js?v=c14dcc4a32"></script>
-  <script src="assets/ingredienten.js?v=c14dcc4a32"></script>
-  <script src="assets/app.js?v=c14dcc4a32"></script>
-  <script src="assets/bestelling_pdf.js?v=c14dcc4a32"></script>
-  <script src="assets/suppliers.js?v=c14dcc4a32"></script>
-  <script src="assets/ijsdesserts.js?v=c14dcc4a32"></script>
-  <script src="assets/cars.js?v=c14dcc4a32"></script>
-  <script src="assets/tijdstool.js?v=c14dcc4a32"></script>
-  <script src="assets/functionsheets.js?v=c14dcc4a32"></script>
-  <script src="assets/dymo-print.js?v=c14dcc4a32"></script>
-  <script src="assets/snelle-etiketten.js?v=c14dcc4a32"></script>
-  <script src="assets/portie-etiketten.js?v=c14dcc4a32"></script>
-  <script src="assets/weekmap.js?v=c14dcc4a32"></script>
-  <script src="assets/kiosk.js?v=c14dcc4a32"></script>
-  <script src="assets/bakker.js?v=c14dcc4a32"></script>
-  <script src="assets/broodjes.js?v=c14dcc4a32"></script>
-  <script src="assets/recepten.js?v=c14dcc4a32"></script>
-  <script src="assets/etiketten.js?v=c14dcc4a32"></script>
+  <script src="assets/modern.js?v=f032fe3075"></script>
+  <script src="assets/etiketten-modus.js?v=f032fe3075"></script>
+  <script src="assets/firebase-config.js?v=f032fe3075"></script>
+  <script src="assets/sync.js?v=f032fe3075"></script>
+  <script src="assets/ai-split.js?v=f032fe3075"></script>
+  <script src="assets/offertes.js?v=f032fe3075"></script>
+  <script src="assets/visprijs.js?v=f032fe3075"></script>
+  <script src="assets/groenten-bestellen.js?v=f032fe3075"></script>
+  <script src="assets/ingredienten.js?v=f032fe3075"></script>
+  <script src="assets/app.js?v=f032fe3075"></script>
+  <script src="assets/bestelling_pdf.js?v=f032fe3075"></script>
+  <script src="assets/suppliers.js?v=f032fe3075"></script>
+  <script src="assets/ijsdesserts.js?v=f032fe3075"></script>
+  <script src="assets/cars.js?v=f032fe3075"></script>
+  <script src="assets/tijdstool.js?v=f032fe3075"></script>
+  <script src="assets/functionsheets.js?v=f032fe3075"></script>
+  <script src="assets/dymo-print.js?v=f032fe3075"></script>
+  <script src="assets/snelle-etiketten.js?v=f032fe3075"></script>
+  <script src="assets/portie-etiketten.js?v=f032fe3075"></script>
+  <script src="assets/weekmap.js?v=f032fe3075"></script>
+  <script src="assets/kiosk.js?v=f032fe3075"></script>
+  <script src="assets/bakker.js?v=f032fe3075"></script>
+  <script src="assets/broodjes.js?v=f032fe3075"></script>
+  <script src="assets/recepten.js?v=f032fe3075"></script>
+  <script src="assets/etiketten.js?v=f032fe3075"></script>
 
   <script>
   /* ═══ SIDEBAR ROUTING ═══ */
@@ -1172,18 +1172,21 @@
           <span class="ev-date">${fmt(e.date).substring(0,2)}</span>
           <span class="ev-time">${e.time||'—'}</span>
           <span class="ev-dot" style="background:${LOC_DOT[e.location]||'#ccc'}"></span>
-          <span class="ev-room">${e.room}</span>
+          <span class="ev-room">${String(e.room || '').split(';').map(s=>s.trim()).filter(Boolean).join(', ')}</span>
           <span class="ev-pers">${e.persons}</span>
         </div>`).join('') + (sorted.length>14?`<div style="padding:10px 18px;font-size:12px;color:#9A9590">+${sorted.length-14} meer</div>`:'')
       : '<div class="empty-state">Geen feesten</div>';
 
     // Gewichten bars
     const cats = [{id:'vlees',label:'Vlees',c:'#8B2500'},{id:'vis',label:'Vis',c:'#1A3F6F'},{id:'groenten',label:'Groenten',c:'#2D6A4F'},{id:'hapjes',label:'Hapjes',c:'#8B6A00'}];
-    const maxKg = Math.max(1,...cats.map(c=>rows.filter(r=>r.tabId===c.id).reduce((s,r)=>{ const g=getGrams(r); return s+(g>0?r.persons*g/1000:0);},0)));
-    document.getElementById('dash-weights').innerHTML = cats.map(c=>{
-      const kg=rows.filter(r=>r.tabId===c.id).reduce((s,r)=>{ const g=getGrams(r); return s+(g>0?r.persons*g/1000:0);},0);
+    // Groenten en hapjes werken per persoon/stuk en hebben geen gewicht: die tonen we niet als "0.0 kg"
+    cats.forEach(c => { c.kg = rows.filter(r=>r.tabId===c.id).reduce((s,r)=>{ const g=getGrams(r); return s+(g>0?r.persons*g/1000:0);},0); });
+    const metGewicht = cats.filter(c => c.kg > 0);
+    const maxKg = Math.max(1,...metGewicht.map(c=>c.kg));
+    document.getElementById('dash-weights').innerHTML = metGewicht.map(c=>{
+      const kg=c.kg;
       return `<div class="bar-item"><div class="bar-labels"><span style="font-weight:600">${c.label}</span><span style="font-family:'DM Mono';font-weight:600;color:${c.c}">${kg.toFixed(1)} kg</span></div><div class="bar-track"><div class="bar-fill" style="width:${(kg/maxKg*100).toFixed(0)}%;background:${c.c}"></div></div></div>`;
-    }).join('');
+    }).join('') || '<div class="empty-state">Geen gewichten in deze periode</div>';
 
     // Locaties
     const locT = {};

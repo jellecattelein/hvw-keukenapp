@@ -273,7 +273,7 @@
       .vp-chip.act { background:var(--v-acc); color:#fff; box-shadow:0 6px 14px -6px var(--v-acc); }
       .vp-chip.add { background:transparent; box-shadow:none; border:1.5px dashed rgba(20,21,26,.25); color:#6B655E; }
       .vp-grid { display:grid; grid-template-columns:minmax(0,1.15fr) minmax(0,1fr); gap:16px; align-items:start; }
-      @media (max-width: 980px) { .vp-grid { grid-template-columns:1fr; } }
+      @media (max-width: 980px) { .vp-grid { grid-template-columns:minmax(0,1fr); } }
       .vp-card { background:#fff; border-radius:16px; box-shadow:0 1px 2px rgba(20,21,26,.05),0 0 0 1px rgba(20,21,26,.04); padding:16px 18px; margin-bottom:14px; }
       .vp-card h3 { margin:0 0 4px; font:650 15px 'Inter',sans-serif; display:flex; align-items:baseline; gap:10px; }
       .vp-card h3 span { font-size:12px; font-weight:500; color:var(--v-ink3); }

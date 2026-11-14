@@ -340,7 +340,7 @@
             <td><span class="ijs-type-badge" style="background:${r.cfg.bg};color:${r.cfg.color}">${r.cfg.label}</span></td>
             <td class="ijs-name-cell">${r.naam}</td>
             <td class="ijs-zaal-cell">
-              <div class="ijs-zaal-naam">${r.room.length > 22 ? r.room.slice(0,21)+'…' : r.room}</div>
+              <div class="ijs-zaal-naam">${zaalTekst(r.room).length > 22 ? zaalTekst(r.room).slice(0,21)+'…' : zaalTekst(r.room)}</div>
               <span class="ijs-loc-pill" style="background:${r.locBg};color:${r.locColor}">
                 <span class="ijs-loc-code">${r.locCode}</span>${r.locLabel}
               </span>
@@ -541,7 +541,7 @@
           doc.setFont('helvetica', 'normal');
           doc.setFontSize(8.5);
           doc.setTextColor(107, 101, 94);
-          const zaalTxt = `${r.room}${r.locLabel ? '  ·  ' + r.locLabel : ''}`;
+          const zaalTxt = `${zaalTekst(r.room)}${r.locLabel ? '  ·  ' + r.locLabel : ''}`;
           const zaalTrunc = zaalTxt.length > 46 ? zaalTxt.slice(0,45)+'…' : zaalTxt;
           doc.text(zaalTrunc, col.zaal, y);
 

@@ -39,9 +39,10 @@ const LOC_COLORS = {
 const TABS = [
   {
     id: 'vlees', label: 'Vlees', icon: '🥩', color: '#8B2500', bg: '#FDF0EC',
-    desc: 'HG Vlees',
+    desc: 'HG Vlees · HG Wild',
     subcats: [
       { excel: 'HG Vlees',  sub: 'hg_vlees',  defaultGrams: 0 },
+      { excel: 'HG Wild',   sub: 'hg_wild',   defaultGrams: 0 },
     ]
   },
   {
@@ -158,7 +159,7 @@ TABS.forEach(tab => {
 });
 
 const SUBCAT_LABELS = {
-  hg_vlees:'HG Vlees', hg_vis:'HG Vis', vg_warm:'VG Warm', small_plates:'Small Plates',
+  hg_vlees:'HG Vlees', hg_wild:'HG Wild', hg_vis:'HG Vis', vg_warm:'VG Warm', small_plates:'Small Plates',
   hg_veggie:'HG Veggie', vg_veggie:'VG Veggie', groenten:'Groenten & salades',
   aardappelen:'Aardappelbereidingen', hapje_warm:'Hapje warm', hapje_koud:'Hapje koud',
   food_share:'Food To Share', streetfood:'Streetfood', standen:'Standen',
@@ -192,6 +193,12 @@ function parseDate(val) {
     return `${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')}`;
   }
   return val.toString().substring(0, 10);
+}
+
+// Zaalnaam voor op het scherm: de Excel scheidt meerdere zalen met ";" → "Zaal A, Zaal B".
+// Enkel voor weergave; de opgeslagen waarde blijft zoals in de Excel.
+function zaalTekst(room) {
+  return String(room == null ? '' : room).split(';').map(s => s.trim()).filter(Boolean).join(', ');
 }
 
 function weekKey(dateStr) {
@@ -255,13 +262,21 @@ function loadFile(inp) {
   reader.readAsArrayBuffer(file);
 }
 
+// Categorieën die bewust niet geladen worden (koppen/titels in de CCM-export)
+const NEGEER_CATEGORIEEN = new Set(['foodtitels', '']);
+
 function processData(data) {
   allRows   = [];
   overrides = {};
+  const onbekend = {};
   data.forEach((r, i) => {
     const excelCat = (r['Category name'] || '').toString().trim();
     const info     = EXCEL_TO_TAB[excelCat.toLowerCase()];
-    if (!info) return;
+    if (!info) {
+      // niet stilzwijgend weggooien: nieuwe CCM-categorieën melden we hieronder
+      if (!NEGEER_CATEGORIEEN.has(excelCat.toLowerCase()) && (r['Resource name'] || '').toString().trim()) onbekend[excelCat] = (onbekend[excelCat] || 0) + 1;
+      return;
+    }
     const name    = (r['Resource name'] || '').toString().trim();
     if (!name) return;
     const persons = parseInt(r['Number of items']) || 0;
@@ -294,6 +309,7 @@ function processData(data) {
     .forEach(r => { const k = r.base.toLowerCase(); if (!spelling.has(k)) spelling.set(k, r.base); });
   allRows.forEach(r => { r.base = spelling.get(r.base.toLowerCase()) || r.base; });
   rawData = data;
+  toonOnbekendeCategorieen(onbekend, data.length, allRows.length);
   if (typeof loadSuppliers === 'function') loadSuppliers();
   populateFilters();
   updateTabBadges();
@@ -307,6 +323,28 @@ function processData(data) {
   }
   // Notificeer andere modules dat data geladen is
   document.dispatchEvent(new CustomEvent('dataLoaded'));
+}
+
+// Melding bovenaan het scherm als de Excel rijen bevat die de app niet kent
+function toonOnbekendeCategorieen(onbekend, totaal, geladen) {
+  const oud = document.getElementById('hvw-onbekend-melding');
+  if (oud) oud.remove();
+  const namen = Object.keys(onbekend);
+  let tekst = '';
+  if (totaal && !geladen) tekst = 'Geen enkele rij herkend. Is dit wel de juiste export uit CCM (kolommen "Category name", "Resource name", "Number of items")?';
+  else if (namen.length) tekst = 'Niet herkende categorie in de Excel, deze rijen zijn overgeslagen: ' +
+    namen.map(n => `${n || '(leeg)'} (${onbekend[n]})`).join(', ') + '. Laat het weten, dan voegen we die categorie toe.';
+  if (!tekst) return;
+  const d = document.createElement('div');
+  d.id = 'hvw-onbekend-melding';
+  d.style.cssText = 'position:fixed;left:50%;top:12px;transform:translateX(-50%);z-index:99999;max-width:min(680px,92vw);background:#FFF4D6;border:1px solid #E0B84A;color:#5A4300;padding:10px 38px 10px 14px;border-radius:10px;font:600 13px/1.4 system-ui,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.18)';
+  d.textContent = '⚠ ' + tekst;
+  const x = document.createElement('button');
+  x.textContent = '×'; x.setAttribute('aria-label', 'Sluiten');
+  x.style.cssText = 'position:absolute;right:8px;top:4px;border:0;background:none;font-size:20px;cursor:pointer;color:inherit';
+  x.onclick = () => d.remove();
+  d.appendChild(x);
+  document.body.appendChild(d);
 }
 
 /* ── Gram helpers ── */
@@ -350,7 +388,7 @@ function populateFilters() {
     const el = document.getElementById(id);
     if (!el) return;
     el.innerHTML = '<option value="">Alle datums</option>';
-    dates.forEach(d => { const o=document.createElement('option'); o.value=d; o.textContent=d; el.appendChild(o); });
+    dates.forEach(d => { const o=document.createElement('option'); o.value=d; o.textContent=formatDate(d); el.appendChild(o); });
   });
 
   const weeks = [...new Map(allRows.map(r => [r.weekKey, r.weekLabel])).entries()].sort((a,b)=>a[0].localeCompare(b[0]));
@@ -365,7 +403,7 @@ function populateFilters() {
     const el = document.getElementById(id);
     if (!el) return;
     el.innerHTML = '<option value="">Alle zalen</option>';
-    rooms.forEach(r => { const o=document.createElement('option'); o.value=r; o.textContent=r.length>32?r.slice(0,31)+'…':r; el.appendChild(o); });
+    rooms.forEach(r => { const t=zaalTekst(r); const o=document.createElement('option'); o.value=r; o.textContent=t.length>32?t.slice(0,31)+'…':t; el.appendChild(o); });
   });
 }
 
@@ -491,7 +529,7 @@ function renderOverzicht(wk, q) {
 
   // Gebruik echte CCM subcategorie labels
   const SUB_LABELS = {
-    hg_vlees:'HG Vlees', hg_vis:'HG Vis', vg_warm:'VG Warm', small_plates:'Small Plates',
+    hg_vlees:'HG Vlees', hg_wild:'HG Wild', hg_vis:'HG Vis', vg_warm:'VG Warm', small_plates:'Small Plates',
     hg_veggie:'HG Veggie', vg_veggie:'VG Veggie', groenten:'Groenten & Salades',
     aardappelen:'Aardappelbereidingen', hapje_warm:'Hapje Warm', hapje_koud:'Hapje Koud',
     food_share:'Food To Share', streetfood:'Streetfood', standen:'Standen',
@@ -502,7 +540,7 @@ function renderOverzicht(wk, q) {
     vg_koud:'VG Koud', hg_kids:'HG Kids', vg_kids:'VG Kids', kids:'Kids',
   };
   const SUB_ORDER = [
-    'hg_vlees','hg_vis','vg_warm','small_plates','hg_veggie','vg_veggie',
+    'hg_vlees','hg_wild','hg_vis','vg_warm','small_plates','hg_veggie','vg_veggie',
     'groenten','aardappelen','hapje_warm','hapje_koud','hapje_bordje',
     'food_share','streetfood','standen',
     'dessert','desserthapjes','dessert_kids','dessertbuffet',
@@ -541,7 +579,7 @@ function renderOverzicht(wk, q) {
         <option value="">Alle weken</option>${weekOpties}
       </select>
       <input id="ov-search" type="text" placeholder="Zoek product..." oninput="renderOverzicht(undefined, this.value)"
-        value="${selQ}" style="font-family:'Outfit',sans-serif;font-size:13px;padding:7px 11px;border:1px solid #DEDAD4;border-radius:8px;background:#fff;outline:none;flex:1;min-width:160px">
+        value="${selQ.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;')}" style="font-family:'Outfit',sans-serif;font-size:13px;padding:7px 11px;border:1px solid #DEDAD4;border-radius:8px;background:#fff;outline:none;flex:1;min-width:160px">
       <button class="btn btn-primary no-print" onclick="exportOverzichtPDF()">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
         PDF
@@ -550,7 +588,7 @@ function renderOverzicht(wk, q) {
     <div style="background:#fff;border:1px solid #E8E5E0;border-radius:14px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.05)">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid #E8E5E0;background:#FAFAF8">
         <span style="font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:500">Productoverzicht per categorie</span>
-        <span style="font-family:'DM Mono',monospace;font-size:13px;font-weight:600;color:#B8965A">${grandTotal.toLocaleString('nl-BE')} totaal</span>
+        <span style="font-family:'DM Mono',monospace;font-size:13px;font-weight:600;color:#B8965A">${grandTotal.toLocaleString('nl-BE')} porties totaal</span>
       </div>
       <table style="width:100%;border-collapse:collapse;font-size:13px">
         <thead>
@@ -603,7 +641,15 @@ function renderOverzicht(wk, q) {
       </table>
     </div>`;
 
+  // Het zoekveld zit in dit blok en wordt mee opnieuw opgebouwd: focus en cursor terugzetten,
+  // anders kun je geen woord typen zonder na elke letter opnieuw te klikken.
+  const hadFocus = document.activeElement && document.activeElement.id === 'ov-search';
+  const caret = hadFocus ? document.activeElement.selectionStart : null;
   el.innerHTML = html;
+  if (hadFocus) {
+    const inp = document.getElementById('ov-search');
+    if (inp) { inp.focus(); try { inp.setSelectionRange(caret, caret); } catch (e) {} }
+  }
 }
 
 /* ── PDF export draaitabel ── */
@@ -621,7 +667,7 @@ async function exportOverzichtPDF() {
   const margin = 16; let y = 0;
 
   const SUB_LABELS = {
-    hg_vlees:'HG Vlees', hg_vis:'HG Vis', vg_warm:'VG Warm', small_plates:'Small Plates',
+    hg_vlees:'HG Vlees', hg_wild:'HG Wild', hg_vis:'HG Vis', vg_warm:'VG Warm', small_plates:'Small Plates',
     hg_veggie:'HG Veggie', vg_veggie:'VG Veggie', groenten:'Groenten & Salades',
     aardappelen:'Aardappelbereidingen', hapje_warm:'Hapje Warm', hapje_koud:'Hapje Koud',
     food_share:'Food To Share', streetfood:'Streetfood', standen:'Standen',
@@ -632,7 +678,7 @@ async function exportOverzichtPDF() {
     vg_koud:'VG Koud', hg_kids:'HG Kids', vg_kids:'VG Kids', kids:'Kids',
   };
   const SUB_ORDER = [
-    'hg_vlees','hg_vis','vg_warm','small_plates','hg_veggie','vg_veggie',
+    'hg_vlees','hg_wild','hg_vis','vg_warm','small_plates','hg_veggie','vg_veggie',
     'groenten','aardappelen','hapje_warm','hapje_koud','hapje_bordje',
     'food_share','streetfood','standen',
     'dessert','desserthapjes','dessert_kids','dessertbuffet',
@@ -968,13 +1014,14 @@ function renderDessertSimple(mode) {
 
         variants.forEach(r => {
           basePersons += r.persons;
-          const roomShort = r.room.length>22 ? r.room.slice(0,21)+'…' : r.room;
+          const roomTxt = zaalTekst(r.room);
+          const roomShort = roomTxt.length>22 ? roomTxt.slice(0,21)+'…' : roomTxt;
           // Zoals bij vlees/vis: in het weekoverzicht staat de dag voor de zaal
           const dagLabel = mode === 'week' ? `<span class="day-tag">${dayShort(r.dateStr)}</span>` : '';
           variantRows += `
           <tr class="variant-row" style="border-left:3px solid ${color.stripe}">
             <td style="padding-left:22px;color:var(--text-muted);font-size:12px" title="${r.name.replace(/"/g,'&quot;')}">${r.name.length>55?r.name.slice(0,54)+'…':r.name}</td>
-            <td style="color:var(--text-muted);font-size:11px" title="${r.room}">${dagLabel}${roomShort}</td>
+            <td style="color:var(--text-muted);font-size:11px" title="${roomTxt.replace(/"/g,'&quot;')}">${dagLabel}${roomShort}</td>
             <td style="text-align:center;font-family:'DM Mono',monospace;font-weight:500">${r.persons}</td>
           </tr>`;
         });
@@ -1111,7 +1158,7 @@ function buildSubcatBlock(sub, rows, periodKey='') {
       variantRows += `
       <tr class="variant-row" style="border-left:3px solid ${color.stripe}">
         <td style="padding-left:22px;color:var(--text-muted);font-size:12px" title="${r.name.replace(/"/g,'&quot;')}">${variantLabel}</td>
-        <td style="color:var(--text-muted);font-size:11px" title="${r.room}">${dagLabel}${r.room.length>18?r.room.slice(0,17)+'…':r.room}</td>
+        <td style="color:var(--text-muted);font-size:11px" title="${zaalTekst(r.room).replace(/"/g,'&quot;')}">${dagLabel}${zaalTekst(r.room).length>18?zaalTekst(r.room).slice(0,17)+'…':zaalTekst(r.room)}</td>
         <td style="text-align:center;font-family:'DM Mono',monospace">${r.persons}</td>
         <td>
           <div class="qty-cell no-print">
@@ -1398,7 +1445,7 @@ function renderFeesten() {
    ══════════════════════════════ */
 
 const CAT_ORDER_DETAIL = [
-  { cats: ['HG Vlees'],                          label: 'Vlees',       color: '#8B2500', bg: '#FDF1ED' },
+  { cats: ['HG Vlees','HG Wild'],                label: 'Vlees',      color: '#8B2500', bg: '#FDF1ED' },
   { cats: ['HG Vis'],                            label: 'Vis',         color: '#1A3F6F', bg: '#EDF3FB' },
   { cats: ['VG Warm'],                           label: 'VG Warm',     color: '#1A3F6F', bg: '#EDF3FB' },
   { cats: ['Small Plates'],                      label: 'Small Plates',color: '#3D5A80', bg: '#E8EFF6' },

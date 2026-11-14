@@ -129,7 +129,7 @@
   // zo'n rij zou het gastenaantal anders laten lijken dan het werkelijk is,
   // en de tafelbroodjes-schatting mee opblazen).
   const HOOFDGERECHT_CATEGORIES = new Set([
-    'HG Vlees', 'HG Vis', 'VG Warm', 'HG Veggie', 'VG Veggie', 'HG kids', 'VG Kids', 'Kids'
+    'HG Vlees', 'HG Wild', 'HG Vis', 'VG Warm', 'HG Veggie', 'VG Veggie', 'HG kids', 'VG Kids', 'Kids'
   ]);
 
   /* ── Bereken broodjes per feest via rawData + Booking ID ──
@@ -337,7 +337,7 @@
         <select id="broodjes-week" onchange="renderBroodjes(this.value)">
           <option value="">Alle weken</option>${weekOpties}
         </select>
-        <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
+        <div style="margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
           <span style="font-family:'DM Mono',monospace;font-size:13px;color:#9A9590">
             Totaal: <strong style="color:#1A1917">${totalBroodjes} broodjes</strong>${uitgeslotenCount ? ` <span style="color:#B03A2E">(${uitgeslotenCount} feest${uitgeslotenCount===1?'':'en'} uitgesloten van printen)</span>` : ''}
           </span>
