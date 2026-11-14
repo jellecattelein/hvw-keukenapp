@@ -166,11 +166,24 @@
         <span id="ig-ai-status" style="color:#6B5300">${D.gerechten.filter(g => g.ai).length ? '✨ ' + D.gerechten.filter(g => g.ai).length + ' door AI verfijnd' : ''}</span>
         <span class="sp"></span>
         <button class="btn btn-gold" onclick="window._igAi()" title="Laat de AI elk gerecht nauwkeuriger opdelen">✨ Verfijn met AI</button>
+        <button class="btn" onclick="window._igHandmatig()" title="Zonder koppeling: kopiëren en plakken">AI via kopiëren/plakken</button>
         <button class="btn" onclick="window._igKopieer()">Kopieer lijst</button>
         <button class="btn" onclick="window._igPrint()">Afdrukken</button>
         ${klaar ? `<button class="btn" onclick="window._igWis()">Vinkjes wissen</button>` : ''}
         <span id="ig-ok" style="font-size:12.5px;font-weight:600;color:#1F7A5A;opacity:0;transition:opacity .3s">Gekopieerd ✓</span>
       </div>
+      ${handmatigOpen ? `<div class="ig-card" style="padding:14px 18px">
+        <div style="font:650 14px Inter,sans-serif;margin-bottom:8px">AI via kopiëren en plakken</div>
+        <ol style="margin:0 0 10px 18px;padding:0;font-size:13px;line-height:1.7;color:#3A4764">
+          <li>Klik op <b>Kopieer opdracht</b>.</li>
+          <li>Plak de tekst in <b>Claude</b> of <b>ChatGPT</b> (een gewoon chatvenster) en wacht op het antwoord.</li>
+          <li>Kopieer het volledige antwoord en plak het hieronder, dan op <b>Verwerk antwoord</b>.</li>
+        </ol>
+        <button class="btn btn-gold" onclick="window._igKopieerVraag()">Kopieer opdracht (${nogTeDoen().length} gerechten)</button>
+        <textarea id="ig-hm-antwoord" placeholder="Plak hier het antwoord van de AI…" style="display:block;width:100%;box-sizing:border-box;min-height:90px;margin:10px 0;padding:10px;border:1px solid rgba(20,21,26,.15);border-radius:10px;font:13px Inter,sans-serif"></textarea>
+        <button class="btn btn-primary" onclick="window._igVerwerk()">Verwerk antwoord</button>
+        <span id="ig-hm-status" style="margin-left:10px;font-size:12.5px;font-weight:600;color:#1F7A5A"></span>
+      </div>` : ''}
       <div class="ig-card" id="ig-body">${body}</div>`;
     if (zoek) { const z = document.getElementById('ig-zoek'); if (z) { z.focus(); z.setSelectionRange(zoek.length, zoek.length); } }
   }
@@ -222,6 +235,56 @@ ${stuk.map((n, k) => (k + 1) + '. ' + n).join('\n')}`;
         : /503|500|overload|high demand|unavailable/i.test(m) ? 'De AI is momenteel druk. Wat al klaar is blijft bewaard, probeer over enkele minuten opnieuw.'
         : 'AI niet gelukt: ' + m.slice(0, 600) + ' — Wat al klaar is blijft bewaard.');
     }
+  };
+  /* ── zonder koppeling: opdracht kopiëren, in Claude/ChatGPT plakken, antwoord terugplakken ── */
+  let handmatigOpen = false;
+  function nogTeDoen() {
+    return [...new Set(allRows.filter(r => r.weekKey === weekKey && r.persons > 0 && r.name).map(r => opschonen(r.name)))]
+      .filter(n => n && !aiCache[n.toLowerCase()]);
+  }
+  function handmatigeVraag(namen) {
+    return `Je helpt de keuken van een traiteur. Hieronder staat een lijst gerechten uit de bestelling.
+Splits elk gerecht in alle losse onderdelen die je moet bestellen of voorbereiden: het hoofdbestanddeel, de garnituren, sauzen, kruiden en toppings.
+
+Regels:
+- Gebruik de Nederlandse benamingen uit de tekst en verzin niets bij.
+- Samengestelde namen blijven één onderdeel (bv. "crème van bieslook", "fleur de sel", "beurre blanc", "olie van basilicum").
+- Laat bereidingswoorden weg bij het hoofdbestanddeel ("Gebakken zeebaars" wordt "zeebaars"), en laat gewichten en tussen haakjes weg.
+- Geef elk onderdeel een korte, duidelijke naam.
+
+Antwoord ENKEL met JSON (geen uitleg), voor elk gerecht één object, waarbij "gerecht" de naam is EXACT zoals hieronder:
+[{"gerecht": "...", "delen": ["...", "..."]}]
+
+Gerechten:
+${namen.map(n => '- ' + n).join('\n')}`;
+  }
+  window._igHandmatig = function () { handmatigOpen = !handmatigOpen; render(); };
+  window._igKopieerVraag = async function () {
+    const namen = nogTeDoen();
+    const el = document.getElementById('ig-hm-status');
+    if (!namen.length) { if (el) el.textContent = 'Alles is al verfijnd.'; return; }
+    const t = handmatigeVraag(namen);
+    try { await navigator.clipboard.writeText(t); } catch (e) { const a = document.createElement('textarea'); a.value = t; document.body.appendChild(a); a.select(); document.execCommand('copy'); a.remove(); }
+    if (el) el.textContent = `✓ Opdracht met ${namen.length} gerechten gekopieerd. Plak ze nu in Claude of ChatGPT.`;
+  };
+  window._igVerwerk = function () {
+    const el = document.getElementById('ig-hm-status');
+    const raw = document.getElementById('ig-hm-antwoord')?.value || '';
+    const m = raw.match(/\[[\s\S]*\]/);
+    let lijst;
+    try { lijst = JSON.parse(m ? m[0] : raw); } catch (e) { if (el) el.textContent = 'Dit antwoord kan ik niet lezen. Plak het volledige JSON-antwoord (het begint met [ en eindigt met ]).'; return; }
+    if (!Array.isArray(lijst)) { if (el) el.textContent = 'Onverwacht antwoord: ik verwacht een lijst met gerechten.'; return; }
+    const namen = nogTeDoen(), perNaam = new Map(namen.map(n => [n.toLowerCase(), n]));
+    let ok = 0, onbekend = 0;
+    lijst.forEach(a => {
+      const sleutel = String((a && (a.gerecht || a.naam)) || '').trim().toLowerCase();
+      const delen = a && Array.isArray(a.delen) ? [...new Set(a.delen.filter(x => typeof x === 'string' && x.trim()).map(x => hoofdletter(x.trim().replace(/[.:]+$/, ''))))] : [];
+      if (perNaam.has(sleutel) && delen.length) { aiCache[sleutel] = delen; ok++; } else onbekend++;
+    });
+    saveAi();
+    render();
+    const st = document.getElementById('ig-hm-status');
+    if (st) st.textContent = ok ? `✓ ${ok} gerechten verwerkt${onbekend ? ` (${onbekend} niet herkend of leeg)` : ''}.` : 'Geen enkel gerecht herkend. Controleer of de namen in het antwoord exact overeenkomen met de opdracht.';
   };
   window._igWeek = function (k) { weekKey = k; render(); };
   window._igCat = function (v) { cat = v; render(); };
