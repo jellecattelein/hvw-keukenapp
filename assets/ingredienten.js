@@ -217,7 +217,10 @@ ${stuk.map((n, k) => (k + 1) + '. ' + n).join('\n')}`;
       aiBezig = false;
       const m = String(e && e.message || e);
       render();
-      status(/429|quota/i.test(m) ? 'Limiet van de gratis AI bereikt: wat al klaar is blijft bewaard. Probeer binnen een minuut opnieuw.' : 'AI niet gelukt (' + m.slice(0, 80) + '). Wat al klaar is blijft bewaard.');
+      console.warn('[ingredienten] AI-fout:', e);
+      status(/429|quota/i.test(m) ? 'Limiet van de gratis AI bereikt: wat al klaar is blijft bewaard. Probeer binnen een minuut opnieuw.'
+        : /503|500|overload|high demand|unavailable/i.test(m) ? 'De AI is momenteel druk. Wat al klaar is blijft bewaard, probeer over enkele minuten opnieuw.'
+        : 'AI niet gelukt: ' + m.slice(0, 600) + ' — Wat al klaar is blijft bewaard.');
     }
   };
   window._igWeek = function (k) { weekKey = k; render(); };
