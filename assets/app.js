@@ -286,6 +286,13 @@ function processData(data) {
       bookingId: (r['Booking ID'] || '').toString().trim(),
     });
   });
+  // Zelfde product maar andere hoofdletters ("Seizoensgroenten (Standaard)" en
+  // "Repasse seizoensgroenten (standaard)") moet één groep zijn: gelijke spelling afdwingen.
+  // De spelling van de gewone (niet-repasse) regel wint, zodat bestaande instellingen blijven kloppen.
+  const spelling = new Map();
+  allRows.filter(r => !/^repasse\s/i.test(r.name)).concat(allRows.filter(r => /^repasse\s/i.test(r.name)))
+    .forEach(r => { const k = r.base.toLowerCase(); if (!spelling.has(k)) spelling.set(k, r.base); });
+  allRows.forEach(r => { r.base = spelling.get(r.base.toLowerCase()) || r.base; });
   rawData = data;
   if (typeof loadSuppliers === 'function') loadSuppliers();
   populateFilters();
