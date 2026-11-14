@@ -326,8 +326,9 @@
         naam: m.naam,
         persons: m.aantal,
         dateStr: m.dateStr || '',
-        weekKey: m.dateStr ? m.dateStr.slice(0,7) : '',
-        weekLabel: '',
+        // zelfde weeknummer als de Excel-regels, anders valt de regel weg zodra je een week kiest
+        weekKey: m.dateStr && typeof weekKey === 'function' ? weekKey(m.dateStr) : '',
+        weekLabel: m.dateStr && typeof weekLabel === 'function' ? weekLabel(m.dateStr) : '',
         room: m.room || '',
         locCode: '',
         locLabel: '',
