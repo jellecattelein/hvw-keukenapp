@@ -135,4 +135,16 @@ Gerecht: ${naam}`;
     }
   };
   window.hvwSplitGerechtRegels = splitRegels;
+
+  // Algemene vraag aan dezelfde AI, met een JSON-antwoord (gebruikt door de Ingrediëntenlijst).
+  // Gooit een fout bij problemen (met "429" in de tekst bij een overschreden limiet).
+  window.hvwAiJson = async function (vraag) {
+    const model = await getModel();
+    const result = await Promise.race([
+      model.generateContent(vraag),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('time-out')), 60000)),
+    ]);
+    const tekst = result.response.text().trim().replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
+    return JSON.parse(tekst);
+  };
 })();

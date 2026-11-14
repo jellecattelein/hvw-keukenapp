@@ -2,7 +2,7 @@
    sw.js — HVW Keukenapp Service Worker
    ══════════════════════════════════════════ */
 
-const CACHE_NAME = 'hvw-keuken-v119';
+const CACHE_NAME = 'hvw-keuken-v120';
 const ASSETS = [
   '/hvw-keukenapp/',
   '/hvw-keukenapp/index.html',

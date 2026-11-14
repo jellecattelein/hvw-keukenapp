@@ -15,7 +15,13 @@
 
   let weekKey = '', view = 'ingredient', cat = '', zoek = '', afgevinkt = {};
 
-  function load() { try { afgevinkt = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { afgevinkt = {}; } }
+  const AI_KEY = 'hvw-ingredienten-ai';   // { 'opgeschoonde gerechtnaam (kleine letters)': [onderdelen] }
+  let aiCache = {}, aiBezig = false;
+  function load() {
+    try { afgevinkt = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { afgevinkt = {}; }
+    try { aiCache = JSON.parse(localStorage.getItem(AI_KEY) || '{}') || {}; } catch (e) { aiCache = {}; }
+  }
+  function saveAi() { try { localStorage.setItem(AI_KEY, JSON.stringify(aiCache)); } catch (e) {} }
   function save() { try { localStorage.setItem(KEY, JSON.stringify(afgevinkt)); } catch (e) {} }
 
   /* ── gerechtnaam → onderdelen ── */
@@ -56,7 +62,7 @@
       if (cat && r.tabId !== cat) return;
       const naam = opschonen(r.name);
       const sleutel = naam.toLowerCase() + '|' + (r.dateStr || '');
-      if (!gerechten.has(sleutel)) gerechten.set(sleutel, { naam, dateStr: r.dateStr || '', persons: 0, tabs: new Set(), delen: onderdelen(r.name) });
+      if (!gerechten.has(sleutel)) gerechten.set(sleutel, { naam, dateStr: r.dateStr || '', persons: 0, tabs: new Set(), delen: aiCache[naam.toLowerCase()] || onderdelen(r.name), ai: !!aiCache[naam.toLowerCase()] });
       const g = gerechten.get(sleutel); g.persons += r.persons; g.tabs.add(r.tabId);
     });
     const lijst = [...gerechten.values()];
@@ -157,7 +163,9 @@
       <div class="ig-info">
         <span><b>${D.ingredienten.length}</b> onderdelen in <b>${D.gerechten.length}</b> gerechten</span>
         ${view === 'ingredient' ? `<span>${klaar} afgevinkt</span>` : ''}
+        <span id="ig-ai-status" style="color:#6B5300">${D.gerechten.filter(g => g.ai).length ? '✨ ' + D.gerechten.filter(g => g.ai).length + ' door AI verfijnd' : ''}</span>
         <span class="sp"></span>
+        <button class="btn btn-gold" onclick="window._igAi()" title="Laat de AI elk gerecht nauwkeuriger opdelen">✨ Verfijn met AI</button>
         <button class="btn" onclick="window._igKopieer()">Kopieer lijst</button>
         <button class="btn" onclick="window._igPrint()">Afdrukken</button>
         ${klaar ? `<button class="btn" onclick="window._igWis()">Vinkjes wissen</button>` : ''}
@@ -167,6 +175,51 @@
     if (zoek) { const z = document.getElementById('ig-zoek'); if (z) { z.focus(); z.setSelectionRange(zoek.length, zoek.length); } }
   }
 
+  // Alle gerechten van de week door de AI laten opdelen (in porties van 25, met pauze voor de limiet)
+  window._igAi = async function () {
+    const status = txt => { const el = document.getElementById('ig-ai-status'); if (el) el.textContent = txt; };
+    if (aiBezig) return;
+    if (typeof window.hvwAiJson !== 'function') { status('AI is hier niet beschikbaar.'); return; }
+    const namen = [...new Set(allRows.filter(r => r.weekKey === weekKey && r.persons > 0 && r.name).map(r => opschonen(r.name)))]
+      .filter(n => n && !aiCache[n.toLowerCase()]);
+    if (!namen.length) { status('✨ Alles is al verfijnd.'); return; }
+    aiBezig = true;
+    const GROOTTE = 25;
+    let gedaan = 0;
+    try {
+      for (let i = 0; i < namen.length; i += GROOTTE) {
+        const stuk = namen.slice(i, i + GROOTTE);
+        status(`✨ AI bezig… ${gedaan}/${namen.length} gerechten`);
+        const vraag = `Je helpt de keuken van een traiteur. Hieronder staat een genummerde lijst gerechten uit de bestelling.
+Splits elk gerecht in alle losse onderdelen die je moet bestellen of voorbereiden: het hoofdbestanddeel, de garnituren, sauzen, kruiden en toppings.
+
+Regels:
+- Gebruik de Nederlandse benamingen uit de tekst en verzin niets bij.
+- Samengestelde namen blijven één onderdeel (bv. "crème van bieslook", "fleur de sel", "beurre blanc", "olie van basilicum").
+- Laat bereidingswoorden weg bij het hoofdbestanddeel ("Gebakken zeebaars" wordt "zeebaars"), en laat gewichten en tussen haakjes weg.
+- Geef elk onderdeel een korte, duidelijke naam met een kleine letter vooraan (behalve eigennamen).
+
+Antwoord enkel met JSON in dit formaat: [{"n": 1, "delen": ["...", "..."]}]
+
+${stuk.map((n, k) => (k + 1) + '. ' + n).join('\n')}`;
+        const antw = await window.hvwAiJson(vraag);
+        if (!Array.isArray(antw)) throw new Error('onverwacht antwoord');
+        antw.forEach(a => {
+          const naam = stuk[(a && a.n) - 1];
+          const delen = a && Array.isArray(a.delen) ? [...new Set(a.delen.filter(x => typeof x === 'string' && x.trim()).map(x => hoofdletter(x.trim().replace(/[.:]+$/, ''))))] : [];
+          if (naam && delen.length) aiCache[naam.toLowerCase()] = delen;
+        });
+        saveAi(); gedaan += stuk.length;
+        if (i + GROOTTE < namen.length) { status(`✨ ${gedaan}/${namen.length} klaar… even wachten (gratis limiet)`); await new Promise(r => setTimeout(r, 13000)); }
+      }
+      aiBezig = false; render();
+    } catch (e) {
+      aiBezig = false;
+      const m = String(e && e.message || e);
+      render();
+      status(/429|quota/i.test(m) ? 'Limiet van de gratis AI bereikt: wat al klaar is blijft bewaard. Probeer binnen een minuut opnieuw.' : 'AI niet gelukt (' + m.slice(0, 80) + '). Wat al klaar is blijft bewaard.');
+    }
+  };
   window._igWeek = function (k) { weekKey = k; render(); };
   window._igCat = function (v) { cat = v; render(); };
   window._igView = function (v) { view = v; render(); };
@@ -176,6 +229,7 @@
     if (aan) afgevinkt[k] = 1; else delete afgevinkt[k];
     save(); render();
   };
+  window._igAiWis = function () { aiCache = {}; saveAi(); render(); };
   window._igWis = function () {
     Object.keys(afgevinkt).forEach(k => { if (k.startsWith(weekKey + '|')) delete afgevinkt[k]; });
     save(); render();
